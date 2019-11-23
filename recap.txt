@@ -1,0 +1,19 @@
+Vstup:
+    Porovnavany obrazok
+    Obrazok predlohy
+    vyseky obrazku (nieco ako 32x32, parametrizovatelne)
+I. cast
+1. Pre kazdy vysek velkosti SxS: 
+    2. nacitat vyseky z oboch obrazkov,
+    3. vypocitat priemer pixelov
+    4. odpocitat priemer od oboch vysekov, aby sa hodnoty posunuli blizko k nule
+    5. aplikovat hanning (alebo iny) window na oba vyseky
+    6. cross-correlation - vysledkom je obrazok (2S-1)x(2S-1)
+    7. subpixel_peak - je potrebne najst posunutie dvoch vysekov tak aby boli co najpodobnejsie.
+        8. najst maximalny pixel
+        10. zobrat okolie okolo neho a nafitovat hyperbolu metodou najmensich stvorcov
+Vysledkom je zoznam posunuti jednotlivych vysekov
+
+II. cast - z posunuti vypocitat vyslednu maticu zobrazenia.
+Z vektorov spravne postavit maticu ktora zachycuje sustavu linearnych rovnic
+vyriesit metodou najmensich stvorcov.
