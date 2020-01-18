@@ -87,7 +87,7 @@ for i,j in positions:
     b *= window[:,newaxis]
     b *= window[newaxis,:]
     cor = correlate(a, b, mode='full')
-    if 0:
+    if 1:
         figure()
         subplot(221)
         imshow(a)
