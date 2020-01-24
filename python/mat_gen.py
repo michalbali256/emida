@@ -30,19 +30,21 @@ for opt, arg in opts:
 
 
 
-
+print("Generating")
 MAXVAL = 256
 A = [[random.randint(0, 256) for i in range(N)] for j in range(N)]
-write_file(file + "_A.txt", A)
+#write_file(file + "_A.txt", A)
 B = [[random.randint(0, 256) for i in range(N)] for j in range(N)]
-write_file(file + "_B.txt", B)
+#write_file(file + "_B.txt", B)
 
 from scipy.signal import correlate
 from time import time
+print("Calculating")
 start = time()
 cor = correlate(A, B, mode='full')
 end = time()
+print("End")
 print(end - start)
 
-write_file(file + "_res.txt", cor)
+#write_file(file + "_res.txt", cor)
 print("Max:" + str(max(map(max, cor))))

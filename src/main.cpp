@@ -4,6 +4,15 @@
 #include "cross_corr.hpp"
 #include "matrix.hpp"
 #include <chrono>
+#include "cross_corr_host.hpp"
+
+#include <filesystem>
+template<typename time_point>
+void write_duration(std::string label, time_point start, time_point end)
+{
+	auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	std::cout << label << std::to_string(dur.count() / 1000.0) << " ms" << "\n";
+}
 
 int main(int argc, char ** argv)
 {
@@ -66,25 +75,23 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 	std::vector<int> res;
-	res.resize(res_n * res_n);
+
+	algorithm_cross_corr acc;
 	std::chrono::high_resolution_clock c;
+	
+	cudaSetDevice(0);
+	
 	auto start = c.now();
-	emida::cross_corr_serial<int, int>(b.data.data(), a.data.data(), res.data(), a.n, a.n);
-	auto end = c.now();
-	std::chrono::duration<double> dur = end - start;
-	auto dur_milli = std::chrono::duration_cast<std::chrono::milliseconds>(dur);
-	std::cout << "Cross corr duration: " << std::to_string(dur_milli.count()) << " ms" << "\n";
+	acc.prepare(b, a);
+	write_duration("Preparation: ", start, c.now());
+	start = c.now();
+	acc.run();
+	write_duration("Run: ", start, c.now());
+	start = c.now();
+	acc.finalize();
+	write_duration("Finalization: ", start, c.now());
 
-	/*for (size_t i = 0; i < res_n; ++i)
-	{
-		for (size_t j = 0; j < res_n; ++j)
-		{
-			std::cout << res[i * res_n + j] << "\t";
-		}
-		std::cout << "\n";
-	}*/
-
-	if (res != res_expected.data)
+	if (acc.result().data != res_expected.data)
 	{
 		std::cout << "Result is wrong\n";
 	}
