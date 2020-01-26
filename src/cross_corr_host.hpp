@@ -5,7 +5,7 @@
 #include <cuda_runtime.h>
 
 #include "matrix.hpp"
-#include "cross_corr.cuh"
+#include "kernels.cuh"
 
 
 #define CUCH(status) emida::cuda_check(status, __LINE__, __FILE__, #status)

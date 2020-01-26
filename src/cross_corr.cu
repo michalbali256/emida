@@ -1,6 +1,3 @@
-#pragma once
-
-#include "cross_corr.hpp"
 #include "cuda.h"
 #include "cuda_runtime.h"
 
