@@ -25,7 +25,7 @@ public:
 		return m;
 	}
 
-	bool operator==(const matrix& rhs)
+	bool operator==(const matrix& rhs) const
 	{
 		return data == rhs.data;
 	}

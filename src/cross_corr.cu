@@ -1,5 +1,7 @@
-#include "cuda.h"
-#include "cuda_runtime.h"
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+#include "kernels.cuh"
 
 namespace emida
 {
@@ -31,12 +33,6 @@ __global__ void cross_corr(const T* pic_a, const T* pic_b, RES* res, int cols, i
 	}
 
 	res[(y_shift + rows - 1) * res_cols + x_shift + cols - 1] = sum;
-}
-
-template<typename T, typename U>
-T div_up(T a, U b)
-{
-	return (a + b - 1) / b;
 }
 
 template<typename T, typename RES>
