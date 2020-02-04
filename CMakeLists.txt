@@ -48,7 +48,7 @@ include_directories(${CMAKE_SOURCE_DIR}/option)
 
 file(GLOB_RECURSE CPP_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "src/*.cpp")
 file(GLOB_RECURSE CUDA_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "src/*.cu")
-
+file(GLOB_RECURSE TEST_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "test/*.cpp")
 
 add_executable(emida
     ${CPP_SOURCES}
@@ -58,7 +58,7 @@ add_executable(emida
 
 add_executable(emida_test
     ${CUDA_SOURCES}
-	test/test.cpp
+    ${TEST_SOURCES}
 )
 
 add_custom_target(emida_test_data_copy ALL

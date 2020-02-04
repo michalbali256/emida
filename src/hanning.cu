@@ -12,7 +12,7 @@ __global__ void hanning(T* __restrict pic, const T* hanning_x, const T* hanning_
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x >= cols || y > rows)
+	if (x >= cols || y >= rows)
 		return;
 
 	pic[y * cols + x] = pic[y * cols + x] * hanning_x[x] * hanning_y[y];

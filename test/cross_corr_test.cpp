@@ -31,7 +31,7 @@ TEST(cross_corr, matrix_64x64)
 	matrix<int> a, b, res;
 	cross_corr_data_load("64", a, b, res);
 
-	alg.prepare(a, b);
+	alg.prepare(b, a);
 	alg.run();
 	alg.finalize();
 
