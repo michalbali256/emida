@@ -45,4 +45,11 @@ inline T* vector_to_host(const std::vector<T> & v)
 	return cu_ptr;
 }
 
+template <typename T>
+struct data_index
+{
+	T data;
+	size_t index;
+};
+
 }

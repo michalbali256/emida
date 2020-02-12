@@ -27,6 +27,7 @@ void run_hanning(T* pic, const T* hanning_x, const T* hanning_y, int cols, int r
 }
 
 
-template void run_hanning<double>(double * pic, const double * hanning_x, const double* hanning_y, int cols, int rows);
+template void run_hanning<double>(double * pic, const double * hanning_x,
+	const double* hanning_y, int cols, int rows);
 
 }
