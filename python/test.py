@@ -20,7 +20,7 @@ c,d = tran.min(), tran.max()
 rgb = dstack([(ref-a)/(b-a), (tran-c)/(d-c), zeros(ref.shape)])
 imshow(rgb)
 
-
+from A_gen import *
 
 #
 # Find local displacements from crosscorrelations, this is to be implemented on GPU
@@ -36,8 +36,8 @@ def subpixel_peak(d, s=1):
     
     #setup matrix A for least squares
     yi, xi = np.indices(l.shape)
-    print("l example") 
-    print(l)
+    #print("l example") 
+    #print(l)
     i = np.ones(l.shape)
     A = np.dstack([i, xi, yi, xi*xi, xi*yi, yi*yi]).reshape((-1,6))
 # A:
@@ -56,10 +56,14 @@ def subpixel_peak(d, s=1):
     
     #f(x,y) = a + bx + cy + dx^2 + exy + fy^2
     q = np.linalg.lstsq(A, b, rcond=None)[0]
+    q1 = mylstsq(b)
+    print(q)
+    print(q1)
     #from partial derivation by x: 2dx + ey + b = 0
     #from partial derivation by y: ex + 2fy + c = 0
     xs, ys = np.linalg.solve([[2*q[3],   q[4]],
-                              [  q[4], 2*q[5]]], [-q[1], -q[2]])
+                              [  q[4], 2*q[5]]],
+                            [-q[1], -q[2]])
     return y+ys, x+xs 
 
 #s = 16
@@ -148,6 +152,8 @@ A[0::2,7] = b*c
 A[1::2,6] = a*d
 A[1::2,7] = b*d
 #A[1::2,8] = z*d
+
+print(A)
 
 B = zeros(2*len(data))
 B[0::2] = -z*c

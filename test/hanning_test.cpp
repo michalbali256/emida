@@ -1,15 +1,9 @@
 #include <gtest/gtest.h>
 
 #include "hanning_host.hpp"
-
+#include "double_compare.hpp"
 using namespace emida;
 
-#define EXPECT_DOUBLE_VECTORS_EQ(x,y) \
-	ASSERT_EQ(x.size(), y.size()) << "Vectors x and y are of unequal length"; \
-	for (int i = 0; i < x.size(); ++i) \
-	{ \
-		EXPECT_DOUBLE_EQ(x[i], y[i]) << "Vectors " #x " and " #y " differ at index " << i; \
-	}
 
 void hann_data_load(std::string name, matrix<double> & a, matrix<double> & result)
 {

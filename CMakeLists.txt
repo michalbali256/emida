@@ -50,13 +50,17 @@ file(GLOB_RECURSE CPP_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "src/*.cpp")
 file(GLOB_RECURSE CUDA_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "src/*.cu")
 file(GLOB_RECURSE TEST_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "test/*.cpp")
 
+list(REMOVE_ITEM CPP_SOURCES "src/main.cpp")
+
 add_executable(emida
+    src/main.cpp
     ${CPP_SOURCES}
     ${CUDA_SOURCES}
 )
 
 
 add_executable(emida_test
+    ${CPP_SOURCES}
     ${CUDA_SOURCES}
     ${TEST_SOURCES}
 )
