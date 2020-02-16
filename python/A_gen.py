@@ -11,7 +11,7 @@ def A_gen():
     yi, xi = np.indices(shape)
     i = np.ones(shape)
     A = np.dstack([i, xi, yi, xi*xi, xi*yi, yi*yi]).reshape((-1,6))
-    
+    A /= 9*8
     print(A)
 
     At = np.transpose(A)
