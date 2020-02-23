@@ -25,10 +25,10 @@ public:
 	void prepare(const std::vector<T>& data)
 	{
 		size = data.size();
-		cu_data = vector_to_host(data);
+		cu_data = vector_to_device(data);
 
 		res.resize(div_up(data.size(), block_size));
-		cu_res = vector_to_host(res);
+		cu_res = vector_to_device(res);
 	}
 
 	void run()

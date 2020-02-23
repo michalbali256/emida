@@ -45,5 +45,6 @@ void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, int cols, int rows
 
 
 template void run_cross_corr<int, int>(const int*, const int*, int* res, int, int);
+template void run_cross_corr<double, double>(const double*, const double*, double* res, int, int);
 
 }

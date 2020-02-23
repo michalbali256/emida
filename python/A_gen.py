@@ -11,7 +11,7 @@ def A_gen():
     yi, xi = np.indices(shape)
     i = np.ones(shape)
     A = np.dstack([i, xi, yi, xi*xi, xi*yi, yi*yi]).reshape((-1,6))
-    A /= 9*8
+    #A /= 9*8
     print(A)
 
     At = np.transpose(A)
@@ -37,7 +37,7 @@ def mylstsq(b):
 
 
 if __name__ == "__main__":
-    print(mylstsq([1,2,3,4,5,6,7,8,9]))
+    print(mylstsq([1,2,3,7,9,8,4,5,6]))
     res = A_gen()
     print(res);
     for r in res:

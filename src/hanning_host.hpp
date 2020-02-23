@@ -23,10 +23,10 @@ public:
 	{
 		n = pic.n;
 
-		cu_pic = vector_to_host(pic.data);
+		cu_pic = vector_to_device(pic.data);
 
 		auto hann_window = hanning<double>(n);
-		cu_hann_x = cu_hann_y = vector_to_host(hann_window);
+		cu_hann_x = cu_hann_y = vector_to_device(hann_window);
 	}
 
 	void run()

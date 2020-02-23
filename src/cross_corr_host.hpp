@@ -15,8 +15,6 @@ namespace emida
 
 class algorithm_cross_corr
 {
-
-	
 	int* cu_a, * cu_b, * cu_res;
 	int n;
 	size_t res_n, res_size;

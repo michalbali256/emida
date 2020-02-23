@@ -30,7 +30,10 @@ def subpixel_peak(d, s=1):
     """Fit polynomial quadratic in x and y to the neighbourhood of maximum,
        to determine maximum with subpixel precision"""
     #find indices with the maximum
+    print(d)
+    print(np.argmax(d))
     yp, xp = np.unravel_index(np.argmax(d), d.shape)
+    print(xp, yp)
     y, x = yp-s, xp-s
     l = d[y:y+2*s+1, x:x+2*s+1]
     
@@ -50,15 +53,13 @@ def subpixel_peak(d, s=1):
 # [1. 0. 2. 0. 0. 4.]
 # [1. 1. 2. 1. 2. 4.]
 # [1. 2. 2. 4. 4. 4.]]
-    #print("A expample") 
-    #print(A)
+
     b = l.reshape(-1)
     
     #f(x,y) = a + bx + cy + dx^2 + exy + fy^2
     q = np.linalg.lstsq(A, b, rcond=None)[0]
     q1 = mylstsq(b)
-    print(q)
-    print(q1)
+
     #from partial derivation by x: 2dx + ey + b = 0
     #from partial derivation by y: ex + 2fy + c = 0
     xs, ys = np.linalg.solve([[2*q[3],   q[4]],
@@ -80,18 +81,25 @@ gca().add_collection(PatchCollection(areas, facecolor='none', edgecolor='b'))
     
 data = []
 window = hanning(2*s)
-print(window)
+print('POSITIONS')
 for i,j in positions:
     a = ref[i-s:i+s, j-s:j+s]
     b = tran[i-s:i+s, j-s:j+s] 
+
     a = a - a.mean()
     b = b - b.mean()
+    print(a)
+    print(b)
     a *= window[:,newaxis]
     a *= window[newaxis,:]
     b *= window[:,newaxis]
     b *= window[newaxis,:]
     cor = correlate(a, b, mode='full')
-    if 0:
+
+    yp, xp = subpixel_peak(cor)
+    print(xp, yp)
+    print(xp-2*s+1, yp-2*s+1)
+    if 1:
         figure()
         subplot(221)
         imshow(a)
@@ -100,7 +108,6 @@ for i,j in positions:
         subplot(223)
         imshow(cor)
         show()
-    yp, xp = subpixel_peak(cor)
 
     data.append( (j, i, xp-2*s+1, yp-2*s+1) )
 

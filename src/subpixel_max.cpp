@@ -1,6 +1,8 @@
 #include "subpixel_max.hpp"
 
-const std::array<double, 6 * 3 * 3> lstsq_matrix<double,3>::mat = {
+using namespace emida;
+
+const std::array<double, 6 * 3 * 3> lstsq_matrix<double,3>::mat{
  58.0/72, 16.0/72, -2.0/72, 16.0/72, -8.0/72, -8.0/72, -2.0/72, -8.0/72, 10.0/72,
 -3.0/4, 2.0/3, 6.0/72, -1.0/2, 2.0/3, -12.0/72, -1.0/4, 2.0/3, -30.0/72,
 -3.0/4, -1.0/2, -1.0/4, 2.0/3, 2.0/3, 2.0/3, 6.0/72, -12.0/72, -30.0/72,

@@ -1,6 +1,10 @@
+#pragma once
+
 #include <iostream>
 #include <sstream>
 #include <vector>
+
+#include "cuda_runtime.h"
 
 namespace emida
 {
@@ -37,7 +41,7 @@ inline std::vector<T> hanning(size_t size)
 }
 
 template<typename T>
-inline T* vector_to_host(const std::vector<T> & v)
+inline T* vector_to_device(const std::vector<T> & v)
 {
 	T* cu_ptr;
 	CUCH(cudaMalloc(&cu_ptr, v.size() * sizeof(T)));
@@ -45,11 +49,35 @@ inline T* vector_to_host(const std::vector<T> & v)
 	return cu_ptr;
 }
 
+template<typename T>
+inline T* vector_to_device(const T* data, size_t size)
+{
+	T* cu_ptr;
+	CUCH(cudaMalloc(&cu_ptr, size * sizeof(T)));
+	CUCH(cudaMemcpy(cu_ptr, data, size * sizeof(T), cudaMemcpyHostToDevice));
+	return cu_ptr;
+}
+
+template<typename T>
+inline std::vector<T> device_to_vector(const T* cu_data, size_t size)
+{
+	std::vector<T> res(size);
+	CUCH(cudaMemcpy(res.data(), cu_data, size * sizeof(T), cudaMemcpyDeviceToHost));
+	return res;
+}
+
 template <typename T>
 struct data_index
 {
 	T data;
 	size_t index;
+};
+
+template<typename T>
+struct vec2
+{
+	T x;
+	T y;
 };
 
 }

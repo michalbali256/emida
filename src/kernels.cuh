@@ -21,4 +21,7 @@ void run_hanning(T* pic, const T* hanning_x, const T* hanning_y, int cols, int r
 template<typename T>
 void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t block_size);
 
+template<typename T, int s>
+void run_extract_neighbors(const T* data, T* neighbors, size_t max_x, size_t max_y, size_t cols, size_t rows);
+
 }

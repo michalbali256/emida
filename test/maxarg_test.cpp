@@ -4,6 +4,23 @@
 
 using namespace emida;
 
+TEST(extract_neighbors, size_8)
+{
+	std::vector<double> v(25);
+	for (size_t i = 0; i < v.size(); ++i)
+		v[i] = i;
+	double * cu_data = vector_to_device(v);
+	double* cu_neigh;
+	cudaMalloc(&cu_neigh, 9 * sizeof(double));
+	run_extract_neighbors<double, 3>(cu_data, cu_neigh, 3, 3, 5, 5);
+
+	std::vector<double> neigh(9);
+	cudaMemcpy(neigh.data(), cu_neigh, 9 * sizeof(double), cudaMemcpyDeviceToHost);
+
+	std::vector<double> expected = {12, 13, 14, 17, 18, 19, 22, 23, 24};
+
+	EXPECT_EQ(neigh, expected);
+}
 
 TEST(maxarg, size_8)
 {
