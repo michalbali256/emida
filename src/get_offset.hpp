@@ -20,6 +20,7 @@ void subtract_mean(T * pic, size_t size)
 		pic[i] -= avg;
 }
 
+//gets two pictures with size cols x rows and returns subpixel offset between them
 template<typename T>
 inline vec2<T> get_offset(T* pic, T* temp, size_t cols, size_t rows)
 {
@@ -31,8 +32,8 @@ inline vec2<T> get_offset(T* pic, T* temp, size_t cols, size_t rows)
 	T* cu_pic = vector_to_device(pic, size);
 	T* cu_temp = vector_to_device(temp, size);
 
-	auto hann_x = hanning<T>(cols);
-	auto hann_y = hanning<T>(rows);
+	auto hann_x = generate_hanning<T>(cols);
+	auto hann_y = generate_hanning<T>(rows);
 
 	T* cu_hann_x = vector_to_device(hann_x);
 	T* cu_hann_y = vector_to_device(hann_y);
@@ -54,8 +55,6 @@ inline vec2<T> get_offset(T* pic, T* temp, size_t cols, size_t rows)
 
 	CUCH(cudaGetLastError());
 	CUCH(cudaDeviceSynchronize());
-
-	auto cross_data = device_to_vector(cu_cross_res, cross_size);
 
 	size_t maxarg_block_size = 1024;
 	data_index<T> * cu_maxes;

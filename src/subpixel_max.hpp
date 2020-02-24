@@ -60,6 +60,22 @@ struct lstsq_matrix
 template<typename T, int s>
 std::array<T, 6> subpixel_max_coefs(const T* pic)
 {
+	//we get the values of s*s points, a-f are the unknown variables
+	//f(x,y) = a + xb + yc + x^2 * d + xye + y^2 * f
+	// for s = 3, A =
+	//[[1. 0. 0. 0. 0. 0.]
+	// [1. 1. 0. 1. 0. 0.]
+	// [1. 2. 0. 4. 0. 0.]
+	// [1. 0. 1. 0. 0. 1.]
+	// [1. 1. 1. 1. 1. 1.]
+	// [1. 2. 1. 4. 2. 1.]
+	// [1. 0. 2. 0. 0. 4.]
+	// [1. 1. 2. 1. 2. 4.]
+	// [1. 2. 2. 4. 4. 4.]]
+
+	//https://en.wikipedia.org/wiki/Least_squares#Linear_least_squares
+	//lstsq_matrix<T, s>::mat is (A^T * A)^-1 * A^T
+	//it is precomputed since we know it at compile time
 	std::array<T, 6> coef;
 	multiply<T>(lstsq_matrix<T, s>::mat.data(), pic, coef.data(), 6, 1, s * s);
 	return coef;

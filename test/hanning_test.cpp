@@ -14,7 +14,7 @@ void hann_data_load(std::string name, matrix<double> & a, matrix<double> & resul
 
 TEST(hanning, hanning_vector)
 {
-	auto vec = hanning<double>(5);
+	auto vec = generate_hanning<double>(5);
 	std::vector<double> expected = { 0, 0.5, 1, 0.5, 0 };
 	EXPECT_DOUBLE_VECTORS_EQ(vec, expected);
 }

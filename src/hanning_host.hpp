@@ -25,7 +25,7 @@ public:
 
 		cu_pic = vector_to_device(pic.data);
 
-		auto hann_window = hanning<double>(n);
+		auto hann_window = generate_hanning<double>(n);
 		cu_hann_x = cu_hann_y = vector_to_device(hann_window);
 	}
 

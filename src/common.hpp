@@ -31,7 +31,7 @@ inline void cuda_check(cudaError_t status, int line, const char* src_filename, c
 constexpr double PI = 3.14159265358979323846;
 
 template<typename T>
-inline std::vector<T> hanning(size_t size)
+inline std::vector<T> generate_hanning(size_t size)
 {
 	std::vector<T> res;
 	res.resize(size);
