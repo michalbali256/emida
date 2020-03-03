@@ -44,11 +44,11 @@ TEST(get_offset, bigger)
 	auto a = get_submatrix(pic.data.data(), src_size, { 0, 0 }, size);
 	auto b = get_submatrix(temp.data.data(), src_size, { 0, 0 }, size);
 
-	auto offset = get_offset<double>(a.data(), b.data(), size.x, size.y);
+	auto offset = get_offset<double>(a.data(), b.data(), size.x, size.y, 1);
 
 	//results from test.py, first left topmost square
 	//precision 1e-14 is OK, 1e-15 is failing
-	EXPECT_NEAR(offset.x, 0.07583538046549165, 1e-14);
-	EXPECT_NEAR(offset.y, -0.0982055210473689, 1e-14);
+	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 1e-14);
+	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 1e-14);
 
 }

@@ -3,34 +3,22 @@
 
 #include "subpixel_max.hpp"
 #include "kernels.cuh"
+#include "subtract_mean.hpp"
 
 namespace emida
 {
 
-template<typename T>
-void subtract_mean(T * pic, size_t size)
-{
-	T sum = 0;
-	for (size_t i = 0; i < size; ++i)
-		sum += pic[i];
-
-	T avg = sum / size;
-
-	for (size_t i = 0; i < size; ++i)
-		pic[i] -= avg;
-}
-
 //gets two pictures with size cols x rows and returns subpixel offset between them
 template<typename T>
-inline vec2<T> get_offset(T* pic, T* temp, size_t cols, size_t rows)
+inline std::vector<vec2<T>> get_offset(T* pic, T* temp, size_t cols, size_t rows, size_t b_size)
 {
-	size_t size = cols * rows;
+	size_t one_size = cols * rows;
 
-	subtract_mean(pic, size);
-	subtract_mean(temp, size);
-
-	T* cu_pic = vector_to_device(pic, size);
-	T* cu_temp = vector_to_device(temp, size);
+	subtract_mean(pic, one_size, b_size);
+	subtract_mean(temp, one_size, b_size);
+	
+	T* cu_pic = vector_to_device(pic, one_size);
+	T* cu_temp = vector_to_device(temp, one_size);
 
 	auto hann_x = generate_hanning<T>(cols);
 	auto hann_y = generate_hanning<T>(rows);
@@ -95,9 +83,10 @@ inline vec2<T> get_offset(T* pic, T* temp, size_t cols, size_t rows)
 
 	auto subp_offset = subpixel_max_serial<T, s>(neighbors.data());
 
-	vec2<T> res;
-	res.x = (int)max_x - (int)cols + 1 - r + subp_offset.x;
-	res.y = (int)max_y - (int)rows + 1 - r + subp_offset.y;
+	
+	std::vector<vec2<T>> res(b_size);
+	res[0].x = (int)max_x - (int)cols + 1 - r + subp_offset.x;
+	res[0].y = (int)max_y - (int)rows + 1 - r + subp_offset.y;
 
 	return res;
 }

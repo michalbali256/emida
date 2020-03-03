@@ -63,7 +63,7 @@ std::array<T, 6> subpixel_max_coefs(const T* pic)
 	//we get the values of s*s points, a-f are the unknown variables
 	//f(x,y) = a + xb + yc + x^2 * d + xye + y^2 * f
 	// for s = 3, A =
-	//[[1. 0. 0. 0. 0. 0.]
+	//[[1. 0. 0. 0. 0. 0.
 	// [1. 1. 0. 1. 0. 0.]
 	// [1. 2. 0. 4. 0. 0.]
 	// [1. 0. 1. 0. 0. 1.]
