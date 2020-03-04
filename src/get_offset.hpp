@@ -26,8 +26,8 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, size_t cols, size_t rows
 	T* cu_hann_x = vector_to_device(hann_x);
 	T* cu_hann_y = vector_to_device(hann_y);
 
-	run_hanning(cu_pic, cu_hann_x, cu_hann_y, cols, rows);
-	run_hanning(cu_temp, cu_hann_x, cu_hann_y, cols, rows);
+	run_hanning(cu_pic, cu_hann_x, cu_hann_y, cols, rows, b_size);
+	run_hanning(cu_temp, cu_hann_x, cu_hann_y, cols, rows, b_size);
 
 	CUCH(cudaGetLastError());
 	CUCH(cudaDeviceSynchronize());
