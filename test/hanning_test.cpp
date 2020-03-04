@@ -51,26 +51,26 @@ TEST(hanning, hanning_window_3x3x2)
 {
 	std::vector<double> a =
 	{
-		1, 1, 1,
-		1, 1, 1,
-		1, 1, 1,
-		2, 2, 2,
-		2, 2, 2,
-		2, 2, 2,
+		1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1,
+		2, 2, 2, 2, 2,
+		2, 2, 2, 2, 2,
+		2, 2, 2, 2, 2
 	};
 	std::vector<double> expected = 
 	{
-		0, 0, 0,
-		0, 1, 0,
-		0, 0, 0,
-		0, 0, 0,
-		0, 2, 0,
-		0, 0, 0
+		0, 0, 0, 0, 0,
+		0, 0.5, 1, 0.5, 0,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
+		0, 1, 2, 1, 0,
+		0, 0, 0, 0, 0
 	};
 
 	algorithm_hanning<double> alg;
 
-	alg.prepare(a.data(), 3, 3, 2);
+	alg.prepare(a.data(), 5, 3, 2);
 	alg.run();
 	alg.finalize();
 

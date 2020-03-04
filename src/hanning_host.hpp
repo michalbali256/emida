@@ -30,7 +30,7 @@ public:
 		cu_pic_ = vector_to_device(pic, size_);
 
 		auto hann_window_x = generate_hanning<T>(cols);
-		auto hann_window_y = generate_hanning<T>(cols);
+		auto hann_window_y = generate_hanning<T>(rows);
 		cu_hann_x_ = vector_to_device(hann_window_x);
 		cu_hann_y_ = vector_to_device(hann_window_y);
 	}
