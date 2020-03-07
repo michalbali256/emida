@@ -82,21 +82,11 @@ TEST(hanning, hanning_window_128x128x5)
 	matrix<double> a, expected;
 	hann_data_load("128", a, expected);
 
+	
+
 	size_t repeat = 5;
-	size_t pic_size = 128 * 128;
-	std::vector<double> pics(pic_size * repeat);
-	std::vector<double> expected_pics(pic_size * repeat);
-
-	double* dst_pics = pics.data();
-	double* dst_expected = expected_pics.data();
-	for (size_t i = 0; i < repeat; ++i)
-	{
-		memcpy(dst_pics, a.data.data(), pic_size * sizeof(double));
-		memcpy(dst_expected, expected.data.data(), pic_size * sizeof(double));
-
-		dst_pics += pic_size;
-		dst_expected += pic_size;
-	}
+	auto pics = repeat_vector(a.data, repeat);
+	auto expected_pics = repeat_vector(expected.data, repeat);
 
 	algorithm_hanning<double> alg;
 

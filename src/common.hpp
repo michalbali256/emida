@@ -66,6 +66,22 @@ inline std::vector<T> device_to_vector(const T* cu_data, size_t size)
 	return res;
 }
 
+template<typename T>
+inline std::vector<T> repeat_vector(const std::vector<T>& vec, size_t repeat)
+{
+	std::vector<T> res(vec.size() * repeat);
+
+	double* dst = res.data();
+	for (size_t i = 0; i < repeat; ++i)
+	{
+		memcpy(dst, vec.data(), vec.size() * sizeof(T));
+
+		dst += vec.size();
+	}
+
+	return res;
+}
+
 template <typename T>
 struct data_index
 {

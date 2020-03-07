@@ -11,35 +11,41 @@
 namespace emida
 {
 
-
-
+template<typename T>
 class algorithm_cross_corr
 {
-	int* cu_a, * cu_b, * cu_res;
-	int n;
-	size_t res_n, res_size;
-	matrix<int> res;
+	T* cu_a_, * cu_b_, * cu_res_;
+	size_t cols_, rows_, batch_size_;
+	size_t res_cols_, res_rows_, res_size_;
+	std::vector<T> res_;
 public:
 	
-	void prepare(const matrix<int>& a, const matrix<int>& b)
+	void prepare(const T * a, const T * b, size_t cols, size_t rows, size_t batch_size)
 	{
-		n = a.n;
-		res_n = 2 * n - 1;
-		res_size = res_n * res_n;
-		CUCH(cudaMalloc(&cu_a, a.data.size() * sizeof(int)));
-		CUCH(cudaMalloc(&cu_b, b.data.size() * sizeof(int)));
-		CUCH(cudaMalloc(&cu_res, res_size * sizeof(int)));
+		cols_ = cols;
+		rows_ = rows;
+		batch_size_ = batch_size;
+		
+		size_t size = cols * rows * batch_size;
 
-		CUCH(cudaMemcpy(cu_a, a.data.data(), a.data.size() * sizeof(int), cudaMemcpyHostToDevice));
-		CUCH(cudaMemcpy(cu_b, b.data.data(), b.data.size() * sizeof(int), cudaMemcpyHostToDevice));
+		res_cols_ = 2 * cols - 1;
+		res_rows_ = 2 * rows - 1;
+		res_size_ = res_cols_ * res_rows_;
 
-		res.data.resize(res_size);
-		res.n = res_n;
+		CUCH(cudaMalloc(&cu_a_, size * sizeof(T)));
+		CUCH(cudaMalloc(&cu_b_, size * sizeof(T)));
+		CUCH(cudaMalloc(&cu_res_, res_size_ * batch_size * sizeof(T)));
+
+		CUCH(cudaMemcpy(cu_a_, a, size * sizeof(T), cudaMemcpyHostToDevice));
+		CUCH(cudaMemcpy(cu_b_, b, size * sizeof(T), cudaMemcpyHostToDevice));
+
+		res_.resize(res_size_ * batch_size);
+		
 	}
 
 	void run()
 	{
-		run_cross_corr<int, int>(cu_a, cu_b, cu_res, n, n, 1);
+		run_cross_corr<T, T>(cu_a_, cu_b_, cu_res_, cols_, rows_, batch_size_);
 
 		
 		CUCH(cudaDeviceSynchronize());
@@ -48,12 +54,12 @@ public:
 
 	void finalize()
 	{
-		CUCH(cudaMemcpy(res.data.data(), cu_res, res.data.size() * sizeof(int), cudaMemcpyDeviceToHost));
+		CUCH(cudaMemcpy(res_.data(), cu_res_, res_.size() * sizeof(T), cudaMemcpyDeviceToHost));
 	}
 
-	const matrix<int> & result()
+	const std::vector<T> & result()
 	{
-		return res;
+		return res_;
 	}
 };
 
