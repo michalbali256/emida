@@ -34,12 +34,12 @@ public:
 		CUCH(cudaMemcpy(cu_b, b.data.data(), b.data.size() * sizeof(int), cudaMemcpyHostToDevice));
 
 		res.data.resize(res_size);
-		
+		res.n = res_n;
 	}
 
 	void run()
 	{
-		run_cross_corr<int, int>(cu_a, cu_b, cu_res, n, n);
+		run_cross_corr<int, int>(cu_a, cu_b, cu_res, n, n, 1);
 
 		
 		CUCH(cudaDeviceSynchronize());

@@ -13,7 +13,7 @@ namespace emida
 {
 
 template<typename T, typename RES>
-void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, int cols, int rows);
+void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, size_t cols, size_t rows, size_t batch_size);
 
 template<typename T>
 void run_hanning(T* pic, const T* hanning_x, const T* hanning_y, size_t cols, size_t rows, size_t batch_size);
