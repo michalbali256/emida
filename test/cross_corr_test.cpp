@@ -68,7 +68,7 @@ TEST(cross_corr, matrix_4x3)
     };
 
 
-    alg.prepare(b.data(), a.data(), 4, 3, 1);
+    alg.prepare(a.data(), b.data(), 4, 3, 1);
     alg.run();
     alg.finalize();
 
@@ -82,7 +82,7 @@ TEST(cross_corr, matrix_64x64)
     matrix<int> a, b, res;
     cross_corr_data_load("64", a, b, res);
 
-    alg.prepare(b.data.data(), a.data.data(), a.n, a.n, 1);
+    alg.prepare(a.data.data(), b.data.data(), a.n, a.n, 1);
     alg.run();
     alg.finalize();
 

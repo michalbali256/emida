@@ -42,7 +42,7 @@ __global__ void cross_corr(const T* pics_a, const T* pics_b, RES* res, size_t co
 			int x_shifted = x + x_shift;
 			int y_shifted = y + y_shift;
 			if (x_shifted >= 0 && x_shifted < cols && y_shifted >= 0 && y_shifted < rows)
-				sum += pics_a[y*cols + x] * pics_b[y_shifted * cols + x_shifted];
+				sum += pics_a[y_shifted * cols + x_shifted] * pics_b[y * cols + x];
 		}
 	}
 

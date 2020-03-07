@@ -39,7 +39,7 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, size_t cols, size_t rows
 
 	CUCH(cudaMalloc(&cu_cross_res, cross_size * sizeof(T)));
 
-	run_cross_corr(cu_pic, cu_temp, cu_cross_res, cols, rows, b_size);
+	run_cross_corr(cu_temp, cu_pic, cu_cross_res, cols, rows, b_size);
 
 	CUCH(cudaGetLastError());
 	CUCH(cudaDeviceSynchronize());
