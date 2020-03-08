@@ -12,7 +12,7 @@ namespace emida
 #define CUCH(status) emida::cuda_check(status, __LINE__, __FILE__, #status)
 
 template<typename T, typename U>
-inline T div_up(T a, U b)
+inline __host__ __device__ T div_up(T a, U b)
 {
 	return (a + b - 1) / b;
 }

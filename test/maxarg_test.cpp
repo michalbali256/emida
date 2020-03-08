@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "maxarg_host.hpp"
+#include "maxarg.hpp"
 
 using namespace emida;
 
@@ -26,11 +27,27 @@ TEST(maxarg, size_8)
 {
 	std::vector<double> v = {1,3, 5, 8, 10, 4, 3, 2};
 	algorithm_maxarg<double> a;
-	a.prepare(v);
+	a.prepare(v, 8, 1);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result(), 4U);
+	EXPECT_EQ(a.result()[0], 4U);
+}
+
+TEST(maxarg, size_8x2)
+{
+	std::vector<double> v =
+	{
+		1,  3,  5,  8, 10, 4, 3, 2,
+		1, 12, 15, 18, 10, 4, 3, 2
+	};
+	algorithm_maxarg<double> a;
+	a.prepare(v, 8, 2);
+	a.run();
+	a.finalize();
+
+	EXPECT_EQ(a.result()[0], 4U);
+	EXPECT_EQ(a.result()[1], 11U);
 }
 
 TEST(maxarg, size_1333)
@@ -48,11 +65,38 @@ TEST(maxarg, size_1333)
 	data[1001] = 3;
 
 	algorithm_maxarg<double> a;
-	a.prepare(data);
+	a.prepare(data, 1333, 1);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result(), 1001);
+	EXPECT_EQ(a.result()[0], 1001);
+}
+
+TEST(maxarg, size_1333x3)
+{
+	std::vector<double> data;
+	data.resize(3999);
+	double mom = 0;
+	for (auto& val : data)
+	{
+		val = mom;
+		mom += 0.007;
+		if (mom > 1)
+			mom = -2;
+	}
+	data[1001] = 3;
+	data[1024] = 4;
+	data[1333] = 4;
+	data[3000] = 4;
+	algorithm_maxarg<double> a;
+	a.prepare(data, 1333, 3);
+	a.run();
+	a.finalize();
+
+	ASSERT_EQ(a.result().size(), 3);
+	EXPECT_EQ(a.result()[0], 1024);
+	EXPECT_EQ(a.result()[1], 1333);
+	EXPECT_EQ(a.result()[2], 3000);
 }
 
 TEST(maxarg, size_4096)
@@ -70,11 +114,11 @@ TEST(maxarg, size_4096)
 	data[1024] = 3;
 
 	algorithm_maxarg<double> a;
-	a.prepare(data);
+	a.prepare(data, 4096, 1);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result(), 1024);
+	EXPECT_EQ(a.result()[0], 1024);
 }
 
 TEST(maxarg, size_100100)
@@ -92,9 +136,34 @@ TEST(maxarg, size_100100)
 	data[100000] = 3;
 
 	algorithm_maxarg<double> a;
-	a.prepare(data);
+	a.prepare(data, 100100, 1);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result(), 100000);
+	EXPECT_EQ(a.result()[0], 100000);
+}
+
+
+TEST(maxarg, size_4x3x2)
+{
+	std::vector<double> v =
+	{
+		1,  3,  5,  8,
+		10, 4, 3, 2,
+		1, 2, 3, 4,
+
+		1, 12, 15, 18,
+		10, 4, 3, 2,
+		1, 2, 3, 4
+	};
+
+	double* cu_data = vector_to_device(v);
+
+	auto res = get_maxarg(cu_data, 4, 3, 2);
+
+	EXPECT_EQ(res[0].x, 0U);
+	EXPECT_EQ(res[0].y, 1U);
+	EXPECT_EQ(res[1].x, 3U);
+	EXPECT_EQ(res[1].y, 0U);
+
 }

@@ -76,6 +76,7 @@ int main(int argc, char ** argv)
 	}
 	std::vector<int> res;
 
+	/*
 	algorithm_cross_corr acc;
 	std::chrono::high_resolution_clock c;
 	
@@ -99,6 +100,6 @@ int main(int argc, char ** argv)
 	{
 		std::cout << "Result is OK\n";
 	}
-
+	*/
 	return 0;
 }
