@@ -27,12 +27,19 @@ __global__ void maxarg_reduce(const T* data, data_index<T> * maxes, size_t size)
 
 	//if this is the last block that processes one picture(chunk)
 	//and this thread would process sth out of the picture
-	if (blockIdx.x % one_pic_blocks == one_pic_blocks-1 && threadIdx.x >= size % blockDim.x)
-		return;
 
 	size_t i = pic_num * size + pic_block * blockDim.x + threadIdx.x;
-	sdata[tid].data = data[i];
-	sdata[tid].index = i;
+	if (blockIdx.x % one_pic_blocks == one_pic_blocks - 1 && threadIdx.x >= size % blockDim.x)
+	{
+		sdata[tid].data = 0;
+		sdata[tid].index = i;
+	}
+	else
+	{
+		sdata[tid].data = data[i];
+		sdata[tid].index = i;
+	}
+	
 	__syncthreads();
 
 	for (size_t s = blockDim.x / 2; s > 0; s >>= 1)

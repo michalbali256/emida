@@ -53,7 +53,7 @@ template<typename T, typename RES>
 void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, size_t cols, size_t rows, size_t batch_size)
 {	
 	dim3 block_size(16, 16);
-	dim3 grid_size(div_up(2 * cols, block_size.x), div_up(2 * rows, block_size.y));
+	dim3 grid_size(div_up((2 * cols - 1) * batch_size, block_size.x), div_up(2 * rows - 1, block_size.y));
 	cross_corr<T, RES> <<<grid_size, block_size>>> (pic_a, pic_b, res, cols, rows, batch_size);
 }
 

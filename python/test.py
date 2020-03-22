@@ -88,8 +88,8 @@ for i,j in positions:
 
     a = a - a.mean()
     b = b - b.mean()
-    print(a)
-    print(b)
+    #print(a)
+    #print(b)
     a *= window[:,newaxis]
     a *= window[newaxis,:]
     b *= window[:,newaxis]
@@ -160,7 +160,7 @@ A[1::2,6] = a*d
 A[1::2,7] = b*d
 #A[1::2,8] = z*d
 
-print(A)
+#print(A)
 
 B = zeros(2*len(data))
 B[0::2] = -z*c
@@ -168,8 +168,8 @@ B[1::2] = -z*d
 
 v = np.linalg.lstsq(A, B, rcond=None)[0]
 UU = array(list(v)+[1,]).reshape((3,3))
-print(UU)
-print()
+#print(UU)
+#print()
 
 #
 # Least squares (min |Ax|^2) wih |x|^2 = 1
