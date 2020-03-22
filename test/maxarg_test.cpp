@@ -5,20 +5,57 @@
 
 using namespace emida;
 
-TEST(extract_neighbors, size_8)
+TEST(extract_neighbors, size_5x5)
 {
 	std::vector<double> v(25);
 	for (size_t i = 0; i < v.size(); ++i)
 		v[i] = i;
 	double * cu_data = vector_to_device(v);
+	
 	double* cu_neigh;
 	cudaMalloc(&cu_neigh, 9 * sizeof(double));
-	run_extract_neighbors<double, 3>(cu_data, cu_neigh, 3, 3, 5, 5);
+
+	std::vector<vec2<size_t>> max_i = { {3,3} };
+	auto cu_max_i = vector_to_device(max_i);
+
+	run_extract_neighbors<double, 3>(cu_data, cu_max_i, cu_neigh, 5, 5, 1);
 
 	std::vector<double> neigh(9);
 	cudaMemcpy(neigh.data(), cu_neigh, 9 * sizeof(double), cudaMemcpyDeviceToHost);
 
 	std::vector<double> expected = {12, 13, 14, 17, 18, 19, 22, 23, 24};
+
+	EXPECT_EQ(neigh, expected);
+}
+
+TEST(extract_neighbors, size_5x5x2)
+{
+	std::vector<double> v(50);
+	for (size_t i = 0; i < v.size(); ++i)
+		v[i] = i;
+	double* cu_data = vector_to_device(v);
+
+	double* cu_neigh;
+	size_t neigh_size = 3 * 3 * 2;
+	cudaMalloc(&cu_neigh, neigh_size * sizeof(double));
+
+	std::vector<vec2<size_t>> max_i = { {3,3}, {1,1} };
+	auto cu_max_i = vector_to_device(max_i);
+
+	run_extract_neighbors<double, 3>(cu_data, cu_max_i, cu_neigh, 5, 5, 2);
+
+	std::vector<double> neigh = device_to_vector(cu_neigh, neigh_size);
+
+	std::vector<double> expected =
+	{
+		12, 13, 14,
+		17, 18, 19,
+		22, 23, 24,
+	
+		25, 26, 27,
+		30, 31, 32,
+		35, 36, 37
+	};
 
 	EXPECT_EQ(neigh, expected);
 }

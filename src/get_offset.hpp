@@ -50,10 +50,13 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, size_t cols, size_t rows
 	constexpr int s = 3;
 	constexpr int r = (s-1)/2;
 
-	size_t neigh_size = s * s;
+	size_t neigh_size = s * s * b_size;
 	T* cu_neighbors;
 	CUCH(cudaMalloc(&cu_neighbors, neigh_size * sizeof(T)));
-	run_extract_neighbors<T, s>(cu_cross_res, cu_neighbors, maxes_i[0].x, maxes_i[0].y, cross_cols, cross_rows);
+
+	auto cu_maxes_i = vector_to_device(maxes_i);
+
+	run_extract_neighbors<T, s>(cu_cross_res, cu_maxes_i, cu_neighbors, cross_cols, cross_rows, b_size);
 
 	CUCH(cudaGetLastError());
 	CUCH(cudaDeviceSynchronize());

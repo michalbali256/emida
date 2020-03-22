@@ -51,20 +51,27 @@ __global__ void maxarg_reduce(const T* data, data_index<T> * maxes, size_t size)
 }
 
 template<typename T, int s>
-__global__ void extract_neighbors(const T* data, T* neighbors, size_t max_x, size_t max_y, size_t cols)
+__global__ void extract_neighbors(const T* data, const vec2<size_t> * max_i, T* neighbors, size_t cols, size_t rows, size_t batch_size)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	
-	if (x > s || y > s)
+	if (idx >= batch_size)
 		return;
-
+	
 	size_t r = (s - 1) / 2;
 
-	size_t from_x = max_x - r + x;
-	size_t from_y = max_y - r + y;
+	auto max = max_i[idx];
 
-	neighbors[y * s + x] = data[from_y * cols + from_x];
+	for (int i = 0; i < s; ++i)
+	{
+		for (int j = 0; j < s; ++j)
+		{
+			size_t from_x = max.x - r + i;
+			size_t from_y = max.y - r + j;
+
+			neighbors[idx * s * s + j * s + i] = data[idx * cols * rows + from_y * cols + from_x];
+		}
+	}	
 }
 
 template<typename T>
@@ -76,16 +83,16 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t 
 }
 
 template<typename T, int s>
-void run_extract_neighbors(const T* data, T* neighbors, size_t max_x, size_t max_y, size_t cols, size_t rows)
+void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, size_t cols, size_t rows, size_t batch_size)
 {
-	dim3 block_size(8, 8);
-	dim3 grid_size(div_up(cols, block_size.x), div_up(rows, block_size.y));
-	extract_neighbors<T,s> <<<grid_size, block_size>>> (data, neighbors, max_x, max_y, cols);
+	size_t block_size = 128;
+	size_t grid_size = div_up(batch_size, block_size);
+	extract_neighbors<T,s> <<<grid_size, block_size>>> (data, max_i, neighbors, cols, rows, batch_size);
 }
 
 
 template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, size_t size, size_t block_size, size_t batch_size);
 
-template void run_extract_neighbors<double, 3>(const double* data, double* neighbors, size_t max_x, size_t max_y, size_t cols, size_t rows);
+template void run_extract_neighbors<double, 3>(const double* data, const vec2<size_t>* max_i, double* neighbors, size_t cols, size_t rows, size_t batch_size);
 
 }
