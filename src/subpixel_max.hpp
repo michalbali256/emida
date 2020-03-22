@@ -82,21 +82,22 @@ std::array<T, 6> subpixel_max_coefs(const T* pic)
 }
 
 template<typename T, int s>
-vec2<T> subpixel_max_serial(const T* pic)
+std::vector<vec2<T>> subpixel_max_serial(const T* pic, size_t batch_size)
 {
-	//coefficients of quadratic function of neighborhood of maximum
-	//f(x,y) = a + bx + cy + dx^2 + exy + fy^2
-	auto [a, b, c, d, e, f] = subpixel_max_coefs<T, s>(pic);
+	std::vector<vec2<T>> ret(batch_size);
+	for (size_t i = 0; i < batch_size; ++i, pic += s*s)
+	{
+		//coefficients of quadratic function of neighborhood of maximum
+		//f(x,y) = a + bx + cy + dx^2 + exy + fy^2
+		auto [a, b, c, d, e, f] = subpixel_max_coefs<T, s>(pic);
 
-	//now get the maximum of that function. Partial derivations:
-	//from partial derivation by x : 2dx + ey + b = 0
-	//from partial derivation by y : ex + 2fy + c = 0
-	//solve the 2 equations:
-
-	vec2<T> ret;
-	ret.y = (b * e - 2 * c * d) / (4 * f * d - e * e);
-	ret.x = (-e * ret.y - b) / (2 * d);
-
+		//now get the maximum of that function. Partial derivations:
+		//from partial derivation by x : 2dx + ey + b = 0
+		//from partial derivation by y : ex + 2fy + c = 0
+		//solve the 2 equations:
+		ret[i].y = (b * e - 2 * c * d) / (4 * f * d - e * e);
+		ret[i].x = (-e * ret[i].y - b) / (2 * d);
+	}
 	return ret;
 }
 

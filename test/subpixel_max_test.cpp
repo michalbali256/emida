@@ -58,9 +58,8 @@ TEST(subpixel_max_serial, coefs2)
 TEST(subpixel_max_serial, small)
 {
 	std::array<double, 9> pic = { 1, 2, 3, 7, 9, 8, 4, 5, 6 };
-	vec2 d = subpixel_max_serial<double, 3>(pic.data());
-	vec2<double> expected = { 1.8333333333333333, 1.1666666666666666 };
+	std::vector<vec2<double>> d = subpixel_max_serial<double, 3>(pic.data(), 1);
+	std::vector<vec2<double>> expected = { { 1.8333333333333333, 1.1666666666666666 } };
 	
-	EXPECT_DOUBLE_EQ(d.x, expected.x);
-	EXPECT_DOUBLE_EQ(d.y, expected.y);
+	EXPECT_VEC_VECTORS_EQ(d, expected);
 }

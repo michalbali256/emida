@@ -63,12 +63,14 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, size_t cols, size_t rows
 
 	std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size);
 
-	auto subp_offset = subpixel_max_serial<T, s>(neighbors.data());
+	auto subp_offset = subpixel_max_serial<T, s>(neighbors.data(), b_size);
 	
 	std::vector<vec2<T>> res(b_size);
-	res[0].x = (int)maxes_i[0].x - (int)cols + 1 - r + subp_offset.x;
-	res[0].y = (int)maxes_i[0].y - (int)rows + 1 - r + subp_offset.y;
-
+	for (size_t i = 0; i < b_size; ++i)
+	{
+		res[i].x = (int)maxes_i[i].x - (int)cols + 1 - r + subp_offset[i].x;
+		res[i].y = (int)maxes_i[i].y - (int)rows + 1 - r + subp_offset[i].y;
+	}
 	return res;
 }
 
