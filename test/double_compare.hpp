@@ -20,3 +20,11 @@
 		EXPECT_DOUBLE_EQ(a[i].x, b[i].x) << "Vectors " #a " and " #b " differ at x at index " << i; \
 		EXPECT_DOUBLE_EQ(a[i].y, b[i].y) << "Vectors " #a " and " #b " differ at y at index " << i; \
 	}
+
+#define EXPECT_VEC_VECTORS_NEAR(a, b, abs_error) \
+	ASSERT_EQ(a.size(), b.size()) << "Vectors x and y are of unequal length"; \
+	for (int i = 0; i < a.size(); ++i) \
+	{ \
+		EXPECT_NEAR(a[i].x, b[i].x, abs_error) << "Vectors " #a " and " #b " differ at x at index " << i; \
+		EXPECT_NEAR(a[i].y, b[i].y, abs_error) << "Vectors " #a " and " #b " differ at y at index " << i; \
+	}
