@@ -80,24 +80,6 @@ TEST(slice_picture, small)
 
 }
 
-/*TEST(get_offset, small)
-{
-	vec2<size_t> src_size{ 10, 10 };
-	vec2<size_t> size{ 5, 5 };
-	std::vector<double> source(src_size.x * src_size.y);
-	for (size_t i = 0; i < source.size(); ++i)
-		source[i] = i;
-
-	auto a = get_submatrix(source.data(), src_size, { 2, 2 }, size);
-	auto b = get_submatrix(source.data(), src_size, { 4, 4 }, size);
-
-	auto offset = get_offset<double>(b.data(), a.data(), size.x, size.y);
-
-	EXPECT_DOUBLE_EQ(offset.x, 2);
-	EXPECT_DOUBLE_EQ(offset.y, 2);
-
-}*/
-
 TEST(get_offset, bigger)
 {
 	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
