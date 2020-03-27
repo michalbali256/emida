@@ -7,12 +7,7 @@
 #include "cross_corr_host.hpp"
 
 #include <filesystem>
-template<typename time_point>
-void write_duration(std::string label, time_point start, time_point end)
-{
-	auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	std::cout << label << std::to_string(dur.count() / 1000.0) << " ms" << "\n";
-}
+
 
 int main(int argc, char ** argv)
 {
@@ -79,10 +74,12 @@ int main(int argc, char ** argv)
 	/*
 	algorithm_cross_corr acc;
 	std::chrono::high_resolution_clock c;
-	
+	auto start = c.now();
+
+
 	cudaSetDevice(0);
 	
-	auto start = c.now();
+	
 	acc.prepare(b, a);
 	write_duration("Preparation: ", start, c.now());
 	start = c.now();

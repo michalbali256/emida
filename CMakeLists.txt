@@ -52,18 +52,22 @@ file(GLOB_RECURSE TEST_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "test/*.cpp")
 
 list(REMOVE_ITEM CPP_SOURCES "src/main.cpp")
 
-add_executable(emida
-    src/main.cpp
+add_library(emida_lib STATIC
     ${CPP_SOURCES}
     ${CUDA_SOURCES}
 )
 
+#add_executable(emida
+#    src/main.cpp
+#)
+
+#target_link_libraries(emida emida_lib)
 
 add_executable(emida_test
-    ${CPP_SOURCES}
-    ${CUDA_SOURCES}
     ${TEST_SOURCES}
 )
+
+target_link_libraries(emida_test emida_lib)
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory

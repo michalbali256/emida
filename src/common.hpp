@@ -71,7 +71,7 @@ inline std::vector<T> repeat_vector(const std::vector<T>& vec, size_t repeat)
 {
 	std::vector<T> res(vec.size() * repeat);
 
-	double* dst = res.data();
+	T* dst = res.data();
 	for (size_t i = 0; i < repeat; ++i)
 	{
 		memcpy(dst, vec.data(), vec.size() * sizeof(T));
@@ -94,6 +94,61 @@ struct vec2
 {
 	T x;
 	T y;
+	__host__ __device__ T area() { return x * y; }
+
+	__host__ __device__ vec2<T> operator+(const vec2<T>& rhs)
+	{
+		return { x + rhs.x, y + rhs.y };
+	}
+	template<typename U>
+	__host__ __device__ vec2<T> operator+(const U& rhs)
+	{
+		return { x + rhs, y + rhs };
+	}
+
+	__host__ __device__ vec2<T> operator-()
+	{
+		return { -x, -y };
+	}
+	__host__ __device__ vec2<T> operator-(const vec2<T>& rhs)
+	{
+		return { x - rhs.x, y - rhs.y };
+	}
+	template<typename U>
+	__host__ __device__ vec2<T> operator-(const U& rhs)
+	{
+		return { x - rhs, y - rhs };
+	}
+
+	__host__ __device__ vec2<T> operator*(const vec2<T>& rhs)
+	{
+		return { x * rhs.x, y * rhs.y };
+	}
+	
+	template<typename U>
+	friend __host__ __device__ vec2<T> operator*(const U& lhs, const vec2<T>& rhs)
+	{
+		return { lhs.x * rhs, lhs.y * rhs };
+	}
+	template<typename U>
+	__host__ __device__ vec2<T> operator*(const U& rhs)
+	{
+		return { x * rhs, y * rhs };
+	}
+
+	
+	__host__ __device__ vec2<T> operator/(const vec2<T>& rhs)
+	{
+		return { x / rhs.x, y / rhs.y };
+	}
+	template<typename U>
+	__host__ __device__ vec2<T> operator/(const U& rhs)
+	{
+		return { x / rhs, y / rhs };
+	}
+
+
+
 };
 
 }
