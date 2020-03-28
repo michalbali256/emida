@@ -88,17 +88,53 @@ TEST(get_offset, bigger)
 	vec2<size_t> src_size{ pic.n, pic.n };
 	vec2<size_t> size{ 64, 64 };
 
-
 	auto a = get_submatrix(pic.data.data(), src_size, { 0, 0 }, size);
 	auto b = get_submatrix(temp.data.data(), src_size, { 0, 0 }, size);
 
-	auto offset = get_offset<double>(a.data(), b.data(), size.x, size.y, 1);
+	auto offset = get_offset<double>(a.data(), b.data(), size, 1);
 
 	//results from test.py, first left topmost square
 	//precision 1e-14 is OK, 1e-15 is failing
 	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 1e-14);
 	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 1e-14);
+}
 
+TEST(get_offset, size64x64x1_cross3x3)
+{
+	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
+	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
+
+	vec2<size_t> src_size{ pic.n, pic.n };
+	vec2<size_t> size{ 64, 64 };
+
+	auto a = get_submatrix(pic.data.data(), src_size, { 0, 0 }, size);
+	auto b = get_submatrix(temp.data.data(), src_size, { 0, 0 }, size);
+
+	auto offset = get_offset<double>(a.data(), b.data(), size, { 3,3 }, 1);
+
+	//results from test.py, first left topmost square
+	//precision 1e-14 is OK, 1e-15 is failing
+	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 1e-14);
+	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 1e-14);
+}
+
+TEST(get_offset, size64x64x1_cross5x5)
+{
+	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
+	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
+
+	vec2<size_t> src_size{ pic.n, pic.n };
+	vec2<size_t> size{ 64, 64 };
+
+	auto a = get_submatrix(pic.data.data(), src_size, { 0, 0 }, size);
+	auto b = get_submatrix(temp.data.data(), src_size, { 0, 0 }, size);
+
+	auto offset = get_offset<double>(a.data(), b.data(), size, { 5,5 }, 1);
+
+	//results from test.py, first left topmost square
+	//precision 1e-14 is OK, 1e-15 is failing
+	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 1e-14);
+	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 1e-14);
 }
 
 TEST(get_offset, batched)
@@ -114,7 +150,7 @@ TEST(get_offset, batched)
 	auto a = slice_picture(pic.data.data(), src_size, size, step);
 	auto b = slice_picture(temp.data.data(), src_size, size, step);
 
-	auto offset = get_offset<double>(a.data(), b.data(), size.x, size.y, batch_size);
+	auto offset = get_offset<double>(a.data(), b.data(), size, batch_size);
 
 	//precision 1e-13 is OK, 1e-14 is failing
 
@@ -247,7 +283,7 @@ void bbb(int repeat)
 	b = repeat_vector(b, repeat);
 	expected = repeat_vector(expected, repeat);
 	std::cout << a.size() * sizeof(double) << "B\n";
-	auto offset = get_offset<double>(a.data(), b.data(), size.x, size.y, batch_size * repeat);
+	auto offset = get_offset<double>(a.data(), b.data(), size, {3,3}, batch_size * repeat);
 	//TOTAL();
 
 	EXPECT_VEC_VECTORS_NEAR(offset, expected, 7e-14);
@@ -257,7 +293,7 @@ TEST(get_offset, time10)
 {
 	bbb(10);
 }
-/*
+
 TEST(get_offset, time100)
 {
 	bbb(100);
@@ -271,4 +307,4 @@ TEST(get_offset, time200)
 TEST(get_offset, time300)
 {
 	bbb(300);
-}*/
+}

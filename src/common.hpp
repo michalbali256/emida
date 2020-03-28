@@ -3,7 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-
+#include <type_traits>
 #include "cuda_runtime.h"
 
 namespace emida
@@ -89,6 +89,7 @@ struct data_index
 	size_t index;
 };
 
+
 template<typename T>
 struct vec2
 {
@@ -104,6 +105,11 @@ struct vec2
 	__host__ __device__ vec2<T> operator+(const U& rhs)
 	{
 		return { x + rhs, y + rhs };
+	}
+	template<typename U>
+	friend __host__ __device__ vec2<T> operator+(const U& lhs, const vec2<T>& rhs)
+	{
+		return { lhs + rhs.x, lhs + rhs.y };
 	}
 
 	__host__ __device__ vec2<T> operator-()
@@ -128,7 +134,7 @@ struct vec2
 	template<typename U>
 	friend __host__ __device__ vec2<T> operator*(const U& lhs, const vec2<T>& rhs)
 	{
-		return { lhs.x * rhs, lhs.y * rhs };
+		return { lhs * rhs.x, lhs * rhs.y };
 	}
 	template<typename U>
 	__host__ __device__ vec2<T> operator*(const U& rhs)
