@@ -1,6 +1,6 @@
 
 #include <chrono>
-
+#ifdef MEASURE_TIME
 #define START_STOPWATCH() \
 	std::chrono::high_resolution_clock c; \
 	auto start = c.now(); \
@@ -12,6 +12,11 @@
 
 #define TOTAL() \
 	write_duration("TOTAL:", total_start, c.now());
+#else
+#define START_STOPWATCH()
+#define TICK(label)
+#define TOTAL()
+#endif
 
 namespace emida
 {

@@ -2,6 +2,8 @@
 
 #include "cross_corr_host.hpp"
 
+#include "tiffio.h"
+#include <cstdio>
 using namespace emida;
 
 void cross_corr_data_load(std::string name, matrix<int> & a, matrix<int> & b, matrix<int> & result)

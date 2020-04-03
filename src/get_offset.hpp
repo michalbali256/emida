@@ -63,8 +63,6 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, vec2<
 	else
 	{
 		maxes_i = get_maxarg(cu_cross_res, cross_size.x, cross_size.y, b_size); TICK("Get maxarg: ");
-
-		
 		
 		CUCH(cudaMalloc(&cu_neighbors, neigh_size * sizeof(T))); TICK("Neighbors malloc: ");
 

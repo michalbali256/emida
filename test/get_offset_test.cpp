@@ -211,6 +211,8 @@ TEST(get_offset, batched)
 	EXPECT_VEC_VECTORS_NEAR(offset, expected, 7e-14);
 }
 
+#ifdef MEASURE_TIME
+
 void bbb(int repeat)
 {
 	std::vector<vec2<double>> expected =
@@ -308,3 +310,5 @@ TEST(get_offset, time300)
 {
 	bbb(300);
 }
+
+#endif 

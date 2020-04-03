@@ -5,6 +5,24 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(ExternalProject)
+
+
+ExternalProject_Add(tiff_project
+  GIT_REPOSITORY https://gitlab.com/libtiff/libtiff.git
+  GIT_TAG        v4.1.0
+  GIT_SHALLOW    On
+  PREFIX         externals/libtiff/
+  LOG_CONFIGURE ON
+  LOG_BUILD ON
+  CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DBUILD_SHARED_LIBS=Off -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+  INSTALL_COMMAND COMMAND "${CMAKE_COMMAND}" -P cmake_install.cmake
+  BUILD_BYPRODUCTS ${TIFF_STATIC_LIBS}
+)
+
+link_directories(${CMAKE_BINARY_DIR}/externals/libtiff/lib)
+include_directories(${CMAKE_BINARY_DIR}/externals/libtiff/include)
+
 
 include(GoogleTest)
 # Download and unpack googletest at configure time
@@ -56,18 +74,25 @@ add_library(emida_lib STATIC
     ${CPP_SOURCES}
     ${CUDA_SOURCES}
 )
+add_dependencies(emida_lib tiff_project)
+target_link_libraries(emida_lib
+    debug tiffd
+    optimized tiff)
 
-#add_executable(emida
-#    src/main.cpp
-#)
+add_executable(emida
+    src/main.cpp
+)
 
-#target_link_libraries(emida emida_lib)
+target_link_libraries(emida emida_lib)
+
 
 add_executable(emida_test
     ${TEST_SOURCES}
 )
 
-target_link_libraries(emida_test emida_lib)
+target_link_libraries(emida_test emida_lib
+    debug tiffd
+    optimized tiff)
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
