@@ -1,3 +1,4 @@
+#pragma once
 
 #include <chrono>
 #ifdef MEASURE_TIME

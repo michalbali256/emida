@@ -1,12 +1,9 @@
 #include <iostream>
 
 #include <option.h>
-#include <filesystem>
 
-#include <tiffio.h>
+#include "process_files.hpp"
 
-#define mac(T, items, name) std::vector<T> name = items
-#define init(...) __VA_ARGS__
 int main(int argc, char ** argv)
 {
 	using namespace mbas;
@@ -34,6 +31,13 @@ int main(int argc, char ** argv)
 	if (parsed["a"])
 		algorithm = parsed["a"]->params()[0]->get_value<std::string>();
 	std::string file_name;
+
+	auto offsets = emida::process_files("../../data/small_FeAl/INITIAL_FeAl", "../../data/small_FeAl/DEFORMED_FeAl", { 1, 1 });
+	for (const auto & offset_list : offsets)
+	{
+		for(auto off : offset_list)
+			std::cout << off.x << " " << off.y << "\n";
+	}
 
 	return 0;
 }

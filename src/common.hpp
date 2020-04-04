@@ -89,7 +89,6 @@ struct data_index
 	size_t index;
 };
 
-
 template<typename T>
 struct vec2
 {
@@ -152,9 +151,8 @@ struct vec2
 	{
 		return { x / rhs, y / rhs };
 	}
-
-
-
 };
+
+using size2_t = vec2<size_t>;
 
 }

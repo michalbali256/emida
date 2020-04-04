@@ -1,3 +1,4 @@
+#pragma once
 #include "subpixel_max.hpp"
 
 using namespace emida;

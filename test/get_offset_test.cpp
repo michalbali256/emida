@@ -3,51 +3,9 @@
 #include "get_offset.hpp"
 #include "matrix.hpp"
 #include "double_compare.hpp"
+#include "slice_picture.hpp"
 
 using namespace emida;
-
-template<typename T>
-void copy_submatrix(const T* src, T* dst, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
-{
-	for (size_t x = 0; x < size.x; ++x)
-		for (size_t y = 0; y < size.y; ++y)
-			dst[y * size.x + x] = src[src_size.x * (y + begin.y) + x + begin.x];
-}
-
-template<typename T>
-std::vector<T> get_submatrix(const T* src, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
-{
-	std::vector<T> res(size.x * size.y);
-	copy_submatrix<T>(src, res.data(), src_size, begin, size);
-	return res;
-}
-
-size_t get_sliced_batch_size(vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
-{
-	return ((src_size.x - size.x) / step.x + 1) *
-		((src_size.y - size.y) / step.y + 1);
-}
-
-template<typename T>
-std::vector<T> slice_picture(const T* src, vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
-{
-	assert(src_size.x % size.x == 0);
-	assert(src_size.y % size.y == 0);
-
-	std::vector<T> res(get_sliced_batch_size(src_size, size, step) * size.x * size.y);
-
-	T* next = res.data();
-	vec2<size_t> i = { 0,0 };
-	for (i.y = 0; i.y + size.y <= src_size.y; i.y += step.y)
-		for (i.x = 0; i.x + size.x <= src_size.x; i.x += step.x)
-		{
-			copy_submatrix(src, next, src_size, i, size);
-
-			next += size.x * size.y;
-		}
-
-	return res;
-}
 
 TEST(slice_picture, small)
 {
@@ -88,8 +46,8 @@ TEST(get_offset, bigger)
 	vec2<size_t> src_size{ pic.n, pic.n };
 	vec2<size_t> size{ 64, 64 };
 
-	auto a = get_submatrix(pic.data.data(), src_size, { 0, 0 }, size);
-	auto b = get_submatrix(temp.data.data(), src_size, { 0, 0 }, size);
+	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
+	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
 
 	auto offset = get_offset<double>(a.data(), b.data(), size, 1);
 
@@ -107,8 +65,8 @@ TEST(get_offset, size64x64x1_cross3x3)
 	vec2<size_t> src_size{ pic.n, pic.n };
 	vec2<size_t> size{ 64, 64 };
 
-	auto a = get_submatrix(pic.data.data(), src_size, { 0, 0 }, size);
-	auto b = get_submatrix(temp.data.data(), src_size, { 0, 0 }, size);
+	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
+	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
 
 	auto offset = get_offset<double>(a.data(), b.data(), size, { 3,3 }, 1);
 
@@ -126,8 +84,8 @@ TEST(get_offset, size64x64x1_cross5x5)
 	vec2<size_t> src_size{ pic.n, pic.n };
 	vec2<size_t> size{ 64, 64 };
 
-	auto a = get_submatrix(pic.data.data(), src_size, { 0, 0 }, size);
-	auto b = get_submatrix(temp.data.data(), src_size, { 0, 0 }, size);
+	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
+	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
 
 	auto offset = get_offset<double>(a.data(), b.data(), size, { 5,5 }, 1);
 
