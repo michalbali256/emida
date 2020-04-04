@@ -151,6 +151,8 @@ struct vec2
 	{
 		return { x / rhs, y / rhs };
 	}
+
+	size_t pos(size_t cols) { return y * cols + x; }
 };
 
 using size2_t = vec2<size_t>;

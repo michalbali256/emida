@@ -4,6 +4,7 @@
 #include "get_offset.hpp"
 #include "load_tiff.hpp"
 #include "slice_picture.hpp"
+#include "draw_tiff.hpp"
 
 namespace emida
 {
@@ -41,7 +42,12 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 
 			auto offsets = get_offset(initial_slices.data(), deformed_slices.data(), slice_size, slice_begins.size());
 			
+			
+
+			draw_tiff(deformed_raster.data(), one_size, "../../vectors.tif", offsets, slice_begins, (uint16_t) 0);
+
 			res.push_back(std::move(offsets));
+
 		}
 
 	}
