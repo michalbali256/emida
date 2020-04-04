@@ -32,12 +32,12 @@ int main(int argc, char ** argv)
 		algorithm = parsed["a"]->params()[0]->get_value<std::string>();
 	std::string file_name;
 
-	auto offsets = emida::process_files("../../data/small_FeAl/INITIAL_FeAl", "../../data/small_FeAl/DEFORMED_FeAl", { 1, 1 });
-	for (const auto & offset_list : offsets)
+	auto offsets = emida::process_files("../../data/FeAl/INITIAL_FeAl", "../../data/FeAl/DEFORMED_FeAl", "../../data/FeAl/OUT_FeAl", { 10, 10 });
+	/*for (const auto & offset_list : offsets)
 	{
 		for(auto off : offset_list)
 			std::cout << off.x << " " << off.y << "\n";
-	}
+	}*/
 
 	return 0;
 }

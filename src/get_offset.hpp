@@ -20,35 +20,35 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, size_
 template<typename T>
 inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, vec2<size_t> cross_size, size_t b_size)
 {
-	START_STOPWATCH();
+	stopwatch sw(false);
 
 	size_t one_size = size.area();
 	subtract_mean(pic, one_size, b_size);
-	subtract_mean(temp, one_size, b_size); TICK("Subtract: ");
+	subtract_mean(temp, one_size, b_size); sw.tick("Subtract: ");
 
 	T* cu_pic = vector_to_device(pic, one_size * b_size);
-	T* cu_temp = vector_to_device(temp, one_size * b_size); TICK("Temp and pic to device: ");
+	T* cu_temp = vector_to_device(temp, one_size * b_size); sw.tick("Temp and pic to device: ");
 
 	auto hann_x = generate_hanning<T>(size.x);
-	auto hann_y = generate_hanning<T>(size.y); TICK("Generate hanning: ");
+	auto hann_y = generate_hanning<T>(size.y); sw.tick("Generate hanning: ");
 
 	T* cu_hann_x = vector_to_device(hann_x);
-	T* cu_hann_y = vector_to_device(hann_y); TICK("Hanning to device: ");
+	T* cu_hann_y = vector_to_device(hann_y); sw.tick("Hanning to device: ");
 
 	run_hanning(cu_pic, cu_hann_x, cu_hann_y, size.x, size.y, b_size);
 	run_hanning(cu_temp, cu_hann_x, cu_hann_y, size.x, size.y, b_size);
 
 	CUCH(cudaGetLastError());
-	CUCH(cudaDeviceSynchronize()); TICK("Run hanning: ");
+	CUCH(cudaDeviceSynchronize()); sw.tick("Run hanning: ");
 
 	T* cu_cross_res;
 
-	CUCH(cudaMalloc(&cu_cross_res, cross_size.area() * b_size * sizeof(T))); TICK("Cross result malloc: ");
+	CUCH(cudaMalloc(&cu_cross_res, cross_size.area() * b_size * sizeof(T))); sw.tick("Cross result malloc: ");
 
 	run_cross_corr(cu_temp, cu_pic, cu_cross_res, size, cross_size, b_size);
 
 	CUCH(cudaGetLastError());
-	CUCH(cudaDeviceSynchronize()); TICK("Run cross corr: ");
+	CUCH(cudaDeviceSynchronize()); sw.tick("Run cross corr: ");
 
 	constexpr int s = 3;
 	constexpr int r = (s - 1) / 2;
@@ -62,21 +62,21 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, vec2<
 	}
 	else
 	{
-		maxes_i = get_maxarg(cu_cross_res, cross_size.x, cross_size.y, b_size); TICK("Get maxarg: ");
+		maxes_i = get_maxarg(cu_cross_res, cross_size.x, cross_size.y, b_size); sw.tick("Get maxarg: ");
 		
-		CUCH(cudaMalloc(&cu_neighbors, neigh_size * sizeof(T))); TICK("Neighbors malloc: ");
+		CUCH(cudaMalloc(&cu_neighbors, neigh_size * sizeof(T))); sw.tick("Neighbors malloc: ");
 
-		auto cu_maxes_i = vector_to_device(maxes_i); TICK("Maxes transfer: ");
+		auto cu_maxes_i = vector_to_device(maxes_i); sw.tick("Maxes transfer: ");
 
 		run_extract_neighbors<T, s>(cu_cross_res, cu_maxes_i, cu_neighbors, cross_size.x, cross_size.y, b_size);
 
 		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); TICK("Run extract neigh: ");
+		CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");
 	}
 
-	std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size); TICK("Transfer neighbors: ");
+	std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size); sw.tick("Transfer neighbors: ");
 
-	auto subp_offset = subpixel_max_serial<T, s>(neighbors.data(), b_size); TICK("Subpixel max: ");
+	auto subp_offset = subpixel_max_serial<T, s>(neighbors.data(), b_size); sw.tick("Subpixel max: ");
 	
 	std::vector<vec2<T>> res(b_size);
 	if (cross_size.x == s && cross_size.y == s)
@@ -95,7 +95,7 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, vec2<
 			res[i].y = (int)maxes_i[i].y - ((int)cross_size.y / 2) - r + subp_offset[i].y;
 		}
 	}
-	TOTAL();
+	sw.total();
 	return res;
 }
 
