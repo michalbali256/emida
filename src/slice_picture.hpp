@@ -6,10 +6,10 @@ namespace emida
 {
 
 template<typename T, typename RES>
-void copy_submatrix(const T* src, RES* dst, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
+void copy_submatrix(const T* __restrict__ src, RES* __restrict__ dst, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
 {
-	for (size_t x = 0; x < size.x; ++x)
-		for (size_t y = 0; y < size.y; ++y)
+	for (size_t y = 0; y < size.y; ++y)
+		for (size_t x = 0; x < size.x; ++x)
 			dst[y * size.x + x] = src[src_size.x * (y + begin.y) + x + begin.x];
 }
 

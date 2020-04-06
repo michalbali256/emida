@@ -16,7 +16,7 @@ inline std::string append_filename(const std::string& dir, const std::string& fi
 
 inline std::vector<std::vector<vec2<double>>> process_files(const std::string & initial_dir, const std::string& deformed_dir, const std::string& out_dir, vec2<size_t> size)
 {
-	stopwatch sw;
+	stopwatch sw(true, 3);
 	vec2<size_t> one_size = { 873, 873 };
 	vec2<size_t> slice_size = { 64, 64 };
 	auto slice_begins = get_slice_begins(one_size, slice_size, { 32, 32 });
@@ -44,20 +44,22 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 			std::vector<uint16_t> initial_raster(one_size.area());
 			std::vector<uint16_t> deformed_raster(one_size.area());
 			load_tiff(initial_prefix + file_suffix, initial_raster.data(), one_size);
-			load_tiff(deformed_prefix + file_suffix, deformed_raster.data(), one_size);
+			load_tiff(deformed_prefix + file_suffix, deformed_raster.data(), one_size); sw.tick("Load tiff: ", 2);
 
 
 			auto initial_slices = get_pics<double>(initial_raster.data(), one_size, slice_begins, slice_size);
 			auto deformed_slices = get_pics<double>(deformed_raster.data(), one_size, slice_begins, slice_size);
+			sw.tick("Create slices: ", 2);
 
 			auto offsets = get_offset(initial_slices.data(), deformed_slices.data(), slice_size, {25, 25}, slice_begins.size());
+			sw.tick("Get offset: ", 2);
 
 			if (out_dir != "")
 				draw_tiff(deformed_raster.data(), one_size, out_prefix + file_suffix, offsets, slice_mids);
-			
+			sw.tick("Draw tiff: ", 2);
 
 			res.push_back(std::move(offsets));
-			sw.tick("ONE: ");
+			sw.tick("ONE: ", 1);
 
 		}
 

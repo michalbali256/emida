@@ -10,6 +10,11 @@
 namespace emida
 {
 
+void allocate_offset_memory(vec2<size_t> size, vec2<size_t> cross_size, size_t b_size)
+{
+
+}
+
 template<typename T>
 inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, size_t b_size)
 {
@@ -20,7 +25,7 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, size_
 template<typename T>
 inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, vec2<size_t> cross_size, size_t b_size)
 {
-	stopwatch sw(false);
+	stopwatch sw(true, 2, 2);
 
 	size_t one_size = size.area();
 	subtract_mean(pic, one_size, b_size);
