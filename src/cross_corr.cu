@@ -8,7 +8,7 @@ namespace emida
 {
 
 template<typename T, typename RES>
-__global__ void cross_corr(const T* pics_a, const T* pics_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size)
+__global__ void cross_corr(const T* __restrict__ pics_a, const T* __restrict__ pics_b, RES* __restrict__ res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size)
 {
 	size_t pic_size = size.area();
 
@@ -37,13 +37,13 @@ __global__ void cross_corr(const T* pics_a, const T* pics_b, RES* res, vec2<size
 	
 
 	RES sum = 0;
-	for (size_t y = 0; y < size.y; ++y)
+	for (size_t y = y_shift >= 0 ? 0 : -y_shift; y < size.y - y_shift && y < size.y; ++y)
 	{
-		for (size_t x = 0; x < size.x; ++x)
+		for (size_t x = x_shift >= 0 ? 0 : -x_shift; x < size.x - x_shift && x < size.x; ++x)
 		{
 			int x_shifted = x + x_shift;
 			int y_shifted = y + y_shift;
-			if (x_shifted >= 0 && x_shifted < size.x && y_shifted >= 0 && y_shifted < size.y)
+			//if (y_shifted >= 0 && y_shifted < size.y)
 				sum += pics_a[y_shifted * size.x + x_shifted] * pics_b[y * size.x + x];
 		}
 	}
