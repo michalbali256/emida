@@ -8,7 +8,7 @@ namespace emida
 {
 
 template<typename T, typename RES>
-__global__ void cross_corr(const T* pics_a, const T* pics_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size)
+__global__ void cross_corr(const T* __restrict__ pics_a, const T* __restrict__ pics_b, RES* __restrict__ res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size)
 {
 	size_t pic_size = size.area();
 
