@@ -35,16 +35,18 @@ __global__ void cross_corr(const T* __restrict__ pics_a, const T* __restrict__ p
 	res += pic_num * res_size.area();
 
 	
+	size_t x_end = x_shift < 0 ? size.x : size.x - x_shift;
+	size_t y_end = y_shift < 0 ? size.y : size.y - y_shift;
 
 	RES sum = 0;
-	for (size_t y = y_shift >= 0 ? 0 : -y_shift; y < size.y - y_shift && y < size.y; ++y)
+	for (size_t y = y_shift >= 0 ? 0 : -y_shift; y < y_end; ++y)
 	{
-		for (size_t x = x_shift >= 0 ? 0 : -x_shift; x < size.x - x_shift && x < size.x; ++x)
+		for (size_t x = x_shift >= 0 ? 0 : -x_shift; x < x_end; ++x)
 		{
 			int x_shifted = x + x_shift;
 			int y_shifted = y + y_shift;
 			//if (y_shifted >= 0 && y_shifted < size.y)
-				sum += pics_a[y_shifted * size.x + x_shifted] * pics_b[y * size.x + x];
+			sum += pics_a[y_shifted * size.x + x_shifted] * pics_b[y * size.x + x];
 		}
 	}
 
