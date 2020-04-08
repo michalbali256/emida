@@ -24,4 +24,7 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t 
 template<typename T, int s>
 void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, size_t cols, size_t rows, size_t batch_size);
 
+template<typename T>
+void run_sum(const T* data, T* maxes, size_t size, size_t batch_size);
+
 }

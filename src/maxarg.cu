@@ -29,7 +29,9 @@ __global__ void maxarg_reduce(const T* data, data_index<T> * maxes, size_t size)
 	//and this thread would process sth out of the picture
 
 	size_t i = pic_num * size + pic_block * blockDim.x + threadIdx.x;
-	if (blockIdx.x % one_pic_blocks == one_pic_blocks - 1 && threadIdx.x >= size % blockDim.x)
+	if (blockIdx.x % one_pic_blocks == one_pic_blocks - 1
+		&& size % blockDim.x != 0
+		&& threadIdx.x >= size % blockDim.x)
 	{
 		sdata[tid].data = 0;
 		sdata[tid].index = i;
