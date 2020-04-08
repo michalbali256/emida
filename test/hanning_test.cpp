@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-
+/*
 #include "hanning_host.hpp"
 #include "double_compare.hpp"
 using namespace emida;
@@ -96,3 +96,4 @@ TEST(hanning, hanning_window_128x128x5)
 
 	EXPECT_DOUBLE_VECTORS_EQ(alg.result(), expected_pics);
 }
+*/

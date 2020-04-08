@@ -53,8 +53,8 @@ TEST(get_offset, bigger)
 
 	//results from test.py, first left topmost square
 	//precision 1e-14 is OK, 1e-15 is failing
-	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 1e-14);
-	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 1e-14);
+	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 2e-14);
+	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 2e-14);
 }
 
 TEST(get_offset, size64x64x1_cross3x3)
@@ -72,8 +72,8 @@ TEST(get_offset, size64x64x1_cross3x3)
 
 	//results from test.py, first left topmost square
 	//precision 1e-14 is OK, 1e-15 is failing
-	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 1e-14);
-	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 1e-14);
+	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 2e-14);
+	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 2e-14);
 }
 
 TEST(get_offset, size64x64x1_cross5x5)
@@ -91,8 +91,8 @@ TEST(get_offset, size64x64x1_cross5x5)
 
 	//results from test.py, first left topmost square
 	//precision 1e-14 is OK, 1e-15 is failing
-	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 1e-14);
-	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 1e-14);
+	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 2e-14);
+	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 2e-14);
 }
 
 TEST(get_offset, batched)

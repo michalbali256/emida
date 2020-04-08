@@ -15,6 +15,8 @@ class gpu_offset
 private:
 	T* cu_pic_;
 	T* cu_temp_;
+	T* cu_sums_pic_;
+	T* cu_sums_temp_;
 	T* cu_hann_x_;
 	T* cu_hann_y_;
 	T* cu_cross_res_;
@@ -49,6 +51,9 @@ public:
 		cu_pic_ = cuda_malloc<T>(one_size_ * b_size_);
 		cu_temp_ = cuda_malloc<T>(one_size_ * b_size_);
 
+		cu_sums_pic_ = cuda_malloc<T>(b_size_);
+		cu_sums_temp_ = cuda_malloc<T>(b_size_);
+
 		auto hann_x = generate_hanning<T>(size_.x);
 		auto hann_y = generate_hanning<T>(size_.y);
 
@@ -73,18 +78,21 @@ public:
 	std::vector<vec2<T>> get_offset(T* pic, T* temp) const
 	{
 		stopwatch sw(true, 2, 2);
-
-		subtract_mean(pic, one_size_, b_size_);
-		subtract_mean(temp, one_size_, b_size_); sw.tick("Subtract: ");
-
+		
 		copy_to_device(pic, one_size_ * b_size_, cu_pic_);
 		copy_to_device(temp, one_size_ * b_size_, cu_temp_); sw.tick("Temp and pic to device: ");
 
-		run_hanning(cu_pic_, cu_hann_x_, cu_hann_y_, size_.x, size_.y, b_size_);
-		run_hanning(cu_temp_, cu_hann_x_, cu_hann_y_, size_.x, size_.y, b_size_);
+		run_sum(cu_pic_, cu_sums_pic_, one_size_, b_size_);
+		run_sum(cu_temp_, cu_sums_temp_, one_size_, b_size_);
 
 		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run hanning: ");
+		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
+
+		run_prepare_pics(cu_pic_, cu_hann_x_, cu_hann_y_, cu_sums_pic_, size_, b_size_);
+		run_prepare_pics(cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, size_, b_size_);
+
+		CUCH(cudaGetLastError());
+		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
 
 		run_cross_corr(cu_temp_, cu_pic_, cu_cross_res_, size_, cross_size_, b_size_);
 

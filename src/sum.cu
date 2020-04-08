@@ -58,14 +58,14 @@ __global__ void sum(const T* data, T * maxes, size_t size)
 }
 
 template<typename T>
-void run_sum(const T* data, T * maxes, size_t size, size_t batch_size)
+void run_sum(const T* data, T * sums, size_t size, size_t batch_size)
 {	
 	size_t block_size = 1024;
 	size_t one_pic_blocks = div_up(size, block_size);
 	size_t grid_size = one_pic_blocks * batch_size;
-	sum<T> <<<grid_size, block_size, block_size * sizeof(T)>>> (data, maxes, size);
+	sum<T> <<<grid_size, block_size, block_size * sizeof(T)>>> (data, sums, size);
 }
 
-template void run_sum<double>(const double* data, double * maxes, size_t size, size_t batch_size);
+template void run_sum<double>(const double* data, double * sums, size_t size, size_t batch_size);
 
 }
