@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "maxarg_host.hpp"
-#include "maxarg.hpp"
+#include "get_offset.hpp"
 
 using namespace emida;
 
@@ -196,7 +196,7 @@ TEST(maxarg, size_4x3x2)
 
 	double* cu_data = vector_to_device(v);
 
-	auto res = get_maxarg(cu_data, 4, 3, 2);
+	auto res = get_maxarg(cu_data, { 4, 3 }, 2);
 
 	EXPECT_EQ(res[0].x, 0U);
 	EXPECT_EQ(res[0].y, 1U);

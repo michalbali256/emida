@@ -33,6 +33,9 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 	if(out_dir != "")
 		out_prefix = append_filename(out_dir, "OUT_");
 
+	gpu_offset<double> offs(slice_size, { 15, 15 }, slice_begins.size());
+	offs.allocate_memory();
+
 	for (size_t j = 0; j < size.y; ++j)
 	{
 		for (size_t i = 0; i < size.x; ++i)
@@ -51,7 +54,7 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 			auto deformed_slices = get_pics<double>(deformed_raster.data(), one_size, slice_begins, slice_size);
 			sw.tick("Create slices: ", 2);
 
-			auto offsets = get_offset(initial_slices.data(), deformed_slices.data(), slice_size, {25, 25}, slice_begins.size());
+			auto offsets = offs.get_offset(initial_slices.data(), deformed_slices.data());
 			sw.tick("Get offset: ", 2);
 
 			if (out_dir != "")

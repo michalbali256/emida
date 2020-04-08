@@ -50,6 +50,26 @@ inline T* vector_to_device(const std::vector<T> & v)
 }
 
 template<typename T>
+void copy_to_device(const std::vector<T>& v, T* cu_ptr)
+{
+	CUCH(cudaMemcpy(cu_ptr, v.data(), v.size() * sizeof(T), cudaMemcpyHostToDevice));
+}
+
+template<typename T>
+void copy_to_device(T * data, size_t size, T* cu_ptr)
+{
+	CUCH(cudaMemcpy(cu_ptr, data, size * sizeof(T), cudaMemcpyHostToDevice));
+}
+
+template<typename T>
+T * cuda_malloc(size_t num_elements)
+{
+	T* cu_ptr;
+	CUCH(cudaMalloc(&cu_ptr, num_elements * sizeof(T)));
+	return cu_ptr;
+}
+
+template<typename T>
 inline T* vector_to_device(const T* data, size_t size)
 {
 	T* cu_ptr;
@@ -94,14 +114,14 @@ struct vec2
 {
 	T x;
 	T y;
-	__host__ __device__ T area() { return x * y; }
+	__host__ __device__ T area() const { return x * y; }
 
-	__host__ __device__ vec2<T> operator+(const vec2<T>& rhs)
+	__host__ __device__ vec2<T> operator+(const vec2<T>& rhs) const
 	{
 		return { x + rhs.x, y + rhs.y };
 	}
 	template<typename U>
-	__host__ __device__ vec2<T> operator+(const U& rhs)
+	__host__ __device__ vec2<T> operator+(const U& rhs) const
 	{
 		return { x + rhs, y + rhs };
 	}
@@ -111,21 +131,21 @@ struct vec2
 		return { lhs + rhs.x, lhs + rhs.y };
 	}
 
-	__host__ __device__ vec2<T> operator-()
+	__host__ __device__ vec2<T> operator-() const
 	{
 		return { -x, -y };
 	}
-	__host__ __device__ vec2<T> operator-(const vec2<T>& rhs)
+	__host__ __device__ vec2<T> operator-(const vec2<T>& rhs) const
 	{
 		return { x - rhs.x, y - rhs.y };
 	}
 	template<typename U>
-	__host__ __device__ vec2<T> operator-(const U& rhs)
+	__host__ __device__ vec2<T> operator-(const U& rhs) const
 	{
 		return { x - rhs, y - rhs };
 	}
 
-	__host__ __device__ vec2<T> operator*(const vec2<T>& rhs)
+	__host__ __device__ vec2<T> operator*(const vec2<T>& rhs) const
 	{
 		return { x * rhs.x, y * rhs.y };
 	}
@@ -136,23 +156,23 @@ struct vec2
 		return { lhs * rhs.x, lhs * rhs.y };
 	}
 	template<typename U>
-	__host__ __device__ vec2<T> operator*(const U& rhs)
+	__host__ __device__ vec2<T> operator*(const U& rhs) const
 	{
 		return { x * rhs, y * rhs };
 	}
 
 	
-	__host__ __device__ vec2<T> operator/(const vec2<T>& rhs)
+	__host__ __device__ vec2<T> operator/(const vec2<T>& rhs) const
 	{
 		return { x / rhs.x, y / rhs.y };
 	}
 	template<typename U>
-	__host__ __device__ vec2<T> operator/(const U& rhs)
+	__host__ __device__ vec2<T> operator/(const U& rhs) const
 	{
 		return { x / rhs, y / rhs };
 	}
 
-	size_t pos(size_t cols) { return y * cols + x; }
+	size_t pos(size_t cols) const { return y * cols + x; }
 };
 
 using size2_t = vec2<size_t>;
