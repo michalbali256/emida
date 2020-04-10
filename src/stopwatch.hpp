@@ -1,8 +1,17 @@
 #pragma once
 
 #include <chrono>
+
+#include "common.hpp"
+
 namespace emida
 {
+
+struct stats
+{
+	inline static size_t total_pics = 0;
+	inline static size2_t border = { 0, 0 };
+};
 
 class stopwatch
 {
@@ -35,8 +44,6 @@ public:
 			start_[i] = start;
 	}
 
-	
-
 	void total()
 	{
 		if (!active_)
@@ -46,10 +53,12 @@ public:
 		for (size_t i = 0; i < start_.size(); ++i)
 			start_[i] = start;
 	}
-		
+	
+	inline static stats stats;
+
 private:
 	inline static const std::string total_ = "TOTAL: ";
-
+	
 	std::vector<std::chrono::high_resolution_clock::time_point> start_;
 	
 	std::chrono::high_resolution_clock c;

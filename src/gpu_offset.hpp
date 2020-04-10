@@ -164,6 +164,11 @@ public:
 			size_t max_i = maxes[max_res_i].index - b * cross_size_.area();
 			res[b].x = max_i % cross_size_.x;
 			res[b].y = max_i / cross_size_.x;
+			if (res[b].x == 0 || res[b].x == cross_size_.x)
+				++stopwatch::stats.border.x;
+			if (res[b].y == 0 || res[b].y == cross_size_.y)
+				++stopwatch::stats.border.y;
+			++stopwatch::stats.total_pics;
 		}
 
 		return res;

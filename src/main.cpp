@@ -33,7 +33,8 @@ int main(int argc, char ** argv)
 	std::string file_name;
 
 	auto offsets = emida::process_files("../../data/FeAl/INITIAL_FeAl", "../../data/FeAl/DEFORMED_FeAl", "../../data/FeAl/OUT_FeAl", { 10, 10 });
-	/*for (const auto & offset_list : offsets)
+
+		/*for (const auto & offset_list : offsets)
 	{
 		for(auto off : offset_list)
 			std::cout << off.x << " " << off.y << "\n";

@@ -33,7 +33,7 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 	if(out_dir != "")
 		out_prefix = append_filename(out_dir, "OUT_");
 
-	gpu_offset<double> offs(slice_size, { 25, 25 }, slice_begins.size());
+	gpu_offset<double> offs(slice_size, { 15, 15 }, slice_begins.size());
 	offs.allocate_memory();
 
 	for (size_t j = 0; j < size.y; ++j)
@@ -68,6 +68,9 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 
 	}
 	sw.total();
+	std::cout << "Border X: " << stopwatch::stats.border.x << "\n";
+	std::cout << "Border Y: " << stopwatch::stats.border.y << "\n";
+	std::cout << "Total pics: " << stopwatch::stats.total_pics << "\n";
 	return res;
 }
 

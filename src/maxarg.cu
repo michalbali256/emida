@@ -59,30 +59,6 @@ __global__ void maxarg_reduce(const T* data, data_index<T> * maxes, size_t size)
 	if (tid == 0) maxes[blockIdx.x] = sdata[0];
 }
 
-template<typename T, int s>
-__global__ void extract_neighbors(const T* data, const vec2<size_t> * max_i, T* neighbors, size_t cols, size_t rows, size_t batch_size)
-{
-	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	
-	if (idx >= batch_size)
-		return;
-	
-	size_t r = (s - 1) / 2;
-
-	auto max = max_i[idx];
-
-	for (int i = 0; i < s; ++i)
-	{
-		for (int j = 0; j < s; ++j)
-		{
-			size_t from_x = max.x - r + i;
-			size_t from_y = max.y - r + j;
-
-			neighbors[idx * s * s + j * s + i] = data[idx * cols * rows + from_y * cols + from_x];
-		}
-	}	
-}
-
 template<typename T>
 void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t block_size, size_t batch_size)
 {	
@@ -91,17 +67,6 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t 
 	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxes, size);
 }
 
-template<typename T, int s>
-void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, size_t cols, size_t rows, size_t batch_size)
-{
-	size_t block_size = 128;
-	size_t grid_size = div_up(batch_size, block_size);
-	extract_neighbors<T,s> <<<grid_size, block_size>>> (data, max_i, neighbors, cols, rows, batch_size);
-}
-
-
 template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, size_t size, size_t block_size, size_t batch_size);
-
-template void run_extract_neighbors<double, 3>(const double* data, const vec2<size_t>* max_i, double* neighbors, size_t cols, size_t rows, size_t batch_size);
 
 }
