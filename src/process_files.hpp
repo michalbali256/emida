@@ -77,9 +77,9 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 
 	}
 	sw.total();
-	std::cerr << "Border X: " << stopwatch::stats.border.x << "\n";
-	std::cerr << "Border Y: " << stopwatch::stats.border.y << "\n";
-	std::cerr << "Total pics: " << stopwatch::stats.total_pics << "\n";
+	std::cerr << "Border X: " << stopwatch::global_stats.border.x << "\n";
+	std::cerr << "Border Y: " << stopwatch::global_stats.border.y << "\n";
+	std::cerr << "Total pics: " << stopwatch::global_stats.total_pics << "\n";
 	return res;
 }
 

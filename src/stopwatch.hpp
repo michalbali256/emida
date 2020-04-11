@@ -54,7 +54,7 @@ public:
 			start_[i] = start;
 	}
 	
-	inline static stats stats;
+	inline static stats global_stats;
 
 private:
 	inline static const std::string total_ = "TOTAL: ";
