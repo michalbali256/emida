@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <vector>
 #include <optional>
@@ -7,11 +9,9 @@
 
 namespace emida {
 
-struct args_parser
+struct params
 {
 	bool parse(int argc, char** argv);
-
-
 
 	std::string initial_dir;
 	std::string deformed_dir;

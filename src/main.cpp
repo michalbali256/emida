@@ -9,19 +9,11 @@ int main(int argc, char ** argv)
 {
 	using namespace emida;
 	
-	args_parser p;
-	if (!p.parse(argc, argv))
+	params a;
+	if (!a.parse(argc, argv))
 		return 1;
 
-	auto offsets = emida::process_files(
-		p.initial_dir,
-		p.deformed_dir,
-		p.out_dir ? &*p.out_dir : nullptr,
-		p.files_range,
-		p.pic_size,
-		p.cross_size,
-		p.slice_size,
-		p.slice_begins);
+	auto offsets = emida::process_files(a);
 
 	/*for (const auto & offset_list : offsets)
 	{

@@ -80,7 +80,7 @@ std::vector<size2_t> load_slice_begins(const std::string & file_name)
 	return res;
 }
 
-bool args_parser::parse(int argc, char** argv)
+bool params::parse(int argc, char** argv)
 {
 	using namespace mbas;
 
