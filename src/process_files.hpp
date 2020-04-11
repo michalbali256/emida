@@ -20,11 +20,11 @@ inline std::vector<std::vector<vec2<double>>> process_files(
 	const std::string* out_dir,
 	range files_range,
 	size2_t one_size,
-	size2_t cross_size)
+	size2_t cross_size,
+	size2_t slice_size,
+	std::vector<size2_t> slice_begins)
 {
 	stopwatch sw(true, 3);
-	vec2<size_t> slice_size = { 64, 64 };
-	auto slice_begins = get_slice_begins(one_size, slice_size, { 32, 32 });
 
 	auto slice_mids = slice_begins;
 	for (auto& o : slice_mids)

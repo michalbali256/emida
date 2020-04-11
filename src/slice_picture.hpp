@@ -6,7 +6,7 @@ namespace emida
 {
 
 template<typename T, typename RES>
-void copy_submatrix(const T* __restrict__ src, RES* __restrict__ dst, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
+inline void copy_submatrix(const T* __restrict__ src, RES* __restrict__ dst, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
 {
 	for (size_t y = 0; y < size.y; ++y)
 		for (size_t x = 0; x < size.x; ++x)
@@ -14,21 +14,21 @@ void copy_submatrix(const T* __restrict__ src, RES* __restrict__ dst, vec2<size_
 }
 
 template<typename T, typename RES>
-std::vector<RES> get_submatrix(const T* src, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
+inline std::vector<RES> get_submatrix(const T* src, vec2<size_t> src_size, vec2<size_t> begin, vec2<size_t> size)
 {
 	std::vector<RES> res(size.x * size.y);
 	copy_submatrix(src, res.data(), src_size, begin, size);
 	return res;
 }
 
-size_t get_sliced_batch_size(vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
+inline size_t get_sliced_batch_size(vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
 {
 	return ((src_size.x - size.x) / step.x + 1) *
 		((src_size.y - size.y) / step.y + 1);
 }
 
 template<typename T>
-std::vector<T> slice_picture(const T* src, vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
+inline std::vector<T> slice_picture(const T* src, vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
 {
 	assert(src_size.x % size.x == 0);
 	assert(src_size.y % size.y == 0);
@@ -48,7 +48,7 @@ std::vector<T> slice_picture(const T* src, vec2<size_t> src_size, vec2<size_t> s
 	return res;
 }
 
-std::vector<size2_t> get_slice_begins(vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
+inline std::vector<size2_t> get_slice_begins(vec2<size_t> src_size, vec2<size_t> size, vec2<size_t> step)
 {
 	std::vector<size2_t> res;
 	res.reserve(get_sliced_batch_size(src_size, size, step));
