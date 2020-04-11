@@ -2,6 +2,8 @@
 
 #include <fstream>
 #include <vector>
+#include <stdexcept>
+
 namespace emida
 {
 template<typename T>
@@ -16,7 +18,7 @@ public:
 		matrix<T> m;
 		std::ifstream f(file_name);
 		if (!f.good())
-			throw std::exception(("File " + file_name + " cannot be opened.").c_str());
+			throw std::runtime_error("File " + file_name + " cannot be opened.");
 		f >> m.n;
 		m.data.resize(m.n * m.n);
 		for (size_t i = 0; i < m.n * m.n; ++i)

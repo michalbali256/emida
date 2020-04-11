@@ -85,7 +85,7 @@ add_executable(emida
     src/main.cpp
 )
 
-target_link_libraries(emida emida_lib)
+target_link_libraries(emida emida_lib lzma stdc++fs z)
 
 
 add_executable(emida_test
@@ -94,7 +94,9 @@ add_executable(emida_test
 
 target_link_libraries(emida_test emida_lib
     debug tiffd
-    optimized tiff)
+    optimized tiff
+    lzma stdc++fs z)
+
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
