@@ -14,10 +14,15 @@ inline std::string append_filename(const std::string& dir, const std::string& fi
 	return (std::filesystem::path(dir) / file_name).string();
 }
 
-inline std::vector<std::vector<vec2<double>>> process_files(const std::string & initial_dir, const std::string& deformed_dir, const std::string& out_dir, vec2<size_t> size)
+inline std::vector<std::vector<vec2<double>>> process_files(
+	const std::string& initial_dir,
+	const std::string& deformed_dir,
+	const std::string* out_dir,
+	range files_range,
+	size2_t one_size,
+	size2_t cross_size)
 {
 	stopwatch sw(true, 3);
-	vec2<size_t> one_size = { 873, 873 };
 	vec2<size_t> slice_size = { 64, 64 };
 	auto slice_begins = get_slice_begins(one_size, slice_size, { 32, 32 });
 
@@ -30,15 +35,15 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 	std::string initial_prefix = append_filename(initial_dir, "INITIAL_");
 	std::string deformed_prefix = append_filename(deformed_dir, "DEFORMED_");
 	std::string out_prefix;
-	if(out_dir != "")
-		out_prefix = append_filename(out_dir, "OUT_");
+	if(out_dir)
+		out_prefix = append_filename(*out_dir, "OUT_");
 
-	gpu_offset<double> offs(slice_size, { 15, 15 }, slice_begins.size());
+	gpu_offset<double> offs(slice_size, cross_size, slice_begins.size());
 	offs.allocate_memory();
 
-	for (size_t j = 0; j < size.y; ++j)
+	for (size_t j = files_range.begin.y; j < files_range.end.y; ++j)
 	{
-		for (size_t i = 0; i < size.x; ++i)
+		for (size_t i = files_range.begin.x; i < files_range.end.x; ++i)
 		{
 			size_t x = i * 60 + (j % 2 * 30);
 			size_t y = j * sqrt(0.75) * 60;
@@ -57,7 +62,7 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 			auto offsets = offs.get_offset(initial_slices.data(), deformed_slices.data());
 			sw.tick("Get offset: ", 2);
 
-			if (out_dir != "")
+			if (out_dir)
 				draw_tiff(deformed_raster.data(), one_size, out_prefix + file_suffix, offsets, slice_mids);
 			sw.tick("Draw tiff: ", 2);
 
@@ -68,9 +73,9 @@ inline std::vector<std::vector<vec2<double>>> process_files(const std::string & 
 
 	}
 	sw.total();
-	std::cout << "Border X: " << stopwatch::stats.border.x << "\n";
-	std::cout << "Border Y: " << stopwatch::stats.border.y << "\n";
-	std::cout << "Total pics: " << stopwatch::stats.total_pics << "\n";
+	std::cerr << "Border X: " << stopwatch::stats.border.x << "\n";
+	std::cerr << "Border Y: " << stopwatch::stats.border.y << "\n";
+	std::cerr << "Total pics: " << stopwatch::stats.total_pics << "\n";
 	return res;
 }
 

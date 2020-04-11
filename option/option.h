@@ -9,6 +9,7 @@
 #include <locale>
 #include <algorithm>
 #include <unordered_map>
+#include <deque>
 
 namespace mbas
 {
@@ -73,7 +74,13 @@ namespace mbas
 
 		const std::string& name() { return name_; }
 
-		const std::vector<std::unique_ptr<parsed_param_base>> & params() const { return params_; }
+		const std::vector<std::unique_ptr<parsed_param_base>>& params() const { return params_; }
+
+		template<typename T>
+		const T& get_value() const
+		{
+			return params_[0]->get_value<T>();
+		}
 
 		//false, iff at least one of parameters of option could not be parsed (its parse_ok is false)
 		bool parse_ok() const { return p_ok_; }
@@ -101,12 +108,17 @@ namespace mbas
 
 	class parsed_args
 	{
+		std::unordered_map<std::string, parsed_option*> options_mapping_;
+		std::deque<parsed_option> options_;
+
+		std::vector<std::string> plain_arguments_;
+		bool p_ok_;
 	public:
 
-		parsed_args(std::unordered_map<std::string, parsed_option *> options_mapping, std::vector<parsed_option> options, std::vector<std::string> plain_arguments, bool parse_ok)
+		parsed_args(std::unordered_map<std::string, parsed_option *> options_mapping, std::deque<parsed_option> options, std::vector<std::string> plain_arguments, bool parse_ok)
 			: options_mapping_(std::move(options_mapping)), options_(std::move(options)), plain_arguments_(std::move(plain_arguments)), p_ok_(parse_ok) {}
 
-		using const_iterator = std::vector<parsed_option>::const_iterator;
+		using const_iterator = decltype(options_)::const_iterator;
 
 		//gets the list of all plain arguments
 		const std::vector<std::string>& plain_args() const { return plain_arguments_; }
@@ -132,14 +144,6 @@ namespace mbas
 
 		//false, iff there was any parsing error
 		bool parse_ok() const { return p_ok_; }
-
-	private:
-
-		std::unordered_map<std::string, parsed_option *> options_mapping_;
-		std::vector<parsed_option> options_;
-		
-		std::vector<std::string> plain_arguments_;
-		bool p_ok_;
 	};
 
 	//templated class that indicates the expected data type of argument.
@@ -356,6 +360,14 @@ namespace mbas
 				return *this;
 			}
 
+			//adds option with a parameter and optional indication
+			template <typename T>
+			option_adder& operator()(std::string names, const  std::string description, value_type<T>, std::string param_name, bool optional)
+			{
+				owner_.add_option<T>(std::move(names), std::move(description), optional, { parameter<T>(std::move(param_name)) });
+				return *this;
+			}
+
 			//adds bare option
 			option_adder& operator()(std::string names, const std::string description)
 			{
@@ -491,7 +503,7 @@ namespace mbas
 		{
 			const command* cmd;
 			std::unordered_map<std::string, parsed_option*> options_mapping;
-			std::vector<parsed_option> options;
+			std::deque<parsed_option> options;
 			std::vector<std::string> plain_args;
 
 			bool parse_ok = true;

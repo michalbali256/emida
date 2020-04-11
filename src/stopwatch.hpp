@@ -78,7 +78,7 @@ private:
 	void write_duration(const std::string & label, time_point start, time_point end, int level)
 	{
 		auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-		std::cout << indentation_[level < 0 ? 0 : level + bonus_indent_] << label << std::to_string(dur.count() / 1000.0) << " ms" << "\n";
+		std::cerr << indentation_[level < 0 ? 0 : level + bonus_indent_] << label << std::to_string(dur.count() / 1000.0) << " ms" << "\n";
 	}
 };
 

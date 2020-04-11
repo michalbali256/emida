@@ -177,4 +177,10 @@ struct vec2
 
 using size2_t = vec2<size_t>;
 
+struct range
+{
+	size2_t begin;
+	size2_t end;
+};
+
 }
