@@ -8,7 +8,7 @@
 #include "slice_picture.hpp"
 
 namespace mbas {
-template<int max>
+template<std::size_t max>
 bool get_ints(const std::string& value, std::array<size_t, max>& result)
 {
 	std::string token;

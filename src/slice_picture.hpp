@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #include "common.hpp"
 
 namespace emida
