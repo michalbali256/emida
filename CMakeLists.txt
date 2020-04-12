@@ -5,8 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(GLOBAL_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+
 include(ExternalProject)
 
+if(UNIX)
+  find_package(ZLIB REQUIRED)
+  find_package(LibLZMA REQUIRED)
+endif()
 
 ExternalProject_Add(tiff_project
   GIT_REPOSITORY https://gitlab.com/libtiff/libtiff.git
@@ -20,7 +26,7 @@ ExternalProject_Add(tiff_project
   BUILD_BYPRODUCTS ${TIFF_STATIC_LIBS}
 )
 
-link_directories(${CMAKE_BINARY_DIR}/externals/libtiff/lib)
+link_directories(${CMAKE_BINARY_DIR}/externals/libtiff/lib ${CMAKE_BINARY_DIR}/externals/libtiff/lib64)
 include_directories(${CMAKE_BINARY_DIR}/externals/libtiff/include)
 
 
@@ -60,9 +66,13 @@ set(CMAKE_CUDA_SEPARABLE_COMPILATION On)
 
 
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-message(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 include_directories(${CMAKE_SOURCE_DIR}/option)
 
+
+set(FILESYSTEM_LIB "")
+if(CMAKE_COMPILER_IS_GNUCXX AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9"))
+    set(FILESYSTEM_LIB "stdc++fs")
+endif()
 
 file(GLOB_RECURSE CPP_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "src/*.cpp")
 file(GLOB_RECURSE CUDA_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "src/*.cu")
@@ -77,30 +87,37 @@ add_library(emida_lib STATIC
 add_dependencies(emida_lib tiff_project)
 target_link_libraries(emida_lib
     debug tiffd
-    optimized tiff)
+    optimized tiff
+    ${FILESYSTEM_LIB}
+)
+if(UNIX)
+    target_link_libraries(emida_lib
+        ${ZLIB_LIBRARIES}
+        ${LIBLZMA_LIBRARIES}
+    )
+endif()
 
 target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_60,code=compute_60>)
+
 
 add_executable(emida
     src/main.cpp
 )
-
-target_link_libraries(emida emida_lib lzma stdc++fs z)
+target_link_libraries(emida emida_lib)
 
 
 add_executable(emida_test
     ${TEST_SOURCES}
 )
-
 target_link_libraries(emida_test emida_lib
     debug tiffd
     optimized tiff
-    lzma stdc++fs z)
+)
 
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
-                       ${CMAKE_SOURCE_DIR}/test/res ${CMAKE_BINARY_DIR}/test/res/)
+                       ${CMAKE_SOURCE_DIR}/test/res ${GLOBAL_OUTPUT_PATH}/test/res/)
 add_dependencies(emida_test emida_test_data_copy)
 
 target_include_directories(emida_test PUBLIC ${CMAKE_SOURCE_DIR}/src/)
