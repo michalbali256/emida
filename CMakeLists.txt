@@ -5,7 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(GLOBAL_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include(ExternalProject)
 
@@ -117,7 +119,7 @@ target_link_libraries(emida_test emida_lib
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
-                       ${CMAKE_SOURCE_DIR}/test/res ${GLOBAL_OUTPUT_PATH}/test/res/)
+                       ${CMAKE_SOURCE_DIR}/test/res ${CMAKE_SOURCE_DIR}/bin/test/res/)
 add_dependencies(emida_test emida_test_data_copy)
 
 target_include_directories(emida_test PUBLIC ${CMAKE_SOURCE_DIR}/src/)
