@@ -25,8 +25,8 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 	
 
 	std::vector<std::vector<vec2<double>>> res;
-	std::string initial_prefix = append_filename(a.initial_dir, "INITIAL_");
-	std::string deformed_prefix = append_filename(a.deformed_dir, "DEFORMED_");
+	std::string initial_prefix = append_filename(a.initial_dir, a.initial_prefix);
+	std::string deformed_prefix = append_filename(a.deformed_dir, a.deformed_prefix);
 	std::string out_prefix;
 	if(a.out_dir)
 		out_prefix = append_filename(*a.out_dir, "OUT_");

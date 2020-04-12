@@ -89,6 +89,8 @@ bool params::parse(int argc, char** argv)
 	cmd.add_options()
 		("i,initial", "Path to folder with initial undeformed pictures.", value_type<std::string>(), "FOLDER", false)
 		("d,deformed", "Path to folder with deformed pictures.", value_type<std::string>(), "FOLDER", false)
+		("initprefix", "Prefix of files in the initial pictures folder. Default value: INITIAL_", value_type<std::string>(), "PREFIX")
+		("deformprefix", "Prefix of files in the deformed pictures folder. Default value: DEFORMED_", value_type<std::string>(), "PREFIX")
 		("o,outpics", "If specified, the program will write offsets into pictures and save them in specified folder.", value_type<std::string>(), "FOLDER")
 		("r,range", "Defines a range of pictures to be compared", value_type<range>(), "X_BEGIN,Y_BEGIN,X_END,Y_END", false)
 		("c,crosssize", "Size of neighbourhood that is analyzed in each slice of picture. Must be odd numbers.", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
@@ -119,7 +121,16 @@ bool params::parse(int argc, char** argv)
 		out_dir = parsed["outpics"]->get_value<std::string>();
 	files_range = parsed["range"]->get_value<range>();
 
+	if (parsed["initprefix"])
+		initial_prefix = parsed["initprefix"]->get_value <std::string> ();
+	else
+		initial_prefix = "INITIAL_";
 	
+	if (parsed["deformprefix"])
+		deformed_prefix = parsed["deformprefix"]->get_value <std::string>();
+	else
+		deformed_prefix = "DEFORMED_";
+
 	if (parsed["picsize"])
 		pic_size = parsed["picsize"]->get_value<size2_t>();
 	else
