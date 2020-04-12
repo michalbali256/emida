@@ -11,6 +11,27 @@ struct stats
 {
 	inline static size_t total_pics = 0;
 	inline static size2_t border = { 0, 0 };
+	vec2<std::vector<size_t>> histogram = {std::vector<size_t>(100), std::vector<size_t>(100) };
+
+	void inc_histogram(const std::vector<vec2<double>>& offsets)
+	{
+		for (const auto& off : offsets)
+		{
+			if (off.x < histogram.x.size())
+				++histogram.x[(size_t)abs(off.x)];
+			if (off.y < histogram.y.size())
+				++histogram.y[(size_t)abs(off.y)];
+		}
+	}
+
+	void write_histogram()
+	{
+		for (size_t i = 0; i < histogram.x.size(); ++i)
+			std::cerr << i << ": " << histogram.x[i] << "\n";
+		std::cerr << "\n";
+		for (size_t i = 0; i < histogram.y.size(); ++i)
+			std::cerr << i << ": " << histogram.y[i] << "\n";
+	}
 };
 
 class stopwatch
@@ -31,7 +52,7 @@ public:
 	
 	void tick(const std::string& label)
 	{
-		tick(label, start_.size() - 1);
+		tick(label, (int)start_.size() - 1);
 	}
 
 	void tick(const std::string& label, int level)

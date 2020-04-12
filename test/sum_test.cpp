@@ -48,7 +48,7 @@ TEST(sums, size_1333x3)
 	data.resize(3999);
 	double mom = 0;
 	for (size_t i = 0; i < data.size(); ++i)
-		data[i] = i;
+		data[i] = (double)i;
 	
 	auto sums = do_sums(data, 1333, 3);
 
@@ -64,7 +64,7 @@ TEST(sums, size_4096x2)
 	data.resize(8192);
 	double mom = 0;
 	for (size_t i = 0; i < data.size(); ++i)
-		data[i] = i;
+		data[i] = (double)i;
 
 	auto sums = do_sums(data, 4096, 2);
 

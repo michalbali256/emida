@@ -64,8 +64,9 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 				draw_tiff(deformed_raster.data(), a.pic_size, out_prefix + file_suffix, offsets, slice_mids);
 			sw.tick("Draw tiff: ", 2);
 
-			
-			
+			if (a.analysis)
+				stopwatch::global_stats.inc_histogram(offsets);
+
 
 			std::cout << "x" << x << "y" << y << "\n";
 			for(size_t i = 0; i < offsets.size(); ++i)
@@ -85,6 +86,7 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 		std::cerr << "Border X: " << stopwatch::global_stats.border.x << "\n";
 		std::cerr << "Border Y: " << stopwatch::global_stats.border.y << "\n";
 		std::cerr << "Total pics: " << stopwatch::global_stats.total_pics << "\n";
+		stopwatch::global_stats.write_histogram();
 	}
 	return res;
 }

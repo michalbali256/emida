@@ -1,5 +1,6 @@
 #pragma once
 #include <cassert>
+#include <cmath>
 
 #include "tiffio.h"
 
@@ -13,7 +14,7 @@ void draw_vector(T* pic, size2_t size, vec2<double> vector, size2_t vector_pos, 
 {
 	for (double d = 0; d < 1; d += 0.05)
 	{
-		size2_t point = { vector_pos.x + d * vector.x, vector_pos.y + d * vector.y };
+		size2_t point = { vector_pos.x + (int)round(d * vector.x), vector_pos.y + (int)round(d * vector.y) };
 		if(point.x >= 0 && point.x < size.x && point.y >= 0 && point.y < size.y)
 			pic[point.pos(size.x)] = color;
 	}
