@@ -6,6 +6,7 @@
 #include "option.h"
 
 #include "slice_picture.hpp"
+#include "stopwatch.hpp"
 
 namespace mbas {
 template<std::size_t max>
@@ -98,7 +99,7 @@ bool params::parse(int argc, char** argv)
 		("s,slicesize", "Size of slices of pictures that are to be compared", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("slicestep", "If slicepos not specified, specifies density of slices", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("b,slicepos", "Path to file with positions of slices in each picture", value_type<std::string>(), "FILE_PATH")
-		//("a,analysis", "Output analysis results")
+		("a,analysis", "The application will write time measurements and statistics about processed files to standard error output.")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 
 	auto parsed = cmd.parse(argc, argv);
@@ -160,8 +161,11 @@ bool params::parse(int argc, char** argv)
 		if (parsed["slicestep"])
 			step = parsed["slicestep"]->get_value<size2_t>();
 		slice_begins = get_slice_begins(pic_size, slice_size, step);
+	
 	}
 
+	analysis = parsed["analysis"] ? true : false;
+	stopwatch::global_activate = analysis;
 	return true;
 }
 

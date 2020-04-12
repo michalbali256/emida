@@ -24,6 +24,7 @@ struct params
 	size2_t cross_size;
 	size2_t slice_size = { 64, 64 };
 	std::vector<size2_t> slice_begins;
+	bool analysis = false;
 };
 
 

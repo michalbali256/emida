@@ -20,7 +20,7 @@ public:
 		: stopwatch(true, 2){}
 
 	stopwatch(bool activate, size_t levels = 2, int bonus_indent = 0)
-		: active_(activate)
+		: active_(activate && global_activate)
 		, start_(levels)
 		, bonus_indent_(bonus_indent)
 	{
@@ -55,6 +55,7 @@ public:
 	}
 	
 	inline static stats global_stats;
+	inline static bool global_activate;
 
 private:
 	inline static const std::string total_ = "TOTAL: ";
