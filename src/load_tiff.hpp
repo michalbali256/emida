@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <iostream>
 
 #include "tiffio.h"
 
@@ -9,21 +10,27 @@
 namespace emida
 {
 
-inline void load_tiff(const std::string & file_name, uint16_t * raster, vec2<size_t> size)
+inline bool load_tiff(const std::string & file_name, uint16_t * raster, vec2<size_t> size)
 {
-	//error checking?
 	TIFF* tif = TIFFOpen(file_name.c_str(), "r");
+	if (!tif)
+		return false; //message is already written by libtiff
+	
 	uint32 w, h;
 	TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
 	TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
 	if (w != size.x || h != size.y)
-		throw std::runtime_error("The size of " + file_name + " is different than specified size.");
+	{
+		std::cerr << "The size of " + file_name + " is different than specified size " << size.x << "," << size.y << "\n";
+		return false;
+	}
 	uint16 orient;
 	TIFFGetField(tif, TIFFTAG_ORIENTATION, &orient);
 	if (orient != ORIENTATION_TOPLEFT)
 	{
-		throw std::runtime_error("The orientation of '" + file_name +
-			"' is wrong, only able to process row 0 TOP, col 0 LEFT ortientation.");
+		std::cerr << "The orientation of '" << file_name <<
+			"' is wrong, only able to process row 0 TOP, col 0 LEFT ortientation.\n";
+		return false;
 	}
 
 	size_t npixels = w * h;
@@ -40,6 +47,8 @@ inline void load_tiff(const std::string & file_name, uint16_t * raster, vec2<siz
 		next_strip_dst += bc[i] / sizeof(uint16_t);
 	}
 	TIFFClose(tif);
+
+	return true;
 }
 
 

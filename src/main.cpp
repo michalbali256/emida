@@ -13,8 +13,15 @@ int main(int argc, char ** argv)
 	if (!a.parse(argc, argv))
 		return 1;
 
-	auto offsets = emida::process_files(a);
-
+	try
+	{
+		emida::process_files(a);
+	}
+	catch (std::runtime_error & e)
+	{
+		std::cout << "Error: " << e.what() << "\n";
+		return 1;
+	}
 	/*for (const auto & offset_list : offsets)
 	{
 		for(auto off : offset_list)

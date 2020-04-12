@@ -74,6 +74,7 @@ Following options are mandatory:
 - `-p,--picsize` specifies size of input initial and deformed tiff pictures. All pictures should have the same size.
 
 Optional options:
+- `--initprefix` and `--deformprefix` specify the base file names of initial and deformed pictures. By default `INITIAL_` and `DEFORMED_`.
 - `-o,--outpics` specifies folder to which pictures with resulting offsets will be written.
 - `-s,--slicesize` specifies size of parts of pictures that will be cross-correlated against each other - slices. Default is 64,64.
 - `-c,--crosssize` specifies size of neigbourhood of picture's center that will be analysed with cross correlation in the form X_SIZE,Y_SIZE. Both X_SIZE and Y_SIZE must be odd numbers. Small neighbourhood is faster to compute, but you may miss the best offset fit. Bigger neighbourhoods are faster to compute. By default, it is `2*slicesize-1`, so the cross correlation is done on whole slice.

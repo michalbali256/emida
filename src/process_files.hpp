@@ -46,9 +46,12 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 
 			std::vector<uint16_t> initial_raster(a.pic_size.area());
 			std::vector<uint16_t> deformed_raster(a.pic_size.area());
-			load_tiff(initial_prefix + file_suffix, initial_raster.data(), a.pic_size);
-			load_tiff(deformed_prefix + file_suffix, deformed_raster.data(), a.pic_size); sw.tick("Load tiff: ", 2);
-
+			bool OK = true;
+			OK &= load_tiff(initial_prefix + file_suffix, initial_raster.data(), a.pic_size);
+			OK &= load_tiff(deformed_prefix + file_suffix, deformed_raster.data(), a.pic_size); sw.tick("Load tiff: ", 2);
+			if (!OK)
+				continue;
+			
 
 			auto initial_slices = get_pics<double>(initial_raster.data(), a.pic_size, a.slice_begins, a.slice_size);
 			auto deformed_slices = get_pics<double>(deformed_raster.data(), a.pic_size, a.slice_begins, a.slice_size);
