@@ -17,7 +17,7 @@ jobs:
           update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 200
           update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 200
       - name: Configure
-        run: mkdir build && cd build && cmake ../
+        run: mkdir build && cd build && cmake -DCMAKE_C_COMPILER=gcc ../
       - name: Build
         run: cd build && cmake --build . -- -j 4
       - name: Upload Emida
