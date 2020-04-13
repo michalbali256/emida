@@ -1,0 +1,32 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  gnu:
+      name: GNU build
+      runs-on: ubuntu-18.04
+      container:
+        image: nvidia/cuda:10.2-devel-ubuntu18.04
+      
+      steps:
+      - uses: actions/checkout@v1
+      - name: Requirements install
+        run: apt-get update && apt-get install -y liblzma-dev libz-dev g++-8 cmake git
+      - name: Set g++-8
+        run: |
+          update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 200
+          update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 200
+      - name: Configure
+        run: mkdir build && cd build && cmake -DCMAKE_C_COMPILER=gcc ../
+      - name: Build
+        run: cd build && cmake --build . -- -j 4
+      - name: Upload Emida
+        uses: actions/upload-artifact@v1
+        with:
+          name: emida
+          path: build/bin/emida
+      - name: Upload emida_test
+        uses: actions/upload-artifact@v1
+        with:
+          name: emida_test
+          path: build/bin/emida_test
