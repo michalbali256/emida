@@ -54,6 +54,7 @@ public:
 		cu_sums_pic_ = cuda_malloc<T>(b_size_);
 		cu_sums_temp_ = cuda_malloc<T>(b_size_);
 
+
 		auto hann_x = generate_hanning<T>(size_.x);
 		auto hann_y = generate_hanning<T>(size_.y);
 

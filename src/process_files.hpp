@@ -44,7 +44,8 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 			size_t y = j * sqrt(0.75) * 60;
 			std::string file_suffix = "x" + std::to_string(x) + "y" + std::to_string(y) + ".tif";
 
-			std::vector<uint16_t> initial_raster(a.pic_size.area());
+			//TODO: allocate cuda host memory to avoid copying the data twice
+			std::vector<uint16_t> initial_raster(a.pic_size.area()); 
 			std::vector<uint16_t> deformed_raster(a.pic_size.area());
 			bool OK = true;
 			OK &= load_tiff(initial_prefix + file_suffix, initial_raster.data(), a.pic_size);
@@ -52,7 +53,7 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 			if (!OK)
 				continue;
 			
-
+			//TODO: create version where the slicing is done on GPU
 			auto initial_slices = get_pics<double>(initial_raster.data(), a.pic_size, a.slice_begins, a.slice_size);
 			auto deformed_slices = get_pics<double>(deformed_raster.data(), a.pic_size, a.slice_begins, a.slice_size);
 			sw.tick("Create slices: ", 2);
