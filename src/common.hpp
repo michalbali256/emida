@@ -175,7 +175,7 @@ struct vec2
 		return { x / rhs, y / rhs };
 	}
 
-	size_t pos(size_t cols) const { return y * cols + x; }
+	__host__ __device__ size_t pos(size_t cols) const { return y * cols + x; }
 };
 
 using size2_t = vec2<size_t>;

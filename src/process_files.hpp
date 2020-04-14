@@ -41,7 +41,7 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 		for (size_t i = a.files_range.begin.x; i < a.files_range.end.x; ++i)
 		{
 			size_t x = i * 60 + (j % 2 * 30);
-			size_t y = j * sqrt(0.75) * 60;
+			size_t y =(size_t)(j * sqrt(0.75) * 60);
 			std::string file_suffix = "x" + std::to_string(x) + "y" + std::to_string(y) + ".tif";
 
 			//TODO: allocate cuda host memory to avoid copying the data twice

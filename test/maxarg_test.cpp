@@ -9,7 +9,7 @@ TEST(extract_neighbors, size_5x5)
 {
 	std::vector<double> v(25);
 	for (size_t i = 0; i < v.size(); ++i)
-		v[i] = i;
+		v[i] = (double)i;
 	double * cu_data = vector_to_device(v);
 	
 	double* cu_neigh;
@@ -32,7 +32,7 @@ TEST(extract_neighbors, size_5x5x2)
 {
 	std::vector<double> v(50);
 	for (size_t i = 0; i < v.size(); ++i)
-		v[i] = i;
+		v[i] = (double) i;
 	double* cu_data = vector_to_device(v);
 
 	double* cu_neigh;

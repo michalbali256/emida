@@ -18,8 +18,6 @@ template<typename T>
 __global__ void sum(const T* data, T * maxes, size_t size)
 {
 	extern __shared__ T sdata[];
-
-	size_t tid = threadIdx.x;
 	
 	//number of blocks we need to process one picture
 	size_t one_pic_blocks = div_up(size, blockDim.x);
@@ -34,26 +32,26 @@ __global__ void sum(const T* data, T * maxes, size_t size)
 		&& size % blockDim.x != 0
 		&& threadIdx.x >= size % blockDim.x)
 	{
-		sdata[tid] = 0;
+		sdata[threadIdx.x] = 0;
 	}
 	else
-		sdata[tid] = data[i];
+		sdata[threadIdx.x] = data[i];
 	
-	if (tid == 0 && pic_block == 0)
+	if (threadIdx.x == 0 && pic_block == 0)
 		maxes[pic_num] = 0;
 
 	__syncthreads();
 
 	for (size_t s = blockDim.x / 2; s > 0; s >>= 1)
 	{
-		if (tid < s)
+		if (threadIdx.x < s)
 		{
-			sdata[tid] += sdata[tid + s];
+			sdata[threadIdx.x] += sdata[threadIdx.x + s];
 		}
 		__syncthreads();
 	}
 	
-	if (tid == 0)
+	if (threadIdx.x == 0)
 		atomicAdd(&maxes[pic_num], sdata[0]);
 }
 
@@ -67,5 +65,63 @@ void run_sum(const T* data, T * sums, size_t size, size_t batch_size)
 }
 
 template void run_sum<double>(const double* data, double * sums, size_t size, size_t batch_size);
+
+
+template<typename T>
+__global__ void sum(const T* data, T* sums, const size2_t* begins, size2_t src_size, size2_t slice_size)
+{
+	extern __shared__ T sdata[];
+
+	//number of blocks we need to process one picture
+	size_t one_pic_blocks = div_up(slice_size.area(), blockDim.x);
+	size_t slice_num = blockIdx.x / one_pic_blocks;
+	size_t slice_block = blockIdx.x % one_pic_blocks;
+
+	//if this is the last block that processes one picture(chunk)
+	//and this thread would process sth out of the picture, just load zero
+
+	
+	if (blockIdx.x % one_pic_blocks == one_pic_blocks - 1
+		&& slice_size.area() % blockDim.x != 0
+		&& threadIdx.x >= slice_size.area() % blockDim.x)
+	{
+		sdata[threadIdx.x] = 0;
+	}
+	else
+	{
+		size_t slice_i = slice_block * blockDim.x + threadIdx.x;
+		size2_t slice_pos = { slice_i % slice_size.x, slice_i / slice_size.x };
+		size2_t src_pos = begins[slice_num] + slice_pos;
+
+		sdata[threadIdx.x] = data[src_pos.pos(src_size.x)];
+	}
+	if (threadIdx.x == 0 && slice_block == 0)
+		sums[slice_num] = 0;
+
+	__syncthreads();
+
+	for (size_t s = blockDim.x / 2; s > 0; s >>= 1)
+	{
+		if (threadIdx.x < s)
+		{
+			sdata[threadIdx.x] += sdata[threadIdx.x + s];
+		}
+		__syncthreads();
+	}
+
+	if (threadIdx.x == 0)
+		atomicAdd(&sums[slice_num], sdata[0]);
+}
+
+template<typename T>
+void run_sum(const T* data, T* sums, const size2_t * begins, size2_t src_size, size2_t slice_size, size_t batch_size)
+{
+	size_t block_size = 1024;
+	size_t one_pic_blocks = div_up(slice_size.area(), block_size);
+	size_t grid_size = one_pic_blocks * batch_size;
+	sum<T> <<<grid_size, block_size, block_size * sizeof(T) >>> (data, sums, begins, src_size, slice_size);
+}
+
+template void run_sum<double>(const double* data, double* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
 
 }

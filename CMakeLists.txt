@@ -119,7 +119,7 @@ target_link_libraries(emida_test emida_lib
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
-                       ${CMAKE_SOURCE_DIR}/test/res ${CMAKE_SOURCE_DIR}/bin/test/res/)
+                       ${CMAKE_SOURCE_DIR}/test/res ${CMAKE_BINARY_DIR}/bin/test/res/)
 add_dependencies(emida_test emida_test_data_copy)
 
 target_include_directories(emida_test PUBLIC ${CMAKE_SOURCE_DIR}/src/)

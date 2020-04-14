@@ -50,7 +50,7 @@ void draw_tiff(T * pic, size2_t size, std::string file_name, std::vector<vec2<do
 	
 
 	
-	for (size_t y = 0; y < size.y; ++y)
+	for (uint32_t y = 0; y < size.y; ++y)
 	{
 		TIFFWriteScanline(tif, rgb_picture.data() + y * size.x, y);
 	}
