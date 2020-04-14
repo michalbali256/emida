@@ -6,6 +6,7 @@
 
 #ifdef __INTELLISENSE__
 void __syncthreads() {};
+#include "device_launch_parameters.h"
 
 #endif
 
@@ -17,6 +18,18 @@ void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size,
 
 template<typename T>
 void run_prepare_pics(T* pic, const T* hanning_x, const T* hanning_y, const T* sums, size2_t size, size_t batch_size);
+
+template<typename IN, typename OUT>
+void run_prepare_pics(
+	const IN* pic,
+	OUT* slices,
+	const OUT* hanning_x,
+	const OUT* hanning_y,
+	const IN* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size_t batch_size);
 
 template<typename T>
 void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t block_size, size_t batch_size);

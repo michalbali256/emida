@@ -5,6 +5,7 @@
 #include "maxarg_host.hpp"
 #include "get_offset.hpp"
 #include "double_compare.hpp"
+#include "sums_serial.hpp"
 
 using namespace emida;
 
@@ -91,19 +92,18 @@ TEST(sums, size_1333x3)
 	EXPECT_EQ(sums[2], (2666 + 3998) * 1333 / 2);
 }
 
-class sums_slice_fixture :public ::testing::TestWithParam<std::tuple<size2_t, size2_t, std::vector<size2_t>>> {
+class sums_slice_fixture : public ::testing::TestWithParam<std::tuple<size2_t, size2_t, std::vector<size2_t>>> {
 
 };
 
 INSTANTIATE_TEST_SUITE_P(
-	sums_slicee,
+	sum_slice,
 	sums_slice_fixture,
 	::testing::Values(
 		std::make_tuple < size2_t, size2_t, std::vector<size2_t>>({ 31,43 }, { 29,40 }, { { 0, 0 }, { 1, 1 } }),
 		std::make_tuple < size2_t, size2_t, std::vector<size2_t>>({ 64,64 }, { 32,32 }, { { 0, 0 }, { 0, 16 }, { 16, 16 }, { 32, 32 } })
 	)
 );
-
 
 TEST_P(sums_slice_fixture, size_)
 {
@@ -119,16 +119,7 @@ TEST_P(sums_slice_fixture, size_)
 
 	auto sums = do_sums_slice(data, begins, src_size, slice_size);
 
-	std::vector<double> expected_sums(begins.size());
-	for (size_t i = 0; i < begins.size(); ++i)
-	{
-		for (size_t x = 0; x < slice_size.x; ++x)
-			for (size_t y = 0; y < slice_size.y; ++y)
-			{
-				size2_t from = begins[i] + size2_t{ x, y };
-				expected_sums[i] += data[from.pos(src_size.x)];
-			}
-	}
+	std::vector<double> expected_sums = sums_serial(data, begins, src_size, slice_size);
 
 	ASSERT_EQ(sums.size(), begins.size());
 	
