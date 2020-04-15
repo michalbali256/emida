@@ -12,6 +12,14 @@ void __syncthreads() {};
 
 namespace emida
 {
+template <typename T>
+__device__ T* shared_memory_proxy()
+{
+	// do we need an __align__() here? I don't think so...
+	extern __shared__ unsigned char memory[];
+	return reinterpret_cast<T*>(memory);
+}
+
 
 template<typename T, typename RES>
 void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size);
@@ -25,7 +33,7 @@ void run_prepare_pics(
 	OUT* slices,
 	const OUT* hanning_x,
 	const OUT* hanning_y,
-	const IN* sums,
+	const OUT* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
@@ -42,7 +50,7 @@ template<typename T>
 void run_sum(const T* data, T* sums, size_t size, size_t batch_size);
 
 //computes sums of slices of the same size with specified positions (begins) in a big picture (data)
-template<typename T>
-void run_sum(const T* data, T* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
+template<typename T, typename RES>
+void run_sum(const T* data, RES* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
 
 }

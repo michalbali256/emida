@@ -43,7 +43,7 @@ __global__ void prepare_pics(
 	OUT* __restrict slices,
 	const OUT* hanning_x,
 	const OUT* hanning_y,
-	const IN* sums,
+	const OUT* sums,
 	const size2_t * begins,
 	size2_t src_size,
 	size2_t slice_size,
@@ -74,7 +74,7 @@ void run_prepare_pics(
 	OUT* __restrict slices,
 	const OUT* hanning_x,
 	const OUT* hanning_y,
-	const IN* sums,
+	const OUT* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
@@ -87,11 +87,22 @@ void run_prepare_pics(
 
 
 template void run_prepare_pics<uint16_t, double>(
-	const uint16_t* __restrict__ pic,
-	double* __restrict slices,
+	const uint16_t* pic,
+	double* slices,
 	const double* hanning_x,
 	const double* hanning_y,
-	const uint16_t* sums,
+	const double* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size_t batch_size);
+
+template void run_prepare_pics<double, double>(
+	const double* pic,
+	double* slices,
+	const double* hanning_x,
+	const double* hanning_y,
+	const double* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,

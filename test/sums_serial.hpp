@@ -5,9 +5,9 @@
 namespace emida {
 
 template<typename T>
-std::vector<T> sums_serial(const std::vector<T>& data, const std::vector<size2_t>& begins, size2_t src_size, size2_t slice_size)
+std::vector<double> sums_serial(const std::vector<T>& data, const std::vector<size2_t>& begins, size2_t src_size, size2_t slice_size)
 {
-	std::vector<T> res(begins.size());
+	std::vector<double> res(begins.size());
 	for (size_t i = 0; i < begins.size(); ++i)
 	{
 		for (size_t x = 0; x < slice_size.x; ++x)

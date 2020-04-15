@@ -25,14 +25,14 @@ std::vector<double> do_prepare(std::vector<uint16_t> picture,
 	const std::vector<size2_t>& begins,
 	const std::vector<double>& window_x,
 	const std::vector<double>& window_y,
-	const std::vector<uint16_t>& sums,
+	const std::vector<double>& sums,
 	size2_t pic_size,
 	size2_t slice_size)
 {
 	double* cu_window_x = vector_to_device(window_x);
 	double* cu_window_y = vector_to_device(window_y);
 	uint16_t* cu_pic = vector_to_device(picture);
-	uint16_t* cu_sums = vector_to_device(sums);
+	double* cu_sums = vector_to_device(sums);
 	size2_t* cu_begins = vector_to_device(begins);
 	double* cu_slices = cuda_malloc<double>(begins.size() * slice_size.area());
 
@@ -57,7 +57,7 @@ TEST(prepare, no_window)
 	std::vector<double> window_y(src_size.y, 1);
 	size2_t slice_size = { 5, 3 };
 	std::vector<size2_t> begins = { {1,2}, {0, 1} };
-	std::vector<uint16_t> sums = sums_serial(picture, begins, src_size, slice_size);
+	std::vector<double> sums = sums_serial(picture, begins, src_size, slice_size);
 
 	auto slices = do_prepare(picture, begins, window_x, window_y, sums, src_size, slice_size);
 
@@ -92,7 +92,7 @@ TEST(prepare, window)
 	window_y[1] = 0.25;
 	size2_t slice_size = { 5, 3 };
 	std::vector<size2_t> begins = { {1,2}, {0, 1} };
-	std::vector<uint16_t> sums = sums_serial(picture, begins, src_size, slice_size);
+	std::vector<double> sums = sums_serial(picture, begins, src_size, slice_size);
 
 	auto slices = do_prepare(picture, begins, window_x, window_y, sums, src_size, slice_size);
 

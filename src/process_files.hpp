@@ -65,8 +65,11 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 
 
 			std::cout << "x" << x << "y" << y << "\n";
-			for(size_t i = 0; i < offsets.size(); ++i)
-				std::cout << a.slice_begins[i].x << " " << a.slice_begins[i].y << " " << offsets[i].x << " " << offsets[i].y << "\n";
+			for (size_t i = 0; i < offsets.size(); ++i)
+			{
+				printf("%llu %llu %f %f\n", a.slice_begins[i].x, a.slice_begins[i].y, offsets[i].x, offsets[i].y);
+				//std::cout << a.slice_begins[i].x << " " << a.slice_begins[i].y << " " << offsets[i].x << " " << offsets[i].y << "\n";
+			}
 			sw.tick("Write offsets: ", 2);
 
 			res.push_back(std::move(offsets));

@@ -17,7 +17,7 @@ namespace emida
 template<typename T>
 __global__ void sum(const T* data, T * maxes, size_t size)
 {
-	extern __shared__ T sdata[];
+	T* sdata = shared_memory_proxy<T>();
 	
 	//number of blocks we need to process one picture
 	size_t one_pic_blocks = div_up(size, blockDim.x);
@@ -67,10 +67,10 @@ void run_sum(const T* data, T * sums, size_t size, size_t batch_size)
 template void run_sum<double>(const double* data, double * sums, size_t size, size_t batch_size);
 
 
-template<typename T>
-__global__ void sum(const T* data, T* sums, const size2_t* begins, size2_t src_size, size2_t slice_size)
+template<typename T, typename RES>
+__global__ void sum(const T* data, RES* sums, const size2_t* begins, size2_t src_size, size2_t slice_size)
 {
-	extern __shared__ T sdata[];
+	T* sdata = shared_memory_proxy<T>();
 
 	//number of blocks we need to process one picture
 	size_t one_pic_blocks = div_up(slice_size.area(), blockDim.x);
@@ -113,8 +113,8 @@ __global__ void sum(const T* data, T* sums, const size2_t* begins, size2_t src_s
 		atomicAdd(&sums[slice_num], sdata[0]);
 }
 
-template<typename T>
-void run_sum(const T* data, T* sums, const size2_t * begins, size2_t src_size, size2_t slice_size, size_t batch_size)
+template<typename T, typename RES>
+void run_sum(const T* data, RES* sums, const size2_t * begins, size2_t src_size, size2_t slice_size, size_t batch_size)
 {
 	size_t block_size = 1024;
 	size_t one_pic_blocks = div_up(slice_size.area(), block_size);
@@ -122,6 +122,8 @@ void run_sum(const T* data, T* sums, const size2_t * begins, size2_t src_size, s
 	sum<T> <<<grid_size, block_size, block_size * sizeof(T) >>> (data, sums, begins, src_size, slice_size);
 }
 
-template void run_sum<double>(const double* data, double* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
+template void run_sum<double, double>(const double* data, double* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
+//template void run_sum<uint16_t, uint32_t>(const uint16_t* data, uint32_t* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
+template void run_sum<uint16_t, double>(const uint16_t* data, double* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
 
 }
