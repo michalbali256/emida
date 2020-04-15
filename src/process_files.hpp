@@ -31,7 +31,7 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 	if(a.out_dir)
 		out_prefix = append_filename(*a.out_dir, "OUT_");
 
-	gpu_offset<double> offs(a.slice_size, a.cross_size, a.slice_begins.size());
+	gpu_offset<double, uint16_t> offs(a.pic_size, &a.slice_begins, a.slice_size, a.cross_size);
 	offs.allocate_memory();
 
 	std::cout << a.slice_begins.size() << "\n";
@@ -52,13 +52,8 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 			OK &= load_tiff(deformed_prefix + file_suffix, deformed_raster.data(), a.pic_size); sw.tick("Load tiff: ", 2);
 			if (!OK)
 				continue;
-			
-			//TODO: create version where the slicing is done on GPU
-			auto initial_slices = get_pics<double>(initial_raster.data(), a.pic_size, a.slice_begins, a.slice_size);
-			auto deformed_slices = get_pics<double>(deformed_raster.data(), a.pic_size, a.slice_begins, a.slice_size);
-			sw.tick("Create slices: ", 2);
 
-			auto offsets = offs.get_offset(initial_slices.data(), deformed_slices.data());
+			auto offsets = offs.get_offset(deformed_raster.data(), initial_raster.data());
 			sw.tick("Get offset: ", 2);
 
 			if (a.out_dir)

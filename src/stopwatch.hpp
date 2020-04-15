@@ -17,9 +17,9 @@ struct stats
 	{
 		for (const auto& off : offsets)
 		{
-			if (off.x < histogram.x.size())
+			if (abs(off.x) < histogram.x.size())
 				++histogram.x[(size_t)abs(off.x)];
-			if (off.y < histogram.y.size())
+			if (abs(off.y) < histogram.y.size())
 				++histogram.y[(size_t)abs(off.y)];
 		}
 	}
@@ -73,6 +73,13 @@ public:
 		auto start = c.now();
 		for (size_t i = 0; i < start_.size(); ++i)
 			start_[i] = start;
+	}
+
+	void zero()
+	{
+		auto start = c.now();
+		for (auto & s: start_)
+			s = start;
 	}
 	
 	inline static stats global_stats;

@@ -5,18 +5,21 @@
 #include "kernels.cuh"
 #include "subtract_mean.hpp"
 #include "stopwatch.hpp"
+#include "slice_picture.hpp"
 
 namespace emida
 {
 
-template<typename T>
+template<typename T, typename IN>
 class gpu_offset
 {
 private:
+	//IN* cu_pic_in_;
+	//IN* cu_temp_in_;
 	T* cu_pic_;
 	T* cu_temp_;
-	T* cu_sums_pic_;
-	T* cu_sums_temp_;
+	IN* cu_sums_pic_;
+	IN* cu_sums_temp_;
 	T* cu_hann_x_;
 	T* cu_hann_y_;
 	T* cu_cross_res_;
@@ -24,10 +27,11 @@ private:
 	size2_t* cu_maxes_i_;
 	data_index<T>* cu_maxes_;
 
-	vec2<size_t> size_;
-	vec2<size_t> cross_size_;
+	size2_t src_size_;
+	const std::vector<size2_t>* begins_;
+	size2_t slice_size_;
+	size2_t cross_size_;
 	size_t b_size_;
-	size_t one_size_;
 	size_t neigh_size_;
 	size_t maxarg_block_size_ = 1024;
 	size_t maxarg_one_pic_blocks_;
@@ -35,28 +39,37 @@ private:
 
 	static constexpr int s = 3;
 	static constexpr int r = (s - 1) / 2;
+
+	mutable stopwatch sw;
 public:
-	gpu_offset(vec2<size_t> size, vec2<size_t> cross_size, size_t b_size)
-		: size_(size)
+	gpu_offset(size2_t src_size, const std::vector<size2_t>* begins, size2_t slice_size, size2_t cross_size)
+		: src_size_(src_size)
+		, begins_(begins)
+		, slice_size_(slice_size)
 		, cross_size_(cross_size)
-		, b_size_(b_size)
-		, one_size_(size_.area())
-		, neigh_size_(s * s * b_size)
+		, b_size_(begins->size())
+		, neigh_size_(s * s * b_size_)
 		, maxarg_one_pic_blocks_(div_up(cross_size.area(), maxarg_block_size_))
-		, maxarg_maxes_size_(maxarg_one_pic_blocks_* b_size)
+		, maxarg_maxes_size_(maxarg_one_pic_blocks_* b_size_)
+		, sw(true, 2, 2)
 	{}
+
+	void allocate_memory_prepare_old()
+	{
+		cu_pic_ = cuda_malloc<T>(slice_size_.area() * b_size_);
+		cu_temp_ = cuda_malloc<T>(slice_size_.area() * b_size_);
+
+		cu_sums_pic_ = (IN*) cuda_malloc<T>(b_size_);
+		cu_sums_temp_ = (IN*) cuda_malloc<T>(b_size_);
+	}
 
 	void allocate_memory()
 	{
-		cu_pic_ = cuda_malloc<T>(one_size_ * b_size_);
-		cu_temp_ = cuda_malloc<T>(one_size_ * b_size_);
-
-		cu_sums_pic_ = cuda_malloc<T>(b_size_);
-		cu_sums_temp_ = cuda_malloc<T>(b_size_);
+		allocate_memory_prepare_old();
 
 
-		auto hann_x = generate_hanning<T>(size_.x);
-		auto hann_y = generate_hanning<T>(size_.y);
+		auto hann_x = generate_hanning<T>(slice_size_.x);
+		auto hann_y = generate_hanning<T>(slice_size_.y);
 
 		cu_hann_x_ = vector_to_device(hann_x);
 		cu_hann_y_ = vector_to_device(hann_y);
@@ -75,27 +88,37 @@ public:
 
 	}
 
-	//gets two pictures with size cols x rows and returns subpixel offset between them
-	std::vector<vec2<T>> get_offset(T* pic, T* temp) const
+	//to be refactored....
+	void prepare_for_cross_old(IN* pic, IN* temp) const
 	{
-		stopwatch sw(true, 2, 2);
-		
-		copy_to_device(pic, one_size_ * b_size_, cu_pic_);
-		copy_to_device(temp, one_size_ * b_size_, cu_temp_); sw.tick("Temp and pic to device: ");
+		auto pic_slices = get_pics<T>(pic, src_size_, *begins_, slice_size_);
+		auto temp_slices = get_pics<T>(temp, src_size_, *begins_, slice_size_);
+		sw.tick("Create slices: ");
 
-		run_sum(cu_pic_, cu_sums_pic_, one_size_, b_size_);
-		run_sum(cu_temp_, cu_sums_temp_, one_size_, b_size_);
+		copy_to_device(pic_slices.data(), slice_size_.area() * b_size_, cu_pic_);
+		copy_to_device(temp_slices.data(), slice_size_.area() * b_size_, cu_temp_); sw.tick("Temp and pic to device: ");
+
+		run_sum(cu_pic_, (T*)cu_sums_pic_, slice_size_.area(), b_size_);
+		run_sum(cu_temp_, (T*)cu_sums_temp_, slice_size_.area(), b_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
 
-		run_prepare_pics(cu_pic_, cu_hann_x_, cu_hann_y_, cu_sums_pic_, size_, b_size_);
-		run_prepare_pics(cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, size_, b_size_);
+		run_prepare_pics(cu_pic_, cu_hann_x_, cu_hann_y_, (T*)cu_sums_pic_, slice_size_, b_size_);
+		run_prepare_pics(cu_temp_, cu_hann_x_, cu_hann_y_, (T*)cu_sums_temp_, slice_size_, b_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
+	}
 
-		run_cross_corr(cu_temp_, cu_pic_, cu_cross_res_, size_, cross_size_, b_size_);
+	//gets two pictures with size cols x rows and returns subpixel offset between them
+	std::vector<vec2<T>> get_offset(IN* pic, IN* temp) const
+	{
+		sw.zero();
+		
+		prepare_for_cross_old(pic, temp);
+
+		run_cross_corr(cu_temp_, cu_pic_, cu_cross_res_, slice_size_, cross_size_, b_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run cross corr: ");

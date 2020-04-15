@@ -68,7 +68,7 @@ TEST(get_offset, size64x64x1_cross3x3)
 	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
 	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
 
-	auto offset = get_offset<double>(a.data(), b.data(), size, { 3,3 }, 1);
+	auto offset = get_offset<double>(a.data(), b.data(), size, { 3,3 });
 
 	//results from test.py, first left topmost square
 	//precision 1e-14 is OK, 1e-15 is failing
@@ -87,7 +87,7 @@ TEST(get_offset, size64x64x1_cross5x5)
 	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
 	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
 
-	auto offset = get_offset<double>(a.data(), b.data(), size, { 5,5 }, 1);
+	auto offset = get_offset<double>(a.data(), b.data(), size, { 5,5 });
 
 	//results from test.py, first left topmost square
 	//precision 1e-14 is OK, 1e-15 is failing
@@ -105,10 +105,12 @@ TEST(get_offset, batched)
 	vec2<size_t> step{ 32, 32 };
 	size_t batch_size = get_sliced_batch_size(src_size, size, step);
 
-	auto a = slice_picture(pic.data.data(), src_size, size, step);
-	auto b = slice_picture(temp.data.data(), src_size, size, step);
+	auto begins = get_slice_begins(src_size, size, step);
 
-	auto offset = get_offset<double>(a.data(), b.data(), size, batch_size);
+	gpu_offset<double, double> offs(src_size, &begins, size, {127,127});
+	offs.allocate_memory();
+	auto offsets = offs.get_offset(pic.data.data(), temp.data.data());
+	
 
 	//precision 1e-13 is OK, 1e-14 is failing
 
@@ -166,7 +168,7 @@ TEST(get_offset, batched)
 	};
 
 
-	EXPECT_VEC_VECTORS_NEAR(offset, expected, 7e-14);
+	EXPECT_VEC_VECTORS_NEAR(offsets, expected, 7e-14);
 }
 
 #ifdef MEASURE_TIME
