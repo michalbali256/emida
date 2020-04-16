@@ -70,7 +70,7 @@ template void run_sum<double>(const double* data, double * sums, size_t size, si
 template<typename T, typename RES>
 __global__ void sum(const T* data, RES* sums, const size2_t* begins, size2_t src_size, size2_t slice_size)
 {
-	T* sdata = shared_memory_proxy<T>();
+	RES* sdata = shared_memory_proxy<RES>();
 
 	//number of blocks we need to process one picture
 	size_t one_pic_blocks = div_up(slice_size.area(), blockDim.x);
@@ -119,7 +119,7 @@ void run_sum(const T* data, RES* sums, const size2_t * begins, size2_t src_size,
 	size_t block_size = 1024;
 	size_t one_pic_blocks = div_up(slice_size.area(), block_size);
 	size_t grid_size = one_pic_blocks * batch_size;
-	sum<T> <<<grid_size, block_size, block_size * sizeof(T) >>> (data, sums, begins, src_size, slice_size);
+	sum<T, RES> <<<grid_size, block_size, block_size * sizeof(RES) >>> (data, sums, begins, src_size, slice_size);
 }
 
 template void run_sum<double, double>(const double* data, double* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
