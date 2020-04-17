@@ -12,9 +12,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include(ExternalProject)
 
 if(UNIX)
-  find_package(ZLIB REQUIRED)
-  find_package(LibLZMA REQUIRED)
-endif()
+  find_package(TIFF REQUIRED)
+else()
 
 ExternalProject_Add(tiff_project
   GIT_REPOSITORY https://gitlab.com/libtiff/libtiff.git
@@ -30,6 +29,8 @@ ExternalProject_Add(tiff_project
 
 link_directories(${CMAKE_BINARY_DIR}/externals/libtiff/lib ${CMAKE_BINARY_DIR}/externals/libtiff/lib64)
 include_directories(${CMAKE_BINARY_DIR}/externals/libtiff/include)
+
+endif()
 
 
 include(GoogleTest)
@@ -86,16 +87,17 @@ add_library(emida_lib STATIC
     ${CPP_SOURCES}
     ${CUDA_SOURCES}
 )
-add_dependencies(emida_lib tiff_project)
-target_link_libraries(emida_lib
-    debug tiffd
-    optimized tiff
-    ${FILESYSTEM_LIB}
-)
 if(UNIX)
     target_link_libraries(emida_lib
-        ${ZLIB_LIBRARIES}
-        ${LIBLZMA_LIBRARIES}
+	${TIFF_LIBRARIES}
+        ${FILESYSTEM_LIB}
+    )
+else()
+    add_dependencies(emida_lib tiff_project)
+    target_link_libraries(emida_lib
+        debug tiffd
+        optimized tiff
+        ${FILESYSTEM_LIB}
     )
 endif()
 
