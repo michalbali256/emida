@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(EMIDA LANGUAGES CXX CUDA)
+project(EMIDA LANGUAGES C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,27 +11,34 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include(ExternalProject)
 
-if(UNIX)
-  find_package(TIFF REQUIRED)
-else()
-
-ExternalProject_Add(tiff_project
-  GIT_REPOSITORY https://gitlab.com/libtiff/libtiff.git
-  GIT_TAG        v4.1.0
-  GIT_SHALLOW    On
-  PREFIX         externals/libtiff/
-  LOG_CONFIGURE ON
-  LOG_BUILD ON
-  CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DBUILD_SHARED_LIBS=Off -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-  INSTALL_COMMAND COMMAND "${CMAKE_COMMAND}" -P cmake_install.cmake
-  BUILD_BYPRODUCTS ${TIFF_STATIC_LIBS}
-)
-
-link_directories(${CMAKE_BINARY_DIR}/externals/libtiff/lib ${CMAKE_BINARY_DIR}/externals/libtiff/lib64)
-include_directories(${CMAKE_BINARY_DIR}/externals/libtiff/include)
-
+if(NOT DEFINED TIFF_FROM_SOURCE)
+    if(UNIX)
+        set(TIFF_FROM_SOURCE Off)
+    else()
+        set(TIFF_FROM_SOURCE On)
+    endif()
 endif()
 
+if(TIFF_FROM_SOURCE)
+    ExternalProject_Add(tiff_project
+      GIT_REPOSITORY https://gitlab.com/libtiff/libtiff.git
+      GIT_TAG        v4.1.0
+      GIT_SHALLOW    On
+      PREFIX         externals/libtiff/
+      LOG_CONFIGURE ON
+      LOG_BUILD ON
+      CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DBUILD_SHARED_LIBS=Off -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+      INSTALL_COMMAND COMMAND "${CMAKE_COMMAND}" -P cmake_install.cmake
+      BUILD_BYPRODUCTS ${TIFF_STATIC_LIBS}
+    )
+
+    link_directories(${CMAKE_BINARY_DIR}/externals/libtiff/lib ${CMAKE_BINARY_DIR}/externals/libtiff/lib64)
+    include_directories(${CMAKE_BINARY_DIR}/externals/libtiff/include)
+    set(TIFF_LIBRARIES debug tiffd optimized tiff)
+else()
+    find_package(TIFF REQUIRED)
+    include_directories(${TIFF_INCLUDE_DIR})
+endif()
 
 include(GoogleTest)
 # Download and unpack googletest at configure time
@@ -87,18 +94,14 @@ add_library(emida_lib STATIC
     ${CPP_SOURCES}
     ${CUDA_SOURCES}
 )
-if(UNIX)
-    target_link_libraries(emida_lib
+
+target_link_libraries(emida_lib
 	${TIFF_LIBRARIES}
-        ${FILESYSTEM_LIB}
+    ${FILESYSTEM_LIB}
     )
-else()
+
+if(TIFF_FROM_SOURCE)
     add_dependencies(emida_lib tiff_project)
-    target_link_libraries(emida_lib
-        debug tiffd
-        optimized tiff
-        ${FILESYSTEM_LIB}
-    )
 endif()
 
 target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_60,code=compute_60>)
@@ -114,8 +117,7 @@ add_executable(emida_test
     ${TEST_SOURCES}
 )
 target_link_libraries(emida_test emida_lib
-    debug tiffd
-    optimized tiff
+    ${TIFF_LIBRARIES}
 )
 
 
