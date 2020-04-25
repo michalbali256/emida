@@ -1,6 +1,6 @@
 #pragma once
 #include <filesystem>
-
+#include <fstream>
 #include "get_offset.hpp"
 #include "load_tiff.hpp"
 #include "slice_picture.hpp"
@@ -25,60 +25,68 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 	
 
 	std::vector<std::vector<vec2<double>>> res;
-	std::string initial_prefix = append_filename(a.initial_dir, a.initial_prefix);
-	std::string deformed_prefix = append_filename(a.deformed_dir, a.deformed_prefix);
-	std::string out_prefix;
-	if(a.out_dir)
-		out_prefix = append_filename(*a.out_dir, "OUT_");
+	//std::string initial_prefix = append_filename(a.initial_dir, a.initial_prefix);
+	//std::string deformed_prefix = append_filename(a.deformed_dir, a.deformed_prefix);
+	//std::string out_prefix;
+	//if(a.out_dir)
+	//	out_prefix = append_filename(*a.out_dir, "OUT_");
 
 	gpu_offset<double, uint16_t> offs(a.pic_size, &a.slice_begins, a.slice_size, a.cross_size);
 	offs.allocate_memory();
 
-	std::cout << a.slice_begins.size() << "\n";
+	//TODO: allocate cuda host memory to avoid copying the data twice
+	std::vector<uint16_t> initial_raster(a.pic_size.area()); 
+	if (! load_tiff(a.initial_dir, initial_raster.data(), a.pic_size)){
+		return res;
+	}
 
-	for (size_t j = a.files_range.begin.y; j < a.files_range.end.y; ++j)
-	{
-		for (size_t i = a.files_range.begin.x; i < a.files_range.end.x; ++i)
+
+	std::ifstream infile(a.deformed_dir);
+	std::string line;
+	while(std::getline(infile,line)){
+		std::stringstream iss(line);
+		double x,y;
+		std::string fname;
+		iss >> x;
+		iss >> y;
+		iss.ignore();
+		std::getline(iss, fname);
+		printf("%f %f %ld %s\n", x, y, a.slice_begins.size(), fname.c_str());
+
+
+
+		//TODO: allocate cuda host memory to avoid copying the data twice
+		std::vector<uint16_t> deformed_raster(a.pic_size.area());
+		bool OK = true;
+		OK &= load_tiff(fname, deformed_raster.data(), a.pic_size); sw.tick("Load tiff: ", 2);
+		if (!OK)
+			continue;
+
+		auto offsets = offs.get_offset(deformed_raster.data(), initial_raster.data());
+		sw.tick("Get offset: ", 2);
+
+		//if (a.out_dir)
+		//	draw_tiff(deformed_raster.data(), a.pic_size, out_prefix + file_suffix, offsets, slice_mids);
+		//sw.tick("Draw tiff: ", 2);
+
+		if (a.analysis)
+			stopwatch::global_stats.inc_histogram(offsets);
+
+
+		//std::cout << "x" << x << "y" << y << "\n";
+		for (size_t i = 0; i < offsets.size(); ++i)
 		{
-			size_t x = i * 60 + (j % 2 * 30);
-			size_t y =(size_t)(j * sqrt(0.75) * 60);
-			std::string file_suffix = "x" + std::to_string(x) + "y" + std::to_string(y) + ".tif";
-
-			//TODO: allocate cuda host memory to avoid copying the data twice
-			std::vector<uint16_t> initial_raster(a.pic_size.area()); 
-			std::vector<uint16_t> deformed_raster(a.pic_size.area());
-			bool OK = true;
-			OK &= load_tiff(initial_prefix + file_suffix, initial_raster.data(), a.pic_size);
-			OK &= load_tiff(deformed_prefix + file_suffix, deformed_raster.data(), a.pic_size); sw.tick("Load tiff: ", 2);
-			if (!OK)
-				continue;
-
-			auto offsets = offs.get_offset(deformed_raster.data(), initial_raster.data());
-			sw.tick("Get offset: ", 2);
-
-			if (a.out_dir)
-				draw_tiff(deformed_raster.data(), a.pic_size, out_prefix + file_suffix, offsets, slice_mids);
-			sw.tick("Draw tiff: ", 2);
-
-			if (a.analysis)
-				stopwatch::global_stats.inc_histogram(offsets);
-
-
-			std::cout << "x" << x << "y" << y << "\n";
-			for (size_t i = 0; i < offsets.size(); ++i)
-			{
-				printf("%llu %llu %f %f\n", a.slice_begins[i].x, a.slice_begins[i].y, offsets[i].x, offsets[i].y);
-				//std::cout << a.slice_begins[i].x << " " << a.slice_begins[i].y << " " << offsets[i].x << " " << offsets[i].y << "\n";
-			}
-			sw.tick("Write offsets: ", 2);
-
-			res.push_back(std::move(offsets));
-
-			sw.tick("ONE: ", 1);
-
+			printf("%lu %lu %f %f\n", slice_mids[i].x, slice_mids[i].y, offsets[i].x, offsets[i].y);
+			//std::cout << slice_mids[i].x << " " << slice_mids[i].y << " " << offsets[i].x << " " << offsets[i].y << "\n";
 		}
+		sw.tick("Write offsets: ", 2);
+
+		res.push_back(std::move(offsets));
+
+		sw.tick("ONE: ", 1);
 
 	}
+
 	sw.total();
 	if (a.analysis)
 	{
