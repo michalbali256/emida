@@ -26,6 +26,7 @@ __global__ void extract_neighbors(const T* data, const vec2<size_t>* max_i, T* n
 			int from_x = (int)max.x - r + i;
 			int from_y = (int)max.y - r + j;
 
+			//min/max
 			if (from_x < 0)
 				from_x = 0;
 			if (from_x >= cols)

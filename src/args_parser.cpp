@@ -137,14 +137,15 @@ bool params::parse(int argc, char** argv)
 	else
 		pic_size = { 873, 873 };
 
+	if (parsed["slicesize"])
+		slice_size = parsed["slicesize"]->get_value<size2_t>();
 	
 	if (parsed["crosssize"])
 		cross_size = parsed["crosssize"]->get_value<size2_t>();
 	else
-		cross_size = pic_size * 2 - 1;
+		cross_size = slice_size * 2 - 1;
 
-	if (parsed["slicesize"])
-		slice_size = parsed["slicesize"]->get_value<size2_t>();
+
 
 	if (parsed["slicepos"])
 	{
