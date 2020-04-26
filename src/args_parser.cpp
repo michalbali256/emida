@@ -61,24 +61,50 @@ struct value_type<emida::size2_t>
 
 namespace emida {
 
-std::vector<size2_t> load_slice_begins(const std::string & file_name)
+std::pair<size_t, std::vector<size2_t>> load_slice_begins(const std::string& file_name)
 {
 	std::vector<size2_t> res;
 	std::ifstream fin(file_name);
+
 	std::string line;
+	std::getline(fin, line);
+	size_t size;
+	try
+	{
+		size = std::stoull(line);
+	}
+	catch (const std::exception & e)
+	{
+		std::cerr << "Warning: could not parse the first line with size of file " << file_name << ". Error:'" << e.what() << "'. Skipping.\n";
+	}
 	int i = 0;
 	while (std::getline(fin, line))
 	{
-		size2_t begin;
-		
-		if (mbas::value_type<emida::size2_t>::parse(std::move(line), begin))
-			res.push_back(begin);
-		else
+		++i;
+		size_t split = line.find(' ');
+		if (split == std::string::npos || split >= line.size())
+		{
 			std::cerr << "Warning: could not parse line " << i << " of file " << file_name << ". Skipping.\n";
+			continue;
+		}
+		std::string s_x = line.substr(0, split);
+		std::string s_y = line.substr(split+1);
+
+		try
+		{
+			size2_t begin;
+			begin.x = std::stoull(s_x);
+			begin.y = std::stoull(s_y);
+			res.push_back(begin);
+		}
+		catch (const std::exception& e)
+		{
+			std::cerr << "Warning: could not parse line " << i << " of file " << file_name << ". Error:'" << e.what() << "'. Skipping.\n";
+		}
 	}
 
 	fin.close();
-	return res;
+	return { size, res };
 }
 
 bool params::parse(int argc, char** argv)
@@ -93,7 +119,7 @@ bool params::parse(int argc, char** argv)
 		("o,outpics", "If specified, the program will write offsets into pictures and save them in specified folder.", value_type<std::string>(), "FOLDER")
 		("c,crosssize", "Size of neighbourhood that is analyzed in each slice of picture. Must be odd numbers.", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("p,picsize", "Size of one input tiff picture. Default is 873,873", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
-		("s,slicesize", "Size of slices of pictures that are to be compared", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
+		("s,slicesize", "Size of slices of pictures that are to be compared. The parameter specifies \"radius\" - half of slice size. Topleft corner of each slice is <slicepos>-<slicesize> and bottom right corner is <slicepos>+<slicesize>-1", value_type<emida::size2_t>(), "X_RADIUS,Y_RADIUS")
 		("slicestep", "If slicepos not specified, specifies density of slices", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("b,slicepos", "Path to file with positions of slice middles in each picture", value_type<std::string>(), "FILE_PATH")
 		("a,analysis", "The application will write time measurements and statistics about processed files to standard error output.")
@@ -124,13 +150,18 @@ bool params::parse(int argc, char** argv)
 		pic_size = { 873, 873 };
 
 	if (parsed["slicesize"])
+	{
 		slice_size = parsed["slicesize"]->get_value<size2_t>();
+		slice_size = slice_size * 2;
+		if (parsed["slicepos"])
+			std::cerr << "Warning: --slicesize will be overriden by the first line of --slicepos file.";
+	}
 	
 	if (parsed["crosssize"])
 		cross_size = parsed["crosssize"]->get_value<size2_t>();
 	else
 		cross_size = slice_size * 2 - 1;
-
+	
 
 
 	if (parsed["slicepos"])
@@ -140,15 +171,43 @@ bool params::parse(int argc, char** argv)
 			std::cerr << "Error: cannot use slicestep when slicepos specified\n";
 			return false;
 		}
-		slice_begins = load_slice_begins(parsed["slicepos"]->get_value<std::string>());
+		
+		auto [size, loaded] = load_slice_begins(parsed["slicepos"]->get_value<std::string>());
+		slice_mids = loaded;
+		slice_size = { size*2, size*2 };
+
+		for (auto m : slice_mids)
+		{
+			size2_t begin = m - slice_size / 2;
+			if (begin.x < 0 || begin.y < 0)
+			{
+				std::cerr << "Error: A slice out of bounds\n";
+				return false;
+			}
+			size2_t end = m + slice_size / 2;
+			if (begin.x >= pic_size.x || begin.y >= pic_size.y)
+			{
+				std::cerr << "Error: A slice out of bounds\n";
+				return false;
+			}
+		}
 	}
 	else
 	{
 		size2_t step = { 32, 32 };
 		if (parsed["slicestep"])
 			step = parsed["slicestep"]->get_value<size2_t>();
-		slice_begins = get_slice_begins(pic_size, slice_size, step);
+		
+		slice_mids = get_slice_begins(pic_size, slice_size, step);
+		for (auto& o : slice_mids)
+			o = o + (slice_size / 2);
 	
+	}
+
+	if (cross_size.x > slice_size.x * 2 - 1 || cross_size.y > slice_size.y * 2 - 1)
+	{
+		std::cerr << "Error: cross size must be lesser or equal to slice_size * 2 - 1.\n";
+		return false;
 	}
 
 	analysis = parsed["analysis"] ? true : false;

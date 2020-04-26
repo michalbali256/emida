@@ -71,7 +71,7 @@ if __name__ == "__main__":
                 "../build/bin/emida",
                 "-d", work,
                 "-i", ref,
-                "-b", "roi.emida",
+                "-b", roi,
                 "-p", "873,873",
                 "-r", "0,0,0,0", # useles but required
                 #"-c", "25,25",

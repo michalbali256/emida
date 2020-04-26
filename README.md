@@ -49,6 +49,16 @@ Example:
 900.0 519.6152422706632 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x900y519.tif
 ```
 
+Positions and size of regions that are compared in each picture are specified in a configuration file in fillowing format:
+```
+<size/2>\n
+<roi_mid_x> <roi_mid_y>\n
+<roi_mid_x> <roi_mid_y>\n
+...
+```
+The size of each region is specified on the first line. The size is half ("radius") of the compared regions.
+
+
 ## Running emida
 
 The `emida` executable cross-correlates parts of pictures(slices) in specified positions and then computes how much are the deformed picture's slices shifted compared to the initial picture.
@@ -57,27 +67,17 @@ emida -i data/FeAl/INITIAL_FeAl -d data/FeAl/DEFORMED_FeAl -o data/FeAl/OUT_FeAl
 ```
 
 Following options are mandatory:
-- `-i,--initial` specifies folder with the initial pictures
-- `-d,--deformed` specifies folder with the deformed pictures
-- `-r,--range` specifies range of pictures to be processed in the form `I_BEGIN,J_BEGIN,I_END,J_END`. It is specified in terms of `i` and `j` from the (1) and (2) formulae. For example range 0,0,3,3 would specify exactly the files listed in the example.
+- `-i,--initial` specifies path to the reference image
+- `-d,--deformed` specifies path to file with list of the deformed pictures to process. The format of the file is described above.
 - `-p,--picsize` specifies size of input initial and deformed tiff pictures. All pictures should have the same size.
 
 Optional options:
+- `-b,--slicepos` specifies path to file with positions of regions to be compared in each picture, as descibed above.
 - `-o,--outpics` specifies folder to which pictures with resulting offsets will be written.
 - `-s,--slicesize` specifies size of parts of pictures that will be cross-correlated against each other - slices. Default is 64,64.
 - `-c,--crosssize` specifies size of neigbourhood of picture's center that will be analysed with cross correlation in the form X_SIZE,Y_SIZE. Both X_SIZE and Y_SIZE must be odd numbers. Small neighbourhood is faster to compute, but you may miss the best offset fit. Bigger neighbourhoods are faster to compute. By default, it is `2*slicesize-1`, so the cross correlation is done on whole slice.
-
-
-By default, the slices are evenly distributed across the picture every 32 pixels (can be changed by `--slicestep`). You can also provide custom positions of the slices by writing a file that lists positions of the slices in the form `X_POS,Y_POS`. It looks like this:
-```
-50,300
-100,300
-150,300
-200,300
-250,300
-50,350
-```
-The example specifies only 6 slices that would be cross-correlated in each picture. The path to the file can be specified using the `-b` option. An example file is `begins.txt` in the repository.
+- `-q` In addition to offsets, output also coefficients of parabola fitting.
+- `--precision` specifies the floating type to be used. Allowed values: `double`, `float`.
 
 
 ## Process offsets

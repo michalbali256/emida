@@ -15,7 +15,7 @@ inline void cuda_check(cudaError_t status, int line, const char* src_filename, c
 	{
 		std::stringstream ss;
 		ss << "CUDA Error " << status << ":" << cudaGetErrorString(status) << " in " << src_filename << " (" << line << "):" << line_str << "\n";
-		std::cout << ss.str();
+		std::cerr << ss.str();
 		throw std::runtime_error(ss.str());
 	}
 }

@@ -10,25 +10,20 @@
 namespace emida
 {
 
-inline std::string append_filename(const std::string& dir, const std::string& file_name)
-{
-	return (std::filesystem::path(dir) / file_name).string();
-}
-
 template<typename T>
 inline std::vector<std::vector<vec2<T>>> process_files(const params& a)
 {
 	stopwatch sw(true, 3);
 
-	auto slice_mids = a.slice_begins;
-	for (auto& o : slice_mids)
-		o = o + (a.slice_size / 2);
+	auto slice_begins = a.slice_mids;
+	for (auto& o : slice_begins)
+		o = o - (a.slice_size / 2);
 	
 
 	std::vector<std::vector<vec2<T>>> res;
 
 
-	gpu_offset<T, uint16_t> offs(a.pic_size, &a.slice_begins, a.slice_size, a.cross_size);
+	gpu_offset<T, uint16_t> offs(a.pic_size, &slice_begins, a.slice_size, a.cross_size);
 	offs.allocate_memory();
 
 	//TODO: allocate cuda host memory to avoid copying the data twice
@@ -47,7 +42,7 @@ inline std::vector<std::vector<vec2<T>>> process_files(const params& a)
 		iss >> y;
 		iss.ignore();
 		std::getline(iss, fname);
-		printf("%f %f %llu %s\n", x, y, a.slice_begins.size(), fname.c_str());
+		printf("%f %f %llu %s\n", x, y, a.slice_mids.size(), fname.c_str());
 
 
 		//TODO: allocate cuda host memory to avoid copying the data twice
@@ -71,7 +66,7 @@ inline std::vector<std::vector<vec2<T>>> process_files(const params& a)
 				offsets[i].x = std::numeric_limits<T>::quiet_NaN();
 			if (isnan(offsets[i].y))
 				offsets[i].y = std::numeric_limits<T>::quiet_NaN();
-			printf("%llu %llu %f %f\n", slice_mids[i].x, slice_mids[i].y, offsets[i].x, offsets[i].y);
+			printf("%llu %llu %f %f\n", a.slice_mids[i].x, a.slice_mids[i].y, offsets[i].x, offsets[i].y);
 		}
 		sw.tick("Write offsets: ", 2);
 

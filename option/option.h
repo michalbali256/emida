@@ -464,7 +464,7 @@ namespace mbas
 					line_length += tmp.size() + 1;
 				}
 
-				help_str << std::endl;
+				help_str << std::endl << std::endl;
 			}
 			return help_str.str();
 		}
