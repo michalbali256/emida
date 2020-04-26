@@ -33,14 +33,14 @@ constexpr auto get_matrix()
 //a = m x k
 //b = k x n
 //c = m x n
-template <typename T>
-void multiply(const T* a, const T* b, T* c, size_t m, size_t n, size_t k)
+template <typename F1, typename F2, typename F3>
+void multiply(const F1* a, const F2* b, F3* c, size_t m, size_t n, size_t k)
 {
 	for (size_t x = 0; x < n; ++x)
 	{
 		for (size_t y = 0; y < m; ++y)
 		{
-			T sum = 0;
+			F3 sum = 0;
 			for (size_t i = 0; i < k; ++i)
 			{
 				sum += a[y * k + i] * b[i * n + x];
@@ -49,6 +49,24 @@ void multiply(const T* a, const T* b, T* c, size_t m, size_t n, size_t k)
 		}
 	}
 }
+
+/*
+template <>
+inline void multiply<double, half, half>(const double* a, const half* b, half* c, size_t m, size_t n, size_t k)
+{
+	for (size_t x = 0; x < n; ++x)
+	{
+		for (size_t y = 0; y < m; ++y)
+		{
+			half sum = 0.0;
+			for (size_t i = 0; i < k; ++i)
+			{
+				sum = sum + (half)(a[y * k + i] * b[i * n + x]);
+			}
+			c[y * n + x] = sum;
+		}
+	}
+}*/
 
 template<typename T, int s>
 struct lstsq_matrix
@@ -78,7 +96,7 @@ std::array<T, 6> subpixel_max_coefs(const T* pic)
 	//lstsq_matrix<T, s>::mat is (A^T * A)^-1 * A^T
 	//it is precomputed since we know it at compile time
 	std::array<T, 6> coef;
-	multiply<T>(lstsq_matrix<T, s>::mat.data(), pic, coef.data(), 6, 1, s * s);
+	multiply(lstsq_matrix<double, s>::mat.data(), pic, coef.data(), 6, 1, s * s);
 	return coef;
 }
 

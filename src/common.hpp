@@ -7,7 +7,9 @@
 #include <stdexcept>
 #include <cmath>
 
-#include "cuda_runtime.h"
+#include <cuda_fp16.h>
+#include <cuda_runtime.h>
+
 
 namespace emida
 {

@@ -47,7 +47,7 @@ inline std::vector<std::vector<vec2<T>>> process_files(const params& a)
 		iss >> y;
 		iss.ignore();
 		std::getline(iss, fname);
-		printf("%f %f %ld %s\n", x, y, a.slice_begins.size(), fname.c_str());
+		printf("%f %f %llu %s\n", x, y, a.slice_begins.size(), fname.c_str());
 
 
 		//TODO: allocate cuda host memory to avoid copying the data twice
@@ -71,7 +71,7 @@ inline std::vector<std::vector<vec2<T>>> process_files(const params& a)
 				offsets[i].x = std::numeric_limits<T>::quiet_NaN();
 			if (isnan(offsets[i].y))
 				offsets[i].y = std::numeric_limits<T>::quiet_NaN();
-			printf("%lu %lu %f %f\n", slice_mids[i].x, slice_mids[i].y, offsets[i].x, offsets[i].y);
+			printf("%llu %llu %f %f\n", slice_mids[i].x, slice_mids[i].y, offsets[i].x, offsets[i].y);
 		}
 		sw.tick("Write offsets: ", 2);
 

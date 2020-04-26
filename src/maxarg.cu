@@ -70,5 +70,6 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t 
 
 template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, size_t size, size_t block_size, size_t batch_size);
 template void run_maxarg_reduce<float>(const float* data, data_index<float>* maxes, size_t size, size_t block_size, size_t batch_size);
+template void run_maxarg_reduce<half>(const half* data, data_index<half>* maxes, size_t size, size_t block_size, size_t batch_size);
 
 }

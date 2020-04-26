@@ -62,7 +62,7 @@ __global__ void prepare_pics(
 
 	OUT pixel = pic[pic_pos.pos(src_size.x)];
 	//subtract mean of the picture
-	pixel -= sums[slice_num] / slice_size.area();
+	pixel -= sums[slice_num] / (OUT) slice_size.area();
 	//apply hanning filter and convert to OUT (float or double)
 	pixel = (OUT)pixel * hanning_x[slice_pos.x] * hanning_y[slice_pos.y];
 	slices[tid] = pixel;
@@ -103,6 +103,17 @@ template void run_prepare_pics<uint16_t, float>(
 	const float* hanning_x,
 	const float* hanning_y,
 	const float* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size_t batch_size);
+
+template void run_prepare_pics<uint16_t, half>(
+	const uint16_t* pic,
+	half* slices,
+	const half* hanning_x,
+	const half* hanning_y,
+	const half* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,

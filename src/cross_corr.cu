@@ -85,5 +85,6 @@ void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size,
 template void run_cross_corr<int, int>(const int*, const int*, int* res, vec2<size_t> size, vec2<size_t> res_size, size_t);
 template void run_cross_corr<double, double>(const double*, const double*, double* res, vec2<size_t> size, vec2<size_t> res_size, size_t);
 template void run_cross_corr<float, float>(const float*, const float*, float* res, vec2<size_t> size, vec2<size_t> res_size, size_t);
+template void run_cross_corr<half, half>(const half*, const half*, half* res, vec2<size_t> size, vec2<size_t> res_size, size_t);
 
 }
