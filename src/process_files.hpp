@@ -33,10 +33,10 @@ inline std::vector<std::vector<vec2<T>>> process_files(const params& a)
 
 	//TODO: allocate cuda host memory to avoid copying the data twice
 	std::vector<uint16_t> initial_raster(a.pic_size.area()); 
-	if (!load_tiff(a.initial_dir, initial_raster.data(), a.pic_size))
+	if (!load_tiff(a.initial_file_name, initial_raster.data(), a.pic_size))
 		return res;
 
-	std::ifstream infile(a.deformed_dir);
+	std::ifstream infile(a.deformed_list_file_name);
 	std::string line;
 	while(std::getline(infile,line))
 	{

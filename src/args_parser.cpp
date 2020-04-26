@@ -64,7 +64,7 @@ namespace emida {
 std::vector<size2_t> load_slice_begins(const std::string & file_name)
 {
 	std::vector<size2_t> res;
-	std::fstream fin(file_name);
+	std::ifstream fin(file_name);
 	std::string line;
 	int i = 0;
 	while (std::getline(fin, line))
@@ -88,17 +88,14 @@ bool params::parse(int argc, char** argv)
 	command cmd;
 
 	cmd.add_options()
-		("i,initial", "Path to folder with initial undeformed pictures.", value_type<std::string>(), "FOLDER", false)
-		("d,deformed", "Path to folder with deformed pictures.", value_type<std::string>(), "FOLDER", false)
-		("initprefix", "Prefix of files in the initial pictures folder. Default value: INITIAL_", value_type<std::string>(), "PREFIX")
-		("deformprefix", "Prefix of files in the deformed pictures folder. Default value: DEFORMED_", value_type<std::string>(), "PREFIX")
+		("i,initial", "Path to picture of initial undeformed picture.", value_type<std::string>(), "TIFF_FILE", false)
+		("d,deformed", "Path to file with list of paths to deformed pictures.", value_type<std::string>(), "TXT_FILE", false)
 		("o,outpics", "If specified, the program will write offsets into pictures and save them in specified folder.", value_type<std::string>(), "FOLDER")
-		("r,range", "Defines a range of pictures to be compared", value_type<range>(), "X_BEGIN,Y_BEGIN,X_END,Y_END", false)
 		("c,crosssize", "Size of neighbourhood that is analyzed in each slice of picture. Must be odd numbers.", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("p,picsize", "Size of one input tiff picture. Default is 873,873", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("s,slicesize", "Size of slices of pictures that are to be compared", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("slicestep", "If slicepos not specified, specifies density of slices", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
-		("b,slicepos", "Path to file with positions of slices in each picture", value_type<std::string>(), "FILE_PATH")
+		("b,slicepos", "Path to file with positions of slice middles in each picture", value_type<std::string>(), "FILE_PATH")
 		("a,analysis", "The application will write time measurements and statistics about processed files to standard error output.")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 
@@ -116,21 +113,10 @@ bool params::parse(int argc, char** argv)
 		return true;
 	}
 
-	initial_dir = parsed["initial"]->get_value<std::string>();
-	deformed_dir = parsed["deformed"]->get_value<std::string>();
+	initial_file_name = parsed["initial"]->get_value<std::string>();
+	deformed_list_file_name = parsed["deformed"]->get_value<std::string>();
 	if (parsed["outpics"])
 		out_dir = parsed["outpics"]->get_value<std::string>();
-	files_range = parsed["range"]->get_value<range>();
-
-	if (parsed["initprefix"])
-		initial_prefix = parsed["initprefix"]->get_value <std::string> ();
-	else
-		initial_prefix = "INITIAL_";
-	
-	if (parsed["deformprefix"])
-		deformed_prefix = parsed["deformprefix"]->get_value <std::string>();
-	else
-		deformed_prefix = "DEFORMED_";
 
 	if (parsed["picsize"])
 		pic_size = parsed["picsize"]->get_value<size2_t>();

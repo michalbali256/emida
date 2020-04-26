@@ -35,30 +35,19 @@ Prerequisities for linux build: ZLIB and LibLZMA (required by libtiff)
 You may also run `bin/emida_test` to verify the build.
 
 # How to run
-The application processes files in the following form:
+The application compares one picture of the material patern with images of deformed material. The deformed images are specified by an input file that has lines in following format:
 ```
-INITIAL_x0y0.tif
-INITIAL_x60y0.tif
-INITIAL_x120y0.tif
-...
-INITIAL_x30y51.tif
-INITIAL_x90y51.tif
-INITIAL_x150y51.tif
-...
-INITIAL_x0y103.tif
-INITIAL_x60y103.tif
-INITIAL_x120y103.tif
-...
+<image_pos_x> <image_pos_y> <image_file_name>
 ```
-x and y are organised in a triangle raster:
+Example:
 ```
-x = i*60 + (j % 2) * 60/2          (1)
-y = int(j*sqrt(0.75)*60)           (2)
+0.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x0y0.tif
+600.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x600y0.tif
+1200.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x1200y0.tif
+1800.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x1800y0.tif
+300.0 519.6152422706632 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x300y519.tif
+900.0 519.6152422706632 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x900y519.tif
 ```
-
-The application takes two directories with such organisation:
-1. initial pictures, all files must have prefix INITIAL_ followed by x and y position.
-2. deformed pictures, all files must have prefix DEFORMED_ followed by x and y position.
 
 ## Running emida
 
@@ -74,7 +63,6 @@ Following options are mandatory:
 - `-p,--picsize` specifies size of input initial and deformed tiff pictures. All pictures should have the same size.
 
 Optional options:
-- `--initprefix` and `--deformprefix` specify the base file names of initial and deformed pictures. By default `INITIAL_` and `DEFORMED_`.
 - `-o,--outpics` specifies folder to which pictures with resulting offsets will be written.
 - `-s,--slicesize` specifies size of parts of pictures that will be cross-correlated against each other - slices. Default is 64,64.
 - `-c,--crosssize` specifies size of neigbourhood of picture's center that will be analysed with cross correlation in the form X_SIZE,Y_SIZE. Both X_SIZE and Y_SIZE must be odd numbers. Small neighbourhood is faster to compute, but you may miss the best offset fit. Bigger neighbourhoods are faster to compute. By default, it is `2*slicesize-1`, so the cross correlation is done on whole slice.

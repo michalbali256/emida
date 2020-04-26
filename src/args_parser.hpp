@@ -13,11 +13,8 @@ struct params
 {
 	bool parse(int argc, char** argv);
 
-	std::string initial_dir;
-	std::string deformed_dir;
-	std::string initial_prefix;
-	std::string deformed_prefix;
-	range files_range;
+	std::string initial_file_name;
+	std::string deformed_list_file_name;
 
 	std::optional<std::string> out_dir;
 	size2_t pic_size;
