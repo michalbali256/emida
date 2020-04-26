@@ -50,5 +50,6 @@ void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbor
 }
 
 template void run_extract_neighbors<double, 3>(const double* data, const vec2<size_t>* max_i, double* neighbors, size_t cols, size_t rows, size_t batch_size);
+template void run_extract_neighbors<float, 3>(const float* data, const vec2<size_t>* max_i, float* neighbors, size_t cols, size_t rows, size_t batch_size);
 
 }

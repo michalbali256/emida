@@ -1,6 +1,6 @@
 #pragma once
 
-
+#include "host_helpers.hpp"
 #include "subpixel_max.hpp"
 #include "kernels.cuh"
 #include "subtract_mean.hpp"

@@ -1,8 +1,8 @@
 
 #include "cuda.h"
 #include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 
+#include "device_helpers.hpp"
 #include "kernels.cuh"
 
 namespace emida
@@ -125,5 +125,6 @@ void run_sum(const T* data, RES* sums, const size2_t * begins, size2_t src_size,
 template void run_sum<double, double>(const double* data, double* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
 //template void run_sum<uint16_t, uint32_t>(const uint16_t* data, uint32_t* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
 template void run_sum<uint16_t, double>(const uint16_t* data, double* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
+template void run_sum<uint16_t, float>(const uint16_t* data, float* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
 
 }

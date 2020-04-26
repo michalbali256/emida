@@ -97,6 +97,17 @@ template void run_prepare_pics<uint16_t, double>(
 	size2_t slice_size,
 	size_t batch_size);
 
+template void run_prepare_pics<uint16_t, float>(
+	const uint16_t* pic,
+	float* slices,
+	const float* hanning_x,
+	const float* hanning_y,
+	const float* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size_t batch_size);
+
 template void run_prepare_pics<double, double>(
 	const double* pic,
 	double* slices,

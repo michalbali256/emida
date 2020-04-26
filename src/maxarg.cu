@@ -3,6 +3,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+#include "device_helpers.hpp"
 #include "kernels.cuh"
 
 namespace emida
@@ -16,7 +17,7 @@ namespace emida
 template<typename T>
 __global__ void maxarg_reduce(const T* data, data_index<T> * maxes, size_t size)
 {
-	extern __shared__ data_index<T> sdata[];
+	data_index<T> * sdata = shared_memory_proxy<data_index<T>>();
 
 	size_t tid = threadIdx.x;
 	
@@ -68,5 +69,6 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t 
 }
 
 template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, size_t size, size_t block_size, size_t batch_size);
+template void run_maxarg_reduce<float>(const float* data, data_index<float>* maxes, size_t size, size_t block_size, size_t batch_size);
 
 }

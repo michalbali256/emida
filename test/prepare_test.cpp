@@ -4,6 +4,7 @@
 #include "kernels.cuh"
 #include "double_compare.hpp"
 #include "sums_serial.hpp"
+#include "host_helpers.hpp"
 using namespace emida;
 
 

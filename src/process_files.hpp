@@ -15,7 +15,8 @@ inline std::string append_filename(const std::string& dir, const std::string& fi
 	return (std::filesystem::path(dir) / file_name).string();
 }
 
-inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
+template<typename T>
+inline std::vector<std::vector<vec2<T>>> process_files(const params& a)
 {
 	stopwatch sw(true, 3);
 
@@ -24,10 +25,10 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 		o = o + (a.slice_size / 2);
 	
 
-	std::vector<std::vector<vec2<double>>> res;
+	std::vector<std::vector<vec2<T>>> res;
 
 
-	gpu_offset<double, uint16_t> offs(a.pic_size, &a.slice_begins, a.slice_size, a.cross_size);
+	gpu_offset<T, uint16_t> offs(a.pic_size, &a.slice_begins, a.slice_size, a.cross_size);
 	offs.allocate_memory();
 
 	//TODO: allocate cuda host memory to avoid copying the data twice
@@ -67,9 +68,9 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 		{
 			//sometimes the resulting float is outputted as nan and sometimes as nan(ind). Normalize that here.
 			if (isnan(offsets[i].x))
-				offsets[i].x = std::numeric_limits<double>::quiet_NaN();
+				offsets[i].x = std::numeric_limits<T>::quiet_NaN();
 			if (isnan(offsets[i].y))
-				offsets[i].y = std::numeric_limits<double>::quiet_NaN();
+				offsets[i].y = std::numeric_limits<T>::quiet_NaN();
 			printf("%lu %lu %f %f\n", slice_mids[i].x, slice_mids[i].y, offsets[i].x, offsets[i].y);
 		}
 		sw.tick("Write offsets: ", 2);

@@ -15,7 +15,7 @@ int main(int argc, char ** argv)
 
 	try
 	{
-		emida::process_files(a);
+		emida::process_files<double>(a);
 	}
 	catch (std::runtime_error & e)
 	{

@@ -12,14 +12,6 @@ void __syncthreads() {};
 
 namespace emida
 {
-template <typename T>
-__device__ T* shared_memory_proxy()
-{
-	// do we need an __align__() here? I don't think so...
-	extern __shared__ unsigned char memory[];
-	return reinterpret_cast<T*>(memory);
-}
-
 
 template<typename T, typename RES>
 void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size);

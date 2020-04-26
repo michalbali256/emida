@@ -13,7 +13,8 @@ struct stats
 	inline static size2_t border = { 0, 0 };
 	vec2<std::vector<size_t>> histogram = {std::vector<size_t>(100), std::vector<size_t>(100) };
 
-	void inc_histogram(const std::vector<vec2<double>>& offsets)
+	template<typename T>
+	void inc_histogram(const std::vector<vec2<T>>& offsets)
 	{
 		for (const auto& off : offsets)
 		{

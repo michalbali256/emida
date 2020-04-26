@@ -6,7 +6,7 @@
 
 #include "matrix.hpp"
 #include "kernels.cuh"
-
+#include "host_helpers.hpp"
 
 namespace emida
 {
