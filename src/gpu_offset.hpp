@@ -145,7 +145,7 @@ public:
 	}
 
 	//gets two pictures with size cols x rows and returns subpixel offset between them
-	std::vector<vec2<T>> get_offset(IN* pic, IN* temp) const
+	offsets_t<T> get_offset(IN* pic, IN* temp) const
 	{
 		sw.zero();
 		
@@ -176,7 +176,7 @@ public:
 
 		std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size_); sw.tick("Transfer neighbors: ");
 
-		auto subp_offset = subpixel_max_serial<T, s>(neighbors.data(), b_size_); sw.tick("Subpixel max: ");
+		auto [subp_offset, coefs] = subpixel_max_serial<T, s>(neighbors.data(), b_size_); sw.tick("Subpixel max: ");
 
 		std::vector<vec2<T>> res(b_size_);
 		if (cross_size_.x == s && cross_size_.y == s)
@@ -196,7 +196,7 @@ public:
 			}
 		}sw.tick("Offsets finalisation: ");
 		sw.total();
-		return res;
+		return { res, coefs };
 	}
 
 	inline std::vector<vec2<size_t>> get_maxarg(const T* cu_data) const

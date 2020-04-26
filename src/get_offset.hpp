@@ -10,7 +10,7 @@ inline std::vector<vec2<T>> get_offset(T* pic, T* temp, vec2<size_t> size, vec2<
 	std::vector<size2_t> begins = { {0,0} };
 	gpu_offset<T, T> offs(size, &begins, size, cross_size);
 	offs.allocate_memory();
-	return offs.get_offset(pic, temp);
+	return offs.get_offset(pic, temp).offsets;
 }
 
 template<typename T>

@@ -15,18 +15,24 @@ int main(int argc, char ** argv)
 
 	try
 	{
-		emida::process_files<double>(a);
+		switch (a.precision)
+		{
+		case precision_type::DOUBLE:
+			emida::process_files<double>(a);
+			break;
+		case precision_type::FLOAT:
+			emida::process_files<float>(a);
+			break;
+		default:
+			break;
+		}
+		
 	}
 	catch (std::runtime_error & e)
 	{
 		std::cout << "Error: " << e.what() << "\n";
 		return 1;
 	}
-	/*for (const auto & offset_list : offsets)
-	{
-		for(auto off : offset_list)
-			std::cout << off.x << " " << off.y << "\n";
-	}*/
 
 	return 0;
 }

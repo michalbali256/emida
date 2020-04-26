@@ -107,9 +107,9 @@ TEST(get_offset, batched)
 
 	auto begins = get_slice_begins(src_size, size, step);
 
-	gpu_offset<double, double> offs(src_size, &begins, size, {127,127});
+	gpu_offset<double, double> offs(src_size, &begins, size, { 127,127 });
 	offs.allocate_memory();
-	auto offsets = offs.get_offset(pic.data.data(), temp.data.data());
+	auto [offsets, _] = offs.get_offset(pic.data.data(), temp.data.data());
 	
 
 	//precision 1e-13 is OK, 1e-14 is failing

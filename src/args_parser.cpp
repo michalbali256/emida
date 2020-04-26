@@ -123,8 +123,10 @@ bool params::parse(int argc, char** argv)
 		("slicestep", "If slicepos not specified, specifies density of slices", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("b,slicepos", "Path to file with positions of slice middles in each picture", value_type<std::string>(), "FILE_PATH")
 		("a,analysis", "The application will write time measurements and statistics about processed files to standard error output.")
+		("q,writecoefs", "In addition to offsets, output also coefficients of parabola fitting for each region of interest.")
+		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "TYPE")
 		("h,help", "Print a usage message on standard output and exit successfully.");
-
+	
 	auto parsed = cmd.parse(argc, argv);
 
 	if (!parsed.parse_ok())
@@ -161,7 +163,6 @@ bool params::parse(int argc, char** argv)
 		cross_size = parsed["crosssize"]->get_value<size2_t>();
 	else
 		cross_size = slice_size * 2 - 1;
-	
 
 
 	if (parsed["slicepos"])
@@ -210,7 +211,22 @@ bool params::parse(int argc, char** argv)
 		return false;
 	}
 
+	if (parsed["precision"])
+	{
+		const std::string& precision_s = parsed["precision"]->get_value<std::string>();
+		if (precision_s == "float")
+			precision = precision_type::FLOAT;
+		else if (precision_s == "double")
+			precision = precision_type::DOUBLE;
+		else
+		{
+			std::cerr << "Invalid precision argument.\n";
+			return false;
+		}
+	}
+
 	analysis = parsed["analysis"] ? true : false;
+	write_coefs = parsed["writecoefs"] ? true : false;
 	stopwatch::global_activate = analysis;
 	return true;
 }

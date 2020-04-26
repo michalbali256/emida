@@ -33,17 +33,17 @@ constexpr auto get_matrix()
 //a = m x k
 //b = k x n
 //c = m x n
-template <typename T>
-void multiply(const T* a, const T* b, T* c, size_t m, size_t n, size_t k)
+template <typename F1, typename F2, typename F3>
+void multiply(const F1* a, const F2* b, F3* c, size_t m, size_t n, size_t k)
 {
 	for (size_t x = 0; x < n; ++x)
 	{
 		for (size_t y = 0; y < m; ++y)
 		{
-			T sum = 0;
+			F3 sum = 0;
 			for (size_t i = 0; i < k; ++i)
 			{
-				sum += a[y * k + i] * b[i * n + x];
+				sum += (F3)(a[y * k + i] * b[i * n + x]);
 			}
 			c[y * n + x] = sum;
 		}
@@ -78,14 +78,22 @@ std::array<T, 6> subpixel_max_coefs(const T* pic)
 	//lstsq_matrix<T, s>::mat is (A^T * A)^-1 * A^T
 	//it is precomputed since we know it at compile time
 	std::array<T, 6> coef;
-	multiply<T>(lstsq_matrix<T, s>::mat.data(), pic, coef.data(), 6, 1, s * s);
+	multiply(lstsq_matrix<double, s>::mat.data(), pic, coef.data(), 6, 1, s * s);
 	return coef;
 }
 
-template<typename T, int s>
-std::vector<vec2<T>> subpixel_max_serial(const T* pic, size_t batch_size)
+template<typename T>
+struct offsets_t
 {
-	std::vector<vec2<T>> ret(batch_size);
+	std::vector<vec2<T>> offsets;
+	std::vector<std::array<T, 6>> coefs;
+};
+
+template<typename T, int s>
+offsets_t<T> subpixel_max_serial(const T* pic, size_t batch_size)
+{
+	std::vector<vec2<T>> offsets(batch_size);
+	std::vector<std::array<T, 6>> coefs(batch_size);
 	for (size_t i = 0; i < batch_size; ++i, pic += s*s)
 	{
 		//coefficients of quadratic function of neighborhood of maximum
@@ -96,10 +104,12 @@ std::vector<vec2<T>> subpixel_max_serial(const T* pic, size_t batch_size)
 		//from partial derivation by x : 2dx + ey + b = 0
 		//from partial derivation by y : ex + 2fy + c = 0
 		//solve the 2 equations:
-		ret[i].y = (b * e - 2 * c * d) / (4 * f * d - e * e);
-		ret[i].x = (-e * ret[i].y - b) / (2 * d);
+		offsets[i].y = (b * e - 2 * c * d) / (4 * f * d - e * e);
+		offsets[i].x = (-e * offsets[i].y - b) / (2 * d);
+		coefs[i] = { a, b, c, d, e, f };
+
 	}
-	return ret;
+	return {offsets, coefs};
 }
 
 

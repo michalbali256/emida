@@ -73,7 +73,6 @@ if __name__ == "__main__":
                 "-i", ref,
                 "-b", roi,
                 "-p", "873,873",
-                "-r", "0,0,0,0", # useles but required
                 #"-c", "25,25",
                 "-c", "{},{}".format(4*s-1,4*s-1),
                 "-s", "{},{}".format(2*s,2*s),
