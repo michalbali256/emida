@@ -25,25 +25,20 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 	
 
 	std::vector<std::vector<vec2<double>>> res;
-	//std::string initial_prefix = append_filename(a.initial_dir, a.initial_prefix);
-	//std::string deformed_prefix = append_filename(a.deformed_dir, a.deformed_prefix);
-	//std::string out_prefix;
-	//if(a.out_dir)
-	//	out_prefix = append_filename(*a.out_dir, "OUT_");
+
 
 	gpu_offset<double, uint16_t> offs(a.pic_size, &a.slice_begins, a.slice_size, a.cross_size);
 	offs.allocate_memory();
 
 	//TODO: allocate cuda host memory to avoid copying the data twice
 	std::vector<uint16_t> initial_raster(a.pic_size.area()); 
-	if (! load_tiff(a.initial_dir, initial_raster.data(), a.pic_size)){
+	if (!load_tiff(a.initial_dir, initial_raster.data(), a.pic_size))
 		return res;
-	}
-
 
 	std::ifstream infile(a.deformed_dir);
 	std::string line;
-	while(std::getline(infile,line)){
+	while(std::getline(infile,line))
+	{
 		std::stringstream iss(line);
 		double x,y;
 		std::string fname;
@@ -52,7 +47,6 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 		iss.ignore();
 		std::getline(iss, fname);
 		printf("%f %f %ld %s\n", x, y, a.slice_begins.size(), fname.c_str());
-
 
 
 		//TODO: allocate cuda host memory to avoid copying the data twice
@@ -65,19 +59,18 @@ inline std::vector<std::vector<vec2<double>>> process_files(const params& a)
 		auto offsets = offs.get_offset(deformed_raster.data(), initial_raster.data());
 		sw.tick("Get offset: ", 2);
 
-		//if (a.out_dir)
-		//	draw_tiff(deformed_raster.data(), a.pic_size, out_prefix + file_suffix, offsets, slice_mids);
-		//sw.tick("Draw tiff: ", 2);
-
 		if (a.analysis)
 			stopwatch::global_stats.inc_histogram(offsets);
 
 
-		//std::cout << "x" << x << "y" << y << "\n";
 		for (size_t i = 0; i < offsets.size(); ++i)
 		{
+			//sometimes the resulting float is outputted as nan and sometimes as nan(ind). Normalize that here.
+			if (isnan(offsets[i].x))
+				offsets[i].x = std::numeric_limits<double>::quiet_NaN();
+			if (isnan(offsets[i].y))
+				offsets[i].y = std::numeric_limits<double>::quiet_NaN();
 			printf("%lu %lu %f %f\n", slice_mids[i].x, slice_mids[i].y, offsets[i].x, offsets[i].y);
-			//std::cout << slice_mids[i].x << " " << slice_mids[i].y << " " << offsets[i].x << " " << offsets[i].y << "\n";
 		}
 		sw.tick("Write offsets: ", 2);
 
