@@ -18,7 +18,7 @@ TEST(extract_neighbors, size_5x5)
 	std::vector<vec2<size_t>> max_i = { {3,3} };
 	auto cu_max_i = vector_to_device(max_i);
 
-	run_extract_neighbors<double, 3>(cu_data, cu_max_i, cu_neigh, 5, 5, 1);
+	run_extract_neighbors<double>(cu_data, cu_max_i, cu_neigh, 3, { 5, 5 }, 1);
 
 	std::vector<double> neigh(9);
 	cudaMemcpy(neigh.data(), cu_neigh, 9 * sizeof(double), cudaMemcpyDeviceToHost);
@@ -42,7 +42,7 @@ TEST(extract_neighbors, size_5x5x2)
 	std::vector<vec2<size_t>> max_i = { {3,3}, {1,1} };
 	auto cu_max_i = vector_to_device(max_i);
 
-	run_extract_neighbors<double, 3>(cu_data, cu_max_i, cu_neigh, 5, 5, 2);
+	run_extract_neighbors<double>(cu_data, cu_max_i, cu_neigh, 3, { 5, 5 }, 2);
 
 	std::vector<double> neigh = device_to_vector(cu_neigh, neigh_size);
 

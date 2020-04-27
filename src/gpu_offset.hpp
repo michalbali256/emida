@@ -168,7 +168,7 @@ public:
 
 			copy_to_device(maxes_i, cu_maxes_i_); sw.tick("Maxes transfer: ");
 
-			run_extract_neighbors<T, s>(cu_cross_res_, cu_maxes_i_, cu_neighbors, cross_size_.x, cross_size_.y, b_size_);
+			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, b_size_);
 
 			CUCH(cudaGetLastError());
 			CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");

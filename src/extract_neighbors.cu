@@ -4,11 +4,10 @@
 #include "device_launch_parameters.h"
 
 #include "kernels.cuh"
-
 namespace emida {
 
-template<typename T, int s>
-__global__ void extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, size_t cols, size_t rows, size_t batch_size)
+template<typename T>
+__global__ void extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, int s, size2_t src_size, size_t batch_size)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -17,39 +16,35 @@ __global__ void extract_neighbors(const T* data, const vec2<size_t>* max_i, T* n
 
 	int r = (s - 1) / 2;
 
-	size2_t max = max_i[idx];
+	size2_t max_pos = max_i[idx];
 
 	for (int i = 0; i < s; ++i)
 	{
 		for (int j = 0; j < s; ++j)
 		{
-			int from_x = (int)max.x - r + i;
-			int from_y = (int)max.y - r + j;
+			int from_x = (int)max_pos.x - r + i;
+			int from_y = (int)max_pos.y - r + j;
 
-			//min/max
-			if (from_x < 0)
-				from_x = 0;
-			if (from_x >= cols)
-				from_x = cols;
-			if (from_y < 0)
-				from_y = 0;
-			if (from_y >= rows)
-				from_y = rows;
+			from_x = max(from_x, 0);
+			from_x = min(from_x, (int)src_size.x);
 
-			neighbors[idx * s * s + j * s + i] = data[idx * cols * rows + from_y * cols + from_x];
+			from_y = max(from_y, 0);
+			from_y = min(from_y, (int)src_size.y);
+
+			neighbors[idx * s * s + j * s + i] = data[idx * src_size.area() + from_y * src_size.x + from_x];
 		}
 	}
 }
 
-template<typename T, int s>
-void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, size_t cols, size_t rows, size_t batch_size)
+template<typename T>
+void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, int s, size2_t src_size, size_t batch_size)
 {
 	size_t block_size = 128;
 	size_t grid_size = div_up(batch_size, block_size);
-	extract_neighbors<T, s> <<<grid_size, block_size >>> (data, max_i, neighbors, cols, rows, batch_size);
+	extract_neighbors<T> << <grid_size, block_size >> > (data, max_i, neighbors, s, src_size, batch_size);
 }
 
-template void run_extract_neighbors<double, 3>(const double* data, const vec2<size_t>* max_i, double* neighbors, size_t cols, size_t rows, size_t batch_size);
-template void run_extract_neighbors<float, 3>(const float* data, const vec2<size_t>* max_i, float* neighbors, size_t cols, size_t rows, size_t batch_size);
+template void run_extract_neighbors<double>(const double* data, const vec2<size_t>* max_i, double* neighbors, int s, size2_t src_size, size_t batch_size);
+template void run_extract_neighbors<float>(const float* data, const vec2<size_t>* max_i, float* neighbors, int s, size2_t src_size, size_t batch_size);
 
 }

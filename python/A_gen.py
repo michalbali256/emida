@@ -5,13 +5,15 @@ import numpy.matlib
 import numpy as np
 import numpy.linalg
 
+common_denom = 700
 def A_gen():
-    shape = (3,3)
+    shape = (5,5)
 
     yi, xi = np.indices(shape)
     i = np.ones(shape)
     A = np.dstack([i, xi, yi, xi*xi, xi*yi, yi*yi]).reshape((-1,6))
-    #A /= 9*8
+    print(A)
+    A /= common_denom
     print(A)
 
     At = np.transpose(A)
@@ -25,9 +27,17 @@ def A_gen():
     #print(i)
 
     mul2  = np.matmul(i, At)
-
+    
+    rounded = np.round(mul2, 0)
+    print (mul2)
+    
+    delta = mul2 - rounded
+    for r in delta:
+        for i in r:
+            if i > 1E-11:
+                print ('Error ', i)
     #print(mul2)
-    return mul2;
+    return rounded
 
 
 def mylstsq(b):
@@ -37,11 +47,13 @@ def mylstsq(b):
 
 
 if __name__ == "__main__":
-    print(mylstsq([1,2,3,7,9,8,4,5,6]))
+    #print(mylstsq([1,2,3,7,9,8,4,5,6]))
     res = A_gen()
-    print(res);
+    print(res)
     for r in res:
         for i in r:
             print(i, end='')
+            print('/', end='')
+            print(common_denom, end='')
             print(", ", end='')
         print()
