@@ -7,6 +7,7 @@
 
 #include "slice_picture.hpp"
 #include "stopwatch.hpp"
+#include "subpixel_max.hpp"
 
 namespace mbas {
 template<std::size_t max>
@@ -125,6 +126,7 @@ bool params::parse(int argc, char** argv)
 		("a,analysis", "The application will write time measurements and statistics about processed files to standard error output.")
 		("q,writecoefs", "In addition to offsets, output also coefficients of parabola fitting for each region of interest.")
 		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "TYPE")
+		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum.", value_type<int>(), "TYPE")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 	
 	auto parsed = cmd.parse(argc, argv);
@@ -221,6 +223,20 @@ bool params::parse(int argc, char** argv)
 		else
 		{
 			std::cerr << "Invalid precision argument.\n";
+			return false;
+		}
+	}
+
+	if (parsed["fitsize"])
+	{
+		fitting_size = parsed["fitsize"]->get_value<int>();
+		try
+		{
+			get_lstsq_matrix(fitting_size);
+		}
+		catch(const std::runtime_error&)
+		{
+			std::cerr << "Error: the fitsize " << fitting_size << " is not supported.\n";
 			return false;
 		}
 	}

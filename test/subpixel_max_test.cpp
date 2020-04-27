@@ -40,7 +40,7 @@ TEST(multiply, small)
 TEST(subpixel_max_serial, coefs)
 {
 	std::array<double, 9> pic = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-	auto coef = subpixel_max_coefs<double, 3>(pic.data());
+	auto coef = subpixel_max_coefs<double>(pic.data(), 3);
 	std::array<double, 6> expected = {1, 1, 3, 0, 0, 0};
 
 	EXPECT_DOUBLE_VECTORS_NEAR(coef, expected, 1e-15)
@@ -49,7 +49,7 @@ TEST(subpixel_max_serial, coefs)
 TEST(subpixel_max_serial, coefs2)
 {
 	std::array<double, 9> pic = { 1, 2, 3, 7, 9, 8, 4, 5, 6 };
-	auto coef = subpixel_max_coefs<double, 3>(pic.data());
+	auto coef = subpixel_max_coefs<double>(pic.data(), 3);
 	std::array<double, 6> expected = { 1.0, 1.833333333333333, 10.5, -0.5, 0, -4.5 };
 
 	EXPECT_DOUBLE_VECTORS_EQ(coef, expected)
@@ -58,7 +58,7 @@ TEST(subpixel_max_serial, coefs2)
 TEST(subpixel_max_serial, small)
 {
 	std::array<double, 9> pic = { 1, 2, 3, 7, 9, 8, 4, 5, 6 };
-	auto [d, _] = subpixel_max_serial<double, 3>(pic.data(), 1);
+	auto [d, _] = subpixel_max_serial<double>(pic.data(), 3, 1);
 	std::vector<vec2<double>> expected = { { 1.8333333333333333, 1.1666666666666666 } };
 	
 	EXPECT_VEC_VECTORS_EQ(d, expected);

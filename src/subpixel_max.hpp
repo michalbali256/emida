@@ -54,12 +54,14 @@ template<typename T, int s>
 struct lstsq_matrix
 {
 	static const std::array<T, 6 * s * s> mat;
+	
 };
+const double* get_lstsq_matrix(int s);
 
 //coefficients of quadratic function of neighborhood of maximum
 //f(x,y) = a + bx + cy + dx^2 + exy + fy^2
-template<typename T, int s>
-std::array<T, 6> subpixel_max_coefs(const T* pic)
+template<typename T>
+std::array<T, 6> subpixel_max_coefs(const T* pic, int s)
 {
 	//we get the values of s*s points, a-f are the unknown variables
 	//f(x,y) = a + xb + yc + x^2 * d + xye + y^2 * f
@@ -74,11 +76,14 @@ std::array<T, 6> subpixel_max_coefs(const T* pic)
 	// [1. 1. 2. 1. 2. 4.]
 	// [1. 2. 2. 4. 4. 4.]]
 
+	
+
+
 	//https://en.wikipedia.org/wiki/Least_squares#Linear_least_squares
 	//lstsq_matrix<T, s>::mat is (A^T * A)^-1 * A^T
 	//it is precomputed since we know it at compile time
 	std::array<T, 6> coef;
-	multiply(lstsq_matrix<double, s>::mat.data(), pic, coef.data(), 6, 1, s * s);
+	multiply(get_lstsq_matrix(s), pic, coef.data(), 6, 1, s * s);
 	return coef;
 }
 
@@ -89,8 +94,8 @@ struct offsets_t
 	std::vector<std::array<T, 6>> coefs;
 };
 
-template<typename T, int s>
-offsets_t<T> subpixel_max_serial(const T* pic, size_t batch_size)
+template<typename T>
+offsets_t<T> subpixel_max_serial(const T* pic, int s, size_t batch_size)
 {
 	std::vector<vec2<T>> offsets(batch_size);
 	std::vector<std::array<T, 6>> coefs(batch_size);
@@ -98,7 +103,7 @@ offsets_t<T> subpixel_max_serial(const T* pic, size_t batch_size)
 	{
 		//coefficients of quadratic function of neighborhood of maximum
 		//f(x,y) = a + bx + cy + dx^2 + exy + fy^2
-		auto [a, b, c, d, e, f] = subpixel_max_coefs<T, s>(pic);
+		auto [a, b, c, d, e, f] = subpixel_max_coefs<T>(pic, s);
 
 		//now get the maximum of that function. Partial derivations:
 		//from partial derivation by x : 2dx + ey + b = 0

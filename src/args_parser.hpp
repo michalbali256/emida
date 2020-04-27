@@ -30,6 +30,7 @@ struct params
 	bool write_coefs = false;
 	precision_type precision = precision_type::DOUBLE;
 	bool analysis = false;
+	int fitting_size = 3;
 };
 
 

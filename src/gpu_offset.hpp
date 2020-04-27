@@ -37,13 +37,12 @@ private:
 	size_t maxarg_block_size_ = 1024;
 	size_t maxarg_one_pic_blocks_;
 	size_t maxarg_maxes_size_;
-
-	static constexpr int s = 3;
-	static constexpr int r = (s - 1) / 2;
+	int s;
+	int r;
 
 	mutable stopwatch sw;
 public:
-	gpu_offset(size2_t src_size, const std::vector<size2_t>* begins, size2_t slice_size, size2_t cross_size)
+	gpu_offset(size2_t src_size, const std::vector<size2_t>* begins, size2_t slice_size, size2_t cross_size, int s = 3)
 		: src_size_(src_size)
 		, begins_(begins)
 		, slice_size_(slice_size)
@@ -53,6 +52,8 @@ public:
 		, maxarg_one_pic_blocks_(div_up(cross_size.area(), maxarg_block_size_))
 		, maxarg_maxes_size_(maxarg_one_pic_blocks_* b_size_)
 		, sw(true, 2, 2)
+		, s(s)
+		, r((s - 1) / 2)
 	{}
 
 	void allocate_memory_prepare_old()
@@ -176,7 +177,7 @@ public:
 
 		std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size_); sw.tick("Transfer neighbors: ");
 
-		auto [subp_offset, coefs] = subpixel_max_serial<T, s>(neighbors.data(), b_size_); sw.tick("Subpixel max: ");
+		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors.data(), s, b_size_); sw.tick("Subpixel max: ");
 
 		std::vector<vec2<T>> res(b_size_);
 		if (cross_size_.x == s && cross_size_.y == s)

@@ -36,7 +36,7 @@ inline void process_files(const params& a)
 	for (auto& o : slice_begins)
 		o = o - (a.slice_size / 2);
 
-	gpu_offset<T, uint16_t> offs(a.pic_size, &slice_begins, a.slice_size, a.cross_size);
+	gpu_offset<T, uint16_t> offs(a.pic_size, &slice_begins, a.slice_size, a.cross_size, a.fitting_size);
 	offs.allocate_memory();
 
 	//TODO: allocate cuda host memory to avoid copying the data twice
