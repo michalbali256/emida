@@ -14,14 +14,17 @@ from scipy.signal import correlate
 def subpixel_peak(d, s=1):
     """Fit polynomial quadratic in x and y to the neighbourhood of maximum,
        to determine maximum with subpixel precision"""
-    yp, xp = np.unravel_index(np.argmax(d), d.shape)
+    y, x = np.unravel_index(np.argmax(d[s:d.shape[0]-s,s:d.shape[1]-s]), (d.shape[0]-2*s, d.shape[1]-2*s))
+
+    if d[y+s, x+s] == d[d.shape[0]//2, d.shape[1]//2]:
+        # default to center, if not worse
+        y, x = d.shape[0]//2-s, d.shape[1]//2-s
 
     #from pylab import matshow, show, plot
     #matshow(d)
     #plot([xp],[yp],"x")
     #show()
 
-    y, x = yp-s, xp-s
     l = d[y:y+2*s+1, x:x+2*s+1]
     yi, xi = np.indices(l.shape)
     i = np.ones(l.shape)
@@ -34,7 +37,7 @@ def subpixel_peak(d, s=1):
         xs, ys = np.linalg.solve([[2*q[3],   q[4]],
                                   [  q[4], 2*q[5]]], [-q[1], -q[2]])
     except np.linalg.LinAlgError:
-        xs, ys = -float("nan"), -float("nan")
+        xs, ys = s, s # if subpixel failed default to integer maximum
     return (y+ys, x+xs), q
 
 
@@ -55,7 +58,7 @@ if __name__ == "__main__":
 
     #work = "test.txt"
     work = "def.txt"
-    it = hex_pos(7000, 600) # minimal step is 60
+    it = hex_pos(7000, 300) # minimal step is 60
     with open(work, "w") as fh:
         for x,y in it: 
             print(x, y, fmt.format(x=int(x), y=int(y)), file=fh)
@@ -109,6 +112,7 @@ if __name__ == "__main__":
                     (yp, xp), q = subpixel_peak(cor)
                     xp = xp-2*s+1
                     yp = yp-2*s+1
-                    fh.write("{} {} {:.6f} {:.6f}\n".format(j,i,xp,yp))
+                    #fh.write("{} {} {:.6f} {:.6f}\n".format(j,i,xp,yp))
+                    print(j, i, xp, yp, *q, file=fh)
         print()
         print(time.time()-started)
