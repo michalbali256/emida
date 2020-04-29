@@ -3,6 +3,8 @@
 #include "cuda_runtime.h"
 #include <stdexcept>
 #include <sstream>
+#include <cmath>
+#include <vector>
 
 namespace emida
 {
