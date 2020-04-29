@@ -16,9 +16,9 @@ void write_offsets(const params& a, std::vector<vec2<T>>& offsets, const std::ve
 	for (size_t i = 0; i < offsets.size(); ++i)
 	{
 		//sometimes the resulting float is outputted as nan and sometimes as nan(ind). Normalize that here.
-		if (isnan(offsets[i].x))
+		if (std::isnan(offsets[i].x))
 			offsets[i].x = std::numeric_limits<T>::quiet_NaN();
-		if (isnan(offsets[i].y))
+		if (std::isnan(offsets[i].y))
 			offsets[i].y = std::numeric_limits<T>::quiet_NaN();
 		if(a.write_coefs)
 			printf("%llu %llu %f %f %f %f %f %f %f %f\n", a.slice_mids[i].x, a.slice_mids[i].y, offsets[i].x, offsets[i].y, coefs[i][0], coefs[i][1], coefs[i][2], coefs[i][3], coefs[i][4], coefs[i][5]);
