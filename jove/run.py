@@ -55,10 +55,14 @@ if __name__ == "__main__":
     #fmt = "Testing data/FeAl/INITIAL_FeAl/INITIAL_x{x:d}y{y:d}.tif"
     roi = "roi-cryst.txt"
     #roi = "roi-test.txt"
+    fit_size = 3
 
     #work = "test.txt"
-    work = "def.txt"
-    it = hex_pos(7000, 300) # minimal step is 60
+    # minimal step is 60
+    step = 300
+
+    work = "def-{}.txt".format(step)
+    it = hex_pos(7000, step)
     with open(work, "w") as fh:
         for x,y in it: 
             print(x, y, fmt.format(x=int(x), y=int(y)), file=fh)
@@ -67,19 +71,22 @@ if __name__ == "__main__":
     if 1:
         import subprocess
         s, pos = read_roi(roi)
-        np.savetxt("roi.emida", pos-s, fmt="%d", delimiter=",")
+        c = 4*s-1
+        #c = 4*s//3-1
         started = time.time()
-        with open("out-emida.txt","w") as fh:
-            subprocess.call([
+        with open("out-emida-{}.txt".format(step),"w") as fh:
+            args = [
                 "../build/bin/emida",
                 "-d", work,
                 "-i", ref,
                 "-b", roi,
                 "-p", "873,873",
-                #"-c", "25,25",
-                "-c", "{},{}".format(4*s-1,4*s-1),
-                "-s", "{},{}".format(2*s,2*s),
-            ], stdout=fh)
+                "-c", "{},{}".format(c,c),
+                "-f", str(2*fit_size+1),
+                "-q",
+            ]
+            print(" ".join(args))
+            subprocess.call(args, stdout=fh)
         print(time.time()-started)
 
     if 1:
@@ -96,7 +103,7 @@ if __name__ == "__main__":
             a *= window[None,:]
             ref_rois.append(a)
         started = time.time()
-        with open("out-jove.txt","w") as fh:
+        with open("out-jove-{}.txt".format(step),"w") as fh:
             for l in open(work):
                 print(".", end="", flush=True)
                 x, y, fname = l.rstrip().split(maxsplit=2)
@@ -109,10 +116,9 @@ if __name__ == "__main__":
                     b *= window[:,None]
                     b *= window[None,:]
                     cor = correlate(a, b, mode='full')
-                    (yp, xp), q = subpixel_peak(cor)
+                    (yp, xp), q = subpixel_peak(cor, fit_size)
                     xp = xp-2*s+1
                     yp = yp-2*s+1
-                    #fh.write("{} {} {:.6f} {:.6f}\n".format(j,i,xp,yp))
-                    print(j, i, xp, yp, *q, file=fh)
+                    fh.write("{} {} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(j, i, xp, yp, *q))
         print()
         print(time.time()-started)
