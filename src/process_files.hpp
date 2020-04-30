@@ -55,7 +55,6 @@ inline void process_files(const params& a)
 		iss >> y;
 		iss.ignore();
 		std::getline(iss, fname);
-		printf("%f %f %llu %s\n", x, y, a.slice_mids.size(), fname.c_str());
 
 
 		//TODO: allocate cuda host memory to avoid copying the data twice
@@ -70,13 +69,16 @@ inline void process_files(const params& a)
 
 		if (a.analysis)
 			stopwatch::global_stats.inc_histogram(offsets);
-
+	
+		printf("%f %f %llu %s\n", x, y, a.slice_mids.size(), fname.c_str());
 		write_offsets(a, offsets, coefs);
+		fprintf(stderr,".");
+		fflush(stderr);
 		sw.tick("Write offsets: ", 2);
 
 		sw.tick("ONE: ", 1);
 	}
-
+	fprintf(stderr,"\n");
 	sw.total();
 	if (a.analysis)
 	{
