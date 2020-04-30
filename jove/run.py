@@ -1,15 +1,6 @@
 #!/usr/bin/python3
 
-from math import sqrt
-def hex_pos(size, step):
-    m = int(size/step/sqrt(0.75))
-    n = int(size/step)
-    for j in range(m+1):
-        for i in range(n-j%2+1):
-            x = (i+j%2/2)*step
-            y = j*sqrt(0.75)*step
-            yield x, y
-
+import numpy as np
 from scipy.signal import correlate
 def subpixel_peak(d, s=1):
     """Fit polynomial quadratic in x and y to the neighbourhood of maximum,
@@ -41,84 +32,92 @@ def subpixel_peak(d, s=1):
     return (y+ys, x+xs), q
 
 
-import numpy as np
-def read_roi(fname):
-    with open(fname) as fh:
-        s = np.loadtxt(fh, dtype=int, max_rows=1)
-        pos = np.loadtxt(fh,  dtype=int, ndmin=2)
-    return s, pos
+import time
+from PIL import Image
+def run_python(dset, output, fit_size=3):
+    started = time.time()
+    s = dset.roi.size
+    ref = np.asarray(Image.open(dset.ref))
+    window = np.hanning(2*s)
+    ref_rois = []
+    for j,i in dset.roi.positions:
+        a = ref[i-s:i+s, j-s:j+s]
+        a = a - a.mean()
+        a *= window[:,None]
+        a *= window[None,:]
+        ref_rois.append(a)
+
+    with open(output, "w") as fh:
+        for x,y,fname in dset:
+            print(".", end="", flush=True)
+            fh.write("{:.6f} {:.6f} {} {}\n".format(x, y, len(dset.roi.positions), fname))
+            data = np.asarray(Image.open(fname))
+            for (j,i), a in zip(dset.roi.positions, ref_rois):
+                b = data[i-s:i+s, j-s:j+s]
+                b = b - b.mean()
+                b *= window[:,None]
+                b *= window[None,:]
+                cor = correlate(a, b, mode='full')
+                (yp, xp), q = subpixel_peak(cor, fit_size)
+                xp = xp-2*s+1
+                yp = yp-2*s+1
+                fh.write("{} {} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(j, i, xp, yp, *q))
+    print()
+    print(time.time()-started)
+
+
+def run_emida(dset, output, fit_size=3):
+    with open("emida-work.txt", "w") as fh:
+        for x, y, fn in dset: 
+            print(x, y, fn, file=fh)
+
+    dset.roi.save("emida-roi.txt")
+
+    isize = Image.open(dset.ref).size
+
+    c = 4*dset.roi.size-1
+    #c = 4*dset.roi.size//3-1
+
+    args = [
+        "../build/bin/emida",
+        "-d", "emida-work.txt",
+        "-b", "emida-roi.txt",
+        "-i", dset.ref,
+        "-p", "{},{}".format(*isize),
+        "-c", "{},{}".format(c,c),
+        "-f", "{}".format(2*fit_size+1),
+        "-q",
+    ]
+    print(" ".join(args))
+
+    import subprocess
+    started = time.time()
+    with open(output, "w") as fh:
+        subprocess.call(args, stdout=fh)
+
+    print(time.time()-started)
+
+from tools import HexDataSet, ROIs
+deformed = HexDataSet("../../Testing data/FeAl/DEFORMED_FeAl/DEFORMED_x{x:d}y{y:d}.tif", 7000, 60,
+        ref="../../Testing data/FeAl/INITIAL_FeAl/INITIAL_x0y0.tif",
+        roi=ROIs.load("roi-cryst.txt"),
+        ang="../../Testing data/FeAl/DEFORMED_FeAl.ang")
+
+initial = HexDataSet("../../Testing data/FeAl/INITIAL_FeAl/INITIAL_x{x:d}y{y:d}.tif", 7000, 60,
+        ref="../../Testing data/FeAl/INITIAL_FeAl/INITIAL_x0y0.tif",
+        roi=ROIs.load("roi-cryst.txt"),
+        ang="../../Testing data/FeAl/INITIAL_FeAl.ang")
 
 if __name__ == "__main__":
+    dset = deformed
+    #dset = initial
+    
+    from pylab import imshow, show
+    imshow(Image.open(dset.ref))
+    dset.roi.plot()
+    show()
 
-    ref = "../../Testing data/FeAl/INITIAL_FeAl/INITIAL_x0y0.tif"
-    fmt = "../../Testing data/FeAl/DEFORMED_FeAl/DEFORMED_x{x:d}y{y:d}.tif"
-    #fmt = "Testing data/FeAl/INITIAL_FeAl/INITIAL_x{x:d}y{y:d}.tif"
-    roi = "roi-cryst.txt"
-    #roi = "roi-test.txt"
-    fit_size = 3
+    dset = dset.decimate(5)
 
-    #work = "test.txt"
-    # minimal step is 60
-    step = 300
-
-    work = "def-{}.txt".format(step)
-    it = hex_pos(7000, step)
-    with open(work, "w") as fh:
-        for x,y in it: 
-            print(x, y, fmt.format(x=int(x), y=int(y)), file=fh)
-
-    import time
-    if 1:
-        import subprocess
-        s, pos = read_roi(roi)
-        c = 4*s-1
-        #c = 4*s//3-1
-        started = time.time()
-        with open("out-emida-{}.txt".format(step),"w") as fh:
-            args = [
-                "../build/bin/emida",
-                "-d", work,
-                "-i", ref,
-                "-b", roi,
-                "-p", "873,873",
-                "-c", "{},{}".format(c,c),
-                "-f", str(2*fit_size+1),
-                "-q",
-            ]
-            print(" ".join(args))
-            subprocess.call(args, stdout=fh)
-        print(time.time()-started)
-
-    if 1:
-        import numpy as np
-        from PIL import Image
-        s,positions = read_roi(roi)
-        ref = np.asarray(Image.open(ref))
-        window = np.hanning(2*s)
-        ref_rois = []
-        for j,i in positions:
-            a = ref[i-s:i+s, j-s:j+s]
-            a = a - a.mean()
-            a *= window[:,None]
-            a *= window[None,:]
-            ref_rois.append(a)
-        started = time.time()
-        with open("out-jove-{}.txt".format(step),"w") as fh:
-            for l in open(work):
-                print(".", end="", flush=True)
-                x, y, fname = l.rstrip().split(maxsplit=2)
-                x, y = float(x), float(y)
-                fh.write("{:.6f} {:.6f} {} {}\n".format(x, y, len(positions), fname))
-                data = np.asarray(Image.open(fname))
-                for (j,i), a in zip(positions, ref_rois):
-                    b = data[i-s:i+s, j-s:j+s]
-                    b = b - b.mean()
-                    b *= window[:,None]
-                    b *= window[None,:]
-                    cor = correlate(a, b, mode='full')
-                    (yp, xp), q = subpixel_peak(cor, fit_size)
-                    xp = xp-2*s+1
-                    yp = yp-2*s+1
-                    fh.write("{} {} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(j, i, xp, yp, *q))
-        print()
-        print(time.time()-started)
+    #run_emida(dset, "out-emida.txt", fit_size=3)
+    run_python(dset, "out-jove.txt", fit_size=3)
