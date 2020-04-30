@@ -1,0 +1,198 @@
+#!/usr/bin/python3
+
+
+class Cursor:
+    def __init__(self, pos):
+        self.pos = pos
+
+    def init(self, viewer):
+        self.ax = viewer.ax1
+        x, y = self.pos[0]
+        self.l, = self.ax.plot([x], [y], "r+", ms=7, animated=True)
+
+    def update(self, i):
+        x, y = self.pos[i]
+        self.l.set_data([x],[y])
+        self.ax.draw_artist(self.l)
+
+class Dots:
+    def __init__(self, pos):
+        self.pos = pos
+
+    def init(self, viewer):
+        self.ax = viewer.ax1
+        self.ax.plot(self.pos[:,0], self.pos[:,1], "r,")
+
+    def update(self, i):
+        pass
+
+
+class Img:
+    def __init__(self, fnames):
+        self.fnames = fnames
+
+    def init(self, viewer):
+        self.ax = viewer.ax2
+        fn = self.fnames[0]
+        print(fn)
+        self.im = self.ax.imshow(self.load(fn), cmap='gray', animated=True)
+
+    def load(self, fn):
+        from PIL import Image
+        return Image.open(fn)
+
+    def update(self, i):
+        fn = self.fnames[i]
+        print(fn)
+        self.im.set_data(self.load(fn))
+        self.ax.draw_artist(self.im)
+
+
+class HexBg:
+    def __init__(self, pos, val, **kw):
+        self.pos = pos
+        self.val = val
+        self.kw = kw
+
+    def init(self, viewer):
+        from tools import hexplot
+        hexplot(self.pos, self.val, ax=viewer.ax1, **self.kw)
+
+    def update(self, i):
+        pass
+
+
+class Quiver:
+    def __init__(self, xy, uv, **kw):
+        self.xy = xy
+        self.uv = uv
+        self.kw = kw
+
+    def init(self, viewer):
+        self.ax = viewer.ax2
+        xy, uv = self.xy[0], self.uv[0]
+        self.q = self.ax.quiver(xy[:,0], xy[:,1], uv[:,0], uv[:,1], animated=True, **self.kw)
+
+    def update(self, i):
+        uv = self.uv[i]
+        self.q.set_UVC(uv[:,0], uv[:,1])
+        self.ax.draw_artist(self.q)
+
+class Viewer:
+    def __init__(self, pos, actors):
+        from matplotlib.pylab import subplots
+        self.fig, (self.ax1, self.ax2) = subplots(1, 2, figsize=(10,5))
+        self.ax1.grid(False)
+        self.ax2.grid(False)
+        self.fig.tight_layout()
+
+        self._last = 0
+        self.pos = pos
+        self.actors = actors
+        for a in self.actors:
+            a.init(self)
+
+        self.fig.canvas.mpl_connect('motion_notify_event', self.motion_handler)
+        self.fig.canvas.mpl_connect('draw_event', self.draw_handler)
+
+    def draw_handler(self, ev):
+        self._ax1back = self.fig.canvas.copy_from_bbox(self.ax1.bbox)
+        self._ax2back = self.fig.canvas.copy_from_bbox(self.ax2.bbox)
+
+    def motion_handler(self, ev):
+        if ev.inaxes != self.ax1:
+            return
+
+        from numpy import argmin, hypot
+        i = argmin(hypot(self.pos[:,0]-ev.xdata, self.pos[:,1]-ev.ydata))
+        if i == self._last:
+            return
+        self._last = i
+
+        self.fig.canvas.restore_region(self._ax1back)
+        self.fig.canvas.restore_region(self._ax2back)
+        for a in self.actors:
+            a.update(i)
+        self.fig.canvas.blit(self.ax1.bbox)
+        self.fig.canvas.blit(self.ax2.bbox)
+
+
+
+"""
+
+xs, ys, vs, fnames, data1s, data2s, Fs, Rs, Ps = [], [], [], [], [], [], [], [], []
+mask = asarray(Image.open("mask.png"))==255
+with open("out-jove-300.txt") as f1, open("out-emida-300.txt") as f2:
+#with open("out-jove-60.txt") as f1, open("out-emida-60.txt") as f2:
+    while True:
+        print(".",end="",flush=True)
+        d1 = f1.readline().rstrip().split(maxsplit=3)
+        d2 = f2.readline().rstrip().split(maxsplit=3)
+        if not d1:
+            break
+        assert d1 == d2
+        x, y, n, fname = d1
+        x, y, n = float(x), float(y), int(n)
+        data1 = loadtxt(f1, max_rows=n)
+        data2 = loadtxt(f2, max_rows=n)
+        #fname = fname[6:]
+
+        q = data1[:,4:]
+        dt = 4*q[:,3]*q[:,5]-q[:,4]*q[:,4]
+        m = dt>1e15
+        try:
+            F, R, P, v = fit_transform(data1[m,:2], data1[m,:2]+data1[m,2:4], calib)
+        except:
+            import traceback
+            traceback.print_exc()
+            continue
+        v = log(v)
+        data1[~m,2:4] = nan
+        data2[~m,2:4] = nan
+        #a = array(Image.open(fname))*mask
+        #v = a[:a.shape[0]//2].sum()-a[a.shape[0]//2:].sum()
+
+        xs.append(x)
+        ys.append(y)
+        data1s.append(data1)
+        data2s.append(data2)
+        fnames.append(fname)
+        Fs.append(F)
+        Rs.append(R)
+        Ps.append(P)
+        vs.append(v)
+print()
+
+
+xs = array(xs)
+ys = array(ys)
+vs = array(vs)
+Fs = array(Fs)
+Rs = array(Rs)
+Ps = array(Ps)
+"""
+
+
+if __name__ == "__main__":
+    from run import deformed as dset
+    from pylab import show, loadtxt
+    
+    bg = loadtxt(dset.ang, usecols=(3,4,5))
+
+    v = Viewer(pos=dset.pos, actors=[
+        HexBg(bg[:,:2], bg[:,2], cmap='gray'),
+        Cursor(dset.pos), 
+        Img(dset.fnames)
+    ])
+   
+    from tools import load_result
+    pos, fnames, data = load_result("out-jove.txt")
+
+    v2 = Viewer(pos=pos, actors=[
+        HexBg(bg[:,:2], bg[:,2], cmap='gray'),
+        Dots(pos),
+        Cursor(pos), 
+        Img(fnames),
+        Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=0.1)
+    ])
+    show()

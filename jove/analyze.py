@@ -5,6 +5,7 @@ from PIL import Image
 
 calib = array([48.8235, 77.5223, 69.8357])
 calib = 873*(array([0,1,0]) + array([1,-1,1])*calib/100)
+from tools import hexplot
 
 from scipy.linalg import svd, logm
 def fit_transform(old, new, calib):
@@ -47,8 +48,8 @@ def apply_transform(T, old, calib):
 
 xs, ys, vs, fnames, data1s, data2s, Fs, Rs, Ps = [], [], [], [], [], [], [], [], []
 mask = asarray(Image.open("mask.png"))==255
-#with open("out-jove-300.txt") as f1, open("out-emida-300.txt") as f2:
-with open("out-jove-60.txt") as f1, open("out-emida-60.txt") as f2:
+with open("out-jove-300.txt") as f1, open("out-emida-300.txt") as f2:
+#with open("out-jove-60.txt") as f1, open("out-emida-60.txt") as f2:
     while True:
         print(".",end="",flush=True)
         d1 = f1.readline().rstrip().split(maxsplit=3)
@@ -110,18 +111,19 @@ for i,j in ndindex(3,6):
             ax.remove()
             continue
         v = Rs[:,i,j-3]
-
-    ax.tripcolor(xs, ys, v, shading='gouraud', vmin=-200e-4, vmax=200e-4, cmap='jet')
+    hexplot(column_stack([xs,ys]), v, vmin=-200e-4, vmax=200e-4, cmap='jet', ax=ax)
+#    ax.tripcolor(xs, ys, v, shading='gouraud', vmin=-200e-4, vmax=200e-4, cmap='jet')
 #    ax.plot(xs, ys, "k,")
-    ax.set_xticklabels('')
-    ax.set_yticklabels('')
+    #ax.set_xticklabels('')
+    #ax.set_yticklabels('')
+    ax.axis("off")
     ax.set_aspect("equal")
-fig.tight_layout()
+#fig.tight_layout()
 
 
 fig = figure(figsize=(10,5))
 ax1, ax2 = fig.subplots(1,2)
-s1 = ax1.scatter(xs, ys, c=vs)
+col = hexplot(column_stack([xs,ys]), vs, ax=ax1)
 l1, = ax1.plot([],[],"rx", ms=10, animated=True)
 ax1.set_aspect("equal")
 ax1.grid(False)
@@ -159,7 +161,7 @@ def motion_handler(ev):
         fname = fnames[i]
         print(fname)
         print(Rs[i])
-        print(Ps[i])
+        print(Ps[i], trace(Ps[i]))
         im2.set_data(Image.open(fname)*mask)
 
         data = data1s[i]
