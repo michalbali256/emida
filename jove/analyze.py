@@ -32,7 +32,7 @@ def algebraic_fit(old, new, calib):
     return V[-1].reshape(3,3)
 
 
-def process(data, calib):
+def process(data, calib, M):
     import time
     started = time.time()
     Fs, epsilon, omega = [], [], []
@@ -41,8 +41,8 @@ def process(data, calib):
         xy, uv, q = d[:,:2], d[:,2:4], d[:,4:]
 
         # filter by determinant
-        dt = 4*q[:,3]*q[:,5]-q[:,4]*q[:,4]
-        m = dt > 1e15
+        d = 4*q[:,3]*q[:,5]-q[:,4]*q[:,4]
+        m = d > 1e-7
 
         if m.sum() > 4:
             F = algebraic_fit(xy[m], (xy+uv)[m], calib)
@@ -53,8 +53,8 @@ def process(data, calib):
         d = np.linalg.det(F)
         F /= np.sign(d)*abs(d)**(1/3)
 
-        # here multiply by correct matrix to get from camera to sample coordinates
-        #F = M.dot(F)
+        # get from camera to sample coordinates
+        F = M.dot(F)
 
         # polar decomposition
         U,S,V = np.linalg.svd(F)
@@ -64,16 +64,34 @@ def process(data, calib):
         Fs.append( F )
         epsilon.append( logm(P) )
         omega.append( logm(R) )
-    print()
     print("processed in", time.time()-started, "s")
     return np.asarray(Fs), np.asarray(epsilon), np.asarray(omega)
 
 
-def apply_transform(T, old, calib):
-    cx,cy,cz = calib
-    new = column_stack([old - (cx,cy), full(old.shape[0], cz)]).dot(T.T)
-    return new[:,:2]/new[:,2,newaxis]*cz + (cx,cy)
+def apply_transform(F, old, calib):
+    new = np.column_stack([old - calib[:2], np.repeat(calib[2], len(old))]).dot(F.T)
+    return new[:,:2]/new[:,2,np.newaxis]*calib[2] + calib[:2]
 
+class FQuiver:
+    def __init__(self, xy, F, calib, **kw):
+        self.xy = xy
+        self.F = F
+        self.calib = calib
+        self.kw = kw
+
+    def init(self, viewer):
+        self.ax = viewer.ax2
+        xy = self.xy[0]
+        uv = self.get_uv(0)
+        self.q = self.ax.quiver(xy[:,0], xy[:,1], uv[:,0], uv[:,1], animated=True, **self.kw)
+
+    def get_uv(self, i):
+        return apply_transform(self.F[i], self.xy[i], self.calib) - self.xy[i]
+
+    def update(self, i):
+        uv = self.get_uv(i)
+        self.q.set_UVC(uv[:,0], uv[:,1])
+        self.ax.draw_artist(self.q)
 
 if __name__ == "__main__":
     #from run import initial as dset
@@ -85,13 +103,14 @@ if __name__ == "__main__":
     from tools import load_result
     #pos, fnames, data = load_result("out-initial-jove-5.txt")
     #pos, fnames, data = load_result("out-initial-jove.txt")
-    #pos, fnames, data = load_result("out-deformed-jove-5.txt")
-    pos, fnames, data = load_result("out-deformed-jove.txt")
+    pos, fnames, data = load_result("out-deformed-jove-5.txt")
+    #pos, fnames, data = load_result("out-deformed-jove.txt")
 
     calib = np.array([48.8235, 77.5223, 69.8357])
     calib = 873*(np.array([0,1,0]) + np.array([1,-1,1])*calib/100)
+    M = np.eye(3)
 
-    F, epsilon, omega = process(data, calib)
+    F, epsilon, omega = process(data, calib, M)
 
     from viewer import *
     v2 = Viewer(pos=pos, actors=[
@@ -99,7 +118,8 @@ if __name__ == "__main__":
         Dots(pos),
         Cursor(pos),
         Img(fnames),
-        Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=0.1)
+        Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=0.1),
+        FQuiver(data[:,:,:2], F, calib, color="b", angles='xy', scale_units='xy', scale=0.1)
     ])
 
 
