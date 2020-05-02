@@ -153,8 +153,8 @@ if __name__ == "__main__":
     from pylab import asarray, imshow, show
     mask = asarray(Image.open("mask.png"))==255
     imshow(mask)
-    #rois = ROIs.regular(48, 64, mask)
-    rois = ROIs.load("roi-cryst.txt")
+    rois = ROIs.regular(48, 64, mask)
+    #rois = ROIs.load("roi-cryst.txt")
     rois.plot()
     rois.save("/dev/stdout")
     show()
