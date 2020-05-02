@@ -125,6 +125,7 @@ def load_result(fname):
     started = time.time()
     with open(fname) as fh:
         while True:
+            print(".", end="", flush=True)
             line = fh.readline()
             if not line:
                 break
