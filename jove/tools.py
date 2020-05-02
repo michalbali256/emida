@@ -45,7 +45,8 @@ def hexplot(pos, C, step=None, cmap=None, vmin=None, vmax=None, ax=None, **kwarg
     miny = pos6[...,1].min()
     maxy = pos6[...,1].max()
     ax.update_datalim([ (minx, miny), (maxx, maxy) ])
-    ax.autoscale(tight=True)
+    ax.margins(0)
+    #ax.autoscale_view()
     ax.add_collection(col)
     ax.set_aspect("equal")
     return col
