@@ -45,7 +45,8 @@ def hexplot(pos, C, step=None, cmap=None, vmin=None, vmax=None, ax=None, **kwarg
     miny = pos6[...,1].min()
     maxy = pos6[...,1].max()
     ax.update_datalim([ (minx, miny), (maxx, maxy) ])
-    ax.autoscale(tight=True)
+    ax.margins(0)
+    #ax.autoscale_view()
     ax.add_collection(col)
     ax.set_aspect("equal")
     return col
@@ -120,6 +121,8 @@ def load_result(fname):
     pos = []
     fnames = []
     data = []
+    import time
+    started = time.time()
     with open(fname) as fh:
         while True:
             line = fh.readline()
@@ -132,6 +135,7 @@ def load_result(fname):
             data.append(loadtxt(fh, max_rows=n))
     pos = asarray(pos)
     data = asarray(data)
+    print("loaded in", time.time()-started, "s")
     return pos, fnames, data
 
 if __name__ == "__main__":
@@ -149,8 +153,8 @@ if __name__ == "__main__":
     from pylab import asarray, imshow, show
     mask = asarray(Image.open("mask.png"))==255
     imshow(mask)
-    #rois = ROIs.regular(48, 64, mask)
-    rois = ROIs.load("roi-cryst.txt")
+    rois = ROIs.regular(48, 64, mask)
+    #rois = ROIs.load("roi-cryst.txt")
     rois.plot()
     rois.save("/dev/stdout")
     show()
