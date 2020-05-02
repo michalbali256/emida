@@ -121,6 +121,8 @@ def load_result(fname):
     pos = []
     fnames = []
     data = []
+    import time
+    started = time.time()
     with open(fname) as fh:
         while True:
             line = fh.readline()
@@ -133,6 +135,7 @@ def load_result(fname):
             data.append(loadtxt(fh, max_rows=n))
     pos = asarray(pos)
     data = asarray(data)
+    print("loaded in", time.time()-started, "s")
     return pos, fnames, data
 
 if __name__ == "__main__":
