@@ -42,7 +42,7 @@ def process(data, calib, M):
 
         # filter by determinant
         d = 4*q[:,3]*q[:,5]-q[:,4]*q[:,4]
-        m = d > 1e15
+        m = d > 1e-7
 
         if m.sum() > 4:
             F = algebraic_fit(xy[m], (xy+uv)[m], calib)
