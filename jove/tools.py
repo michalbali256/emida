@@ -84,6 +84,7 @@ def subpixel_peak(d, s=1):
 
 
 from scipy.signal import choose_conv_method, correlate
+import scipy.fft
 class DataSet:
     def __init__(self, fmt, size, step, ang=None, ref=None, roi=None):
         self.fmt = fmt
@@ -137,16 +138,19 @@ class DataSet:
 
     def run_python(self, output, fit_size=3):
         import time
-        started = time.time()
-        self.get_ref()
-        with open(output, "w") as fh:
-            for x, y, fname in self:
-                print(".", end="", flush=True)
-                fh.write("{:.6f} {:.6f} {} {}\n".format(x, y, len(self.roi.positions), fname))
-                for (j,i), (cor, xp, yp, q) in zip(self.roi.positions, self.get_cor(fname, fit_size=fit_size)):
-                    fh.write("{} {} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(j, i, xp, yp, *q))
-        print()
-        print(time.time()-started)
+        import multiprocessing
+        nthreads = multiprocessing.cpu_count()
+        with scipy.fft.set_workers(nthreads):
+            started = time.time()
+            self.get_ref()
+            with open(output, "w") as fh:
+                for x, y, fname in self:
+                    print(".", end="", flush=True)
+                    fh.write("{:.6f} {:.6f} {} {}\n".format(x, y, len(self.roi.positions), fname))
+                    for (j,i), (cor, xp, yp, q) in zip(self.roi.positions, self.get_cor(fname, fit_size=fit_size)):
+                        fh.write("{} {} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(j, i, xp, yp, *q))
+            print()
+            print(time.time()-started)
 
     def run_gpu(dset, output, fit_size=3):
         with open("emida-work.txt", "w") as fh:
