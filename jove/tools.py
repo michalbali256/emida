@@ -183,6 +183,48 @@ class DataSet:
 
         print(time.time()-started)
 
+    def load_ang(self):
+        return np.loadtxt(self.ang, usecols=(3,4,5))
+
+    def _load_result_txt(self, fname):
+        pos = []
+        fnames = []
+        data = []
+        import time
+        started = time.time()
+        with open(fname) as fh:
+            while True:
+                print(".", end="", flush=True)
+                line = fh.readline()
+                if not line:
+                    break
+                x, y, n, fn = line.rstrip().split(maxsplit=3)
+                x, y, n = float(x), float(y), int(n)
+                pos.append((x,y))
+                fnames.append(fn)
+                data.append(np.loadtxt(fh, max_rows=n))
+        pos = np.asarray(pos)
+        data = np.asarray(data)
+        print("loaded in", time.time()-started, "s")
+        return pos, fnames, data
+
+    def load_result(self, fname):
+        import time
+        import os.path
+
+        if fname.endswith(".txt") and os.path.exists(fname+".dat"):
+            fname = fname+".dat"
+        else:
+            pos, fnames, data = self._load_result_txt(fname)
+            assert np.allclose(pos, self.pos)
+            assert fnames == self.fnames
+            data.tofile(fname+".dat")
+            return data
+
+        started = time.time()
+        data = np.fromfile(fname, dtype=float).reshape(len(self.fnames), len(self.roi.positions), 2+2+6)
+        print("loaded in", time.time()-started, "s")
+        return data
 
 class HexDataSet(DataSet):
     iter = staticmethod(hexiter)
@@ -226,28 +268,6 @@ class ROIs:
                             if mask[i-size:i+size,
                                     j-size:j+size].all() ]
         return cls(size, positions)
-
-def load_result(fname):
-    pos = []
-    fnames = []
-    data = []
-    import time
-    started = time.time()
-    with open(fname) as fh:
-        while True:
-            print(".", end="", flush=True)
-            line = fh.readline()
-            if not line:
-                break
-            x, y, n, fn = line.rstrip().split(maxsplit=3)
-            x, y, n = float(x), float(y), int(n)
-            pos.append((x,y))
-            fnames.append(fn)
-            data.append(np.loadtxt(fh, max_rows=n))
-    pos = np.asarray(pos)
-    data = np.asarray(data)
-    print("loaded in", time.time()-started, "s")
-    return pos, fnames, data
 
 if __name__ == "__main__":
 
