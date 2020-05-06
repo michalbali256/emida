@@ -59,7 +59,7 @@ def post_process(data, calib, M):
 
     # camera to sample coordinates
     #F = F.dot(M.T)
-    
+
     # set volumetric scale to 1
     scale = np.cbrt(np.linalg.det(F))
     F /= scale[...,np.newaxis,np.newaxis]
@@ -75,9 +75,9 @@ def post_process(data, calib, M):
     V_T = V.transpose(0,2,1)
     R_T = R.transpose(0,2,1)
     epsilon = (V_T*np.log(S[:,np.newaxis,:])) @ V # == logm(P)
-    
+
     k = (R - R_T)/2 # inverse or Rodrigez formula
-    
+
     sintheta = np.sqrt((k*k).sum(axis=(1,2))/2)
     #costheta = (R.trace(0,1,2)-1)/2
     #theta = np.arctan2(sintheta, costheta)
@@ -85,7 +85,7 @@ def post_process(data, calib, M):
     omega = k*(np.arcsin(sintheta)/sintheta)[:,np.newaxis,np.newaxis] # == logm(R)
 
     #
-    # Infinitesimal strain theory 
+    # Infinitesimal strain theory
     #
     #F_T = F.transpose(0,2,1)
     #epsilon = (F+F_T)/2 - np.eye(3)[np.newaxis,:,:]
@@ -151,7 +151,7 @@ class Ellipses:
         G = q[:,0]
         D, F = q[:,1]/2, q[:,2]/2
         A, B, C = q[:,3], q[:,4]/2, q[:,5]
-        
+
         a = sqrt(2*(A*F*F+C*D*D+G*B*B-2*B*D*F-A*C*G)/(B*B-A*C)/(+sqrt((A-C)*(A-C)+4*B*B)-(A+C)))
         b = sqrt(2*(A*F*F+C*D*D+G*B*B-2*B*D*F-A*C*G)/(B*B-A*C)/(-sqrt((A-C)*(A-C)+4*B*B)-(A+C)))
         t = arctan(2*B/(A-C))/2 + where(A>C, pi/2, 0)
@@ -161,7 +161,7 @@ class Ellipses:
         yy = b[:,newaxis]*cos(tt[newaxis,:])
 
         s, c = sin(t[:,newaxis]), cos(t[:,newaxis])
-        w = stack([xx* c + yy*-s, 
+        w = stack([xx* c + yy*-s,
                    xx*s + yy*c], axis=2)
 
         data = xy[:,newaxis,:] + w
@@ -191,11 +191,11 @@ class Cor:
 
 if __name__ == "__main__":
     from run import *
-    
-    from run import deformed 
-    
+
+    from run import deformed
+
     #data = load_result("out-initial-jove-5.txt")
-    
+
     dset = deformed#.decimate(5)
     data = dset.load_result("out-deformed-jove.txt")
 
@@ -204,13 +204,7 @@ if __name__ == "__main__":
     calib = np.array([48.8235, 77.5223, 69.8357])
     calib = 873*(np.array([0,1,0]) + np.array([1,-1,1])*calib/100)
     M = np.eye(3)
-    
-    if 1:
-        mask, F, epsilon, omega = post_process(data, calib, M)
-        np.savez("data.npz", F=F, epsilon=epsilon, omega=omega)
-    else:
-        loaded = np.load("data.npz")
-        F, epsilon, omega = loaded["F"], loaded["epsilon"], loaded["omega"]
+    mask, F, epsilon, omega = post_process(data, calib, M)
 
 
     from viewer import *
@@ -219,7 +213,7 @@ if __name__ == "__main__":
         Dots(dset.pos),
         Cursor(dset.pos),
         Img(dset.fnames),
-        
+
         Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=0.1),
         FQuiver(data[:,:,:2], F, mask, calib, color="b", angles='xy', scale_units='xy', scale=0.1),
         Ellipses(data[:,:,:2] + 10*data[:,:,2:4], data[:,:,4:],  facecolor='none', edgecolor='g'),
