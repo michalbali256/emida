@@ -23,8 +23,8 @@ def hexplot(pos, C, step=None, cmap=None, vmin=None, vmax=None, ax=None, **kwarg
 
     pos6 = pos[:,None,:] + hx[None,:,:]
 
-    kwargs.setdefault('edgecolors', 'none')
-    kwargs.setdefault('antialiaseds', False)
+    kwargs.setdefault('edgecolors', 'face')
+    kwargs.setdefault('antialiaseds', True)
 
     from matplotlib.collections import PolyCollection
     col = PolyCollection(pos6, **kwargs)
