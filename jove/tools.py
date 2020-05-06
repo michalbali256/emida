@@ -12,45 +12,7 @@ def hexiter(size, step):
             y = j*np.sqrt(0.75)*step
             yield x, y
 
-
-def hexplot(pos, C, step=None, cmap=None, vmin=None, vmax=None, ax=None, **kwargs):
-    if step is None:
-        step = pos[1,0]-pos[0,0]
-
-    s3 = 1/np.sqrt(3)
-    hx = np.array([(0,  2*s3), ( 1,  s3), ( 1, -s3),
-                   (0, -2*s3), (-1, -s3), (-1,  s3)])*step/2
-
-    pos6 = pos[:,None,:] + hx[None,:,:]
-
-    kwargs.setdefault('edgecolors', 'face')
-    kwargs.setdefault('antialiaseds', True)
-
-    from matplotlib.collections import PolyCollection
-    col = PolyCollection(pos6, **kwargs)
-    col.set_array(C)
-    col.set_cmap(cmap)
-    if vmin is not None or vmax is not None:
-        col.set_clim(vmin, vmax)
-    else:
-        col.autoscale_None()
-
-    if ax is None:
-        from matplotlib.pyplot import gca
-        ax = gca()
-
-    ax.grid(False)
-
-    minx = pos6[...,0].min()
-    maxx = pos6[...,0].max()
-    miny = pos6[...,1].min()
-    maxy = pos6[...,1].max()
-    ax.update_datalim([ (minx, miny), (maxx, maxy) ])
-    ax.margins(0)
-    #ax.autoscale_view()
-    ax.add_collection(col)
-    ax.set_aspect("equal")
-    return col
+from hexplot import hexplot1 as hexplot
 
 def subpixel_peak(d, s=1):
     """Fit polynomial quadratic in x and y to the neighbourhood of maximum,
@@ -271,13 +233,16 @@ class ROIs:
 
 if __name__ == "__main__":
 
-    data = HexDataSet("../../Testing data/FeAl/DEFORMED_FeAl/DEFORMED_x{x:d}y{y:d}.tif", 7000, 60)
+    data = HexDataSet("../../Testing data/FeAl/DEFORMED_FeAl/DEFORMED_x{x:d}y{y:d}.tif", 7000, 60,
+        ang="../../Testing data/FeAl/DEFORMED_FeAl.ang")
     for x,y,f in data.decimate(20):
         print(x,y,f)
 
-    from matplotlib.pyplot import imshow, show
-    val = np.random.poisson(500*np.exp( -((data.pos-35)**2).sum(axis=-1)/15/15/2))
+    from matplotlib.pyplot import imshow, show, savefig
+    #val = np.random.poisson(500*np.exp( -((data.pos-35)**2).sum(axis=-1)/15/15/2))
+    val = data.load_ang()[:,2]
     data.plot(data.pos, val)
+    #savefig("test.png", dpi=500)
     show()
 
     mask = np.asarray(Image.open("mask.png"))==255
