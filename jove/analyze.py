@@ -38,8 +38,9 @@ def post_process(data, calib, M):
     import time
     started = time.time()
     mask, Fs = [], []
-    for d in data:
-        print(".", end="", flush=True)
+    for i,d in enumerate(data):
+        if i % 100 == 0:
+            print(".", end="", flush=True)
         xy, uv, q = d[:,:2], d[:,2:4], d[:,4:]
 
         # filter by determinant
@@ -52,7 +53,7 @@ def post_process(data, calib, M):
             Fs.append(F)
         else:
             mask.append(False)
-
+    print()
 
     F = np.asarray(Fs)
     mask = np.asarray(mask)
@@ -90,7 +91,6 @@ def post_process(data, calib, M):
     #F_T = F.transpose(0,2,1)
     #epsilon = (F+F_T)/2 - np.eye(3)[np.newaxis,:,:]
     #omega = (F-F_T)/2
-
     print("post_processed in", time.time()-started, "s")
     return mask, F, epsilon, omega
 
@@ -190,14 +190,13 @@ class Cor:
 
 
 if __name__ == "__main__":
-    from run import *
+    from run import deformed, initial
 
-    from run import deformed
-
-    #data = load_result("out-initial-jove-5.txt")
 
     dset = deformed#.decimate(5)
     data = dset.load_result("out-deformed-jove.txt")
+    #dset = initial
+    #data = dset.load_result("out-initial-jove.txt")
 
     bg = dset.load_ang()
 
