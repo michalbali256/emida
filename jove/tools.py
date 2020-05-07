@@ -71,11 +71,11 @@ class DataSet:
         for j,i in self.roi.positions:
             r = data[i-s:i+s, j-s:j+s]
             r = r - r.mean()
+            r *= self.window[:,None]
+            r *= self.window[None,:]
             n = np.sqrt((r*r).sum())
             if n > 0:
                 r /= n # normalize
-            r *= self.window[:,None]
-            r *= self.window[None,:]
             yield r
 
     def get_ref(self):

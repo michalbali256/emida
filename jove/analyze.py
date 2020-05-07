@@ -178,7 +178,7 @@ class Cor:
         self.dset.get_ref()
         limits = self.ax.axis()
         self.imgs = [
-                self.ax.imshow(cor, extent=(j-2*s-.5,j+2*s-.5,i+2*s-.5,i-2*s-.5), vmin=-1e16, vmax=1e16)
+                self.ax.imshow(cor, extent=(j-2*s-.5,j+2*s-.5,i+2*s-.5,i-2*s-.5), vmin=-1, vmax=1)
                 for (j,i), (cor, xp, yp, q) in zip(self.dset.roi.positions, self.dset.get_cor(fname, fit_size=3)) ]
         self.ax.axis(limits)
 
