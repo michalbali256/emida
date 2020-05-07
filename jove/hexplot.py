@@ -2,58 +2,72 @@
 
 import numpy as np
 
-def hexplot1(pos, C, step=None, cmap=None, vmin=None, vmax=None, ax=None, **kwargs):
-    if step is None:
-        step = pos[1,0]-pos[0,0]
 
-    s3 = 1/np.sqrt(3)
-    hx = np.array([(0,  2*s3), ( 1,  s3), ( 1, -s3),
-                   (0, -2*s3), (-1, -s3), (-1,  s3)])*step/2
+def add_collection(collection_class, *args, **kwargs):
+    C = kwargs.pop("C")
+    corners = kwargs.pop("corners")
 
-    pos6 = pos[:,None,:] + hx[None,:,:]
+    ax = kwargs.pop("ax", None)
 
-    kwargs.setdefault('edgecolors', 'none')
-    kwargs.setdefault('antialiaseds', True)
+    alpha = kwargs.pop("alpha", None)
+    cmap = kwargs.pop("cmap", None)
+    norm = kwargs.pop("norm", None)
+    vmin = kwargs.pop("vmin", None)
+    vmax = kwargs.pop("vmax", None)
 
-    from matplotlib.collections import PolyCollection
-    col = PolyCollection(pos6, **kwargs)
+    col = collection_class(*args, **kwargs)
+    col.set_alpha(alpha)
     col.set_array(C)
     col.set_cmap(cmap)
-    if vmin is not None or vmax is not None:
-        col.set_clim(vmin, vmax)
-    else:
-        col.autoscale_None()
+    col.set_norm(norm)
+    col.set_clim(vmin, vmax)
+    col.autoscale_None()
 
     if ax is None:
         from matplotlib.pyplot import gca
         ax = gca()
 
     ax.grid(False)
-
-    minx = pos6[...,0].min()
-    maxx = pos6[...,0].max()
-    miny = pos6[...,1].min()
-    maxy = pos6[...,1].max()
-    ax.update_datalim([ (minx, miny), (maxx, maxy) ])
+    ax.add_collection(col, autolim=False)
+    ax.update_datalim(corners)
     ax.margins(0)
-    #ax.autoscale_view()
-    ax.add_collection(col)
     ax.set_aspect("equal")
     return col
 
-def hexplot2(m, n, step, C, ax=None, **kwargs):
+
+def hexplot1(XY, C, step=None, **kwargs):
+    if step is None:
+        step = XY[1,0]-XY[0,0]
+
+    s3 = 1/np.sqrt(3)
+    hx = np.array([(0,  2*s3), ( 1,  s3), ( 1, -s3),
+                   (0, -2*s3), (-1, -s3), (-1,  s3)])*step/2
+
+    pos6 = XY[:,None,:] + hx[None,:,:]
+
+    corners = [ pos6.min(axis=(0,1)),
+                pos6.max(axis=(0,1)) ]
+
+    kwargs.setdefault('edgecolors', 'none')
+    kwargs.setdefault('antialiased', False)
+
+    from matplotlib.collections import PolyCollection
+    return add_collection(PolyCollection, pos6, C=C, corners=corners, **kwargs)
+
+
+def hexplot2(m, n, step, C, **kwargs):
     assert len(C) == m//2*(2*n-1) + m%2*n
 
-    xx, yy = np.meshgrid(
+    x, y = np.meshgrid(
         np.arange(-1, 2*n)*step/2,
         np.arange(-.5, m)*step/2*np.sqrt(3)
     )
 
     s = step/12*np.sqrt(3)
-    yy[::2,::2] += s
-    yy[::2,1::2] -= s
-    yy[1::2,::2] -= s
-    yy[1::2,1::2] += s
+    y[::2,::2] += s
+    y[::2,1::2] -= s
+    y[1::2,::2] -= s
+    y[1::2,1::2] += s
 
     s = m//2*(2*n-1)
     end = C[s:]
@@ -61,37 +75,65 @@ def hexplot2(m, n, step, C, ax=None, **kwargs):
     even = C[:,:n]
     odd = C[:,n:]
 
-    cc = np.zeros((m, 2*n))
+    c = np.zeros((m, 2*n))
     if m % 2:
-        cc[:-1:2,::2] = cc[:-1:2,1::2] = even
-        cc[-1,::2] = cc[-1,1::2] = end
+        c[:-1:2,::2] = c[:-1:2,1::2] = even
+        c[-1,::2] = c[-1,1::2] = end
     else:
-        cc[::2,::2] = cc[::2,1::2] = even
+        c[::2,::2] = c[::2,1::2] = even
 
-    cc[1::2,0] = cc[1::2,-1] = np.nan
-    cc[1::2,1:-1:2] = cc[1::2,2:-1:2] = odd
+    c[1::2,0] = c[1::2,-1] = np.nan
+    c[1::2,1:-1:2] = c[1::2,2:-1:2] = odd
 
-    if ax is None:
-        from matplotlib.pyplot import gca
-        ax = gca()
+    pos = np.column_stack([x.ravel(), y.ravel()])
 
-    mesh = ax.pcolormesh(xx, yy, cc, shading='flat', **kwargs)
-    ax.set_aspect("equal")
-    return mesh
+    corners = [ pos.min(axis=(0)),
+                pos.max(axis=(0)) ]
+
+    #kwargs.setdefault('shading', 'flat')
+    kwargs.setdefault('edgecolors', 'none')
+    kwargs.setdefault('antialiased', False)
+    kwargs.setdefault('linewidths', 0)
+
+    from matplotlib.collections import QuadMesh
+    from matplotlib.cbook import safe_masked_invalid # needed !
+    return add_collection(QuadMesh, 2*n, m, pos, C=safe_masked_invalid(c).ravel(), corners=corners, **kwargs)
+
+
+def hexplot3(X, Y, C, **kwargs):
+    from matplotlib.tri import Triangulation
+    tri = Triangulation(X,Y) # TODO: explicit triangles?
+
+    corners = [ (X.min(), Y.min()),
+                (X.max(), Y.max()) ]
+
+    kwargs.setdefault('edgecolors', 'none')
+    kwargs.setdefault('antialiaseds', False)
+
+    from matplotlib.collections import TriMesh
+    return add_collection(TriMesh, tri, C=C, corners=corners, **kwargs)
 
 
 if __name__ == "__main__":
-    from matplotlib.pyplot import subplot, show, plot, savefig
+    from matplotlib.pyplot import figure, show, plot, savefig
 
-    x, y, c = np.loadtxt("../../Testing data/FeAl/DEFORMED_FeAl.ang",usecols=(3,4,5),unpack=True)
+    x, y, c = data = np.loadtxt("../../Testing data/FeAl/DEFORMED_FeAl.ang", usecols=(3,4,5), unpack=True)
 
-    subplot(121)
-    hexplot1(np.column_stack([x,y]), c)
-    subplot(122)
+    figure()
+    hexplot1(data[:2].T, c)
+    #savefig("hexplot1.pdf")
+    savefig("hexplot1.png", dpi=500)
+
+    figure()
     hexplot2(135, 117, 0.6, c)
+    #savefig("hexplot2.pdf")
+    savefig("hexplot2.png", dpi=500)
+
+    figure()
+    hexplot3(x, y, c)
+    #savefig("hexplot3.pdf")
+    savefig("hexplot3.png")
 
     #plot(x, y, "r,")
-    #savefig("test.png", dpi=1000)
-    #savefig("test.pdf")
 
     show()
