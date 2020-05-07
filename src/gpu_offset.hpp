@@ -56,16 +56,7 @@ public:
 		, r((s - 1) / 2)
 	{}
 
-	void allocate_memory_prepare_old()
-	{
-		cu_pic_ = cuda_malloc<T>(slice_size_.area() * b_size_);
-		cu_temp_ = cuda_malloc<T>(slice_size_.area() * b_size_);
-
-		cu_sums_pic_ = cuda_malloc<T>(b_size_);
-		cu_sums_temp_ = cuda_malloc<T>(b_size_);
-	}
-
-	void allocate_memory_prepare_new()
+	void allocate_memory_prepare()
 	{
 		cu_pic_in_ = cuda_malloc<IN>(src_size_.area());
 		cu_temp_in_ = cuda_malloc<IN>(src_size_.area());
@@ -81,8 +72,7 @@ public:
 
 	void allocate_memory()
 	{
-		allocate_memory_prepare_new();
-
+		allocate_memory_prepare();
 
 		auto hann_x = generate_hanning<T>(slice_size_.x);
 		auto hann_y = generate_hanning<T>(slice_size_.y);
@@ -104,30 +94,7 @@ public:
 
 	}
 
-	//to be refactored....
-	void prepare_for_cross_old(IN* pic, IN* temp) const
-	{
-		auto pic_slices = get_pics<T>(pic, src_size_, *begins_, slice_size_);
-		auto temp_slices = get_pics<T>(temp, src_size_, *begins_, slice_size_);
-		sw.tick("Create slices: ");
-
-		copy_to_device(pic_slices.data(), slice_size_.area() * b_size_, cu_pic_);
-		copy_to_device(temp_slices.data(), slice_size_.area() * b_size_, cu_temp_); sw.tick("Temp and pic to device: ");
-
-		run_sum(cu_pic_, (T*)cu_sums_pic_, slice_size_.area(), b_size_);
-		run_sum(cu_temp_, (T*)cu_sums_temp_, slice_size_.area(), b_size_);
-
-		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
-
-		run_prepare_pics(cu_pic_, cu_hann_x_, cu_hann_y_, (T*)cu_sums_pic_, slice_size_, b_size_);
-		run_prepare_pics(cu_temp_, cu_hann_x_, cu_hann_y_, (T*)cu_sums_temp_, slice_size_, b_size_);
-
-		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
-	}
-
-	void prepare_for_cross_new(IN* pic, IN* temp) const
+	void prepare_for_cross(IN* pic, IN* temp) const
 	{
 		copy_to_device(pic, src_size_.area(), cu_pic_in_);
 		copy_to_device(temp, src_size_.area(), cu_temp_in_); sw.tick("Temp and pic to device: ");
@@ -150,7 +117,7 @@ public:
 	{
 		sw.zero();
 		
-		prepare_for_cross_new(pic, temp);
+		prepare_for_cross(pic, temp);
 
 		run_cross_corr(cu_temp_, cu_pic_, cu_cross_res_, slice_size_, cross_size_, b_size_);
 
