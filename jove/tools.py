@@ -171,22 +171,23 @@ class DataSet:
         return pos, fnames, data
 
     def load_result(self, fname):
-        import time
-        import os.path
+        txt = fname[:-4]+".txt"
+        dat = fname[:-4]+".dat"
 
-        if fname.endswith(".txt") and os.path.exists(fname+".dat"):
-            fname = fname+".dat"
-        else:
-            pos, fnames, data = self._load_result_txt(fname)
-            assert np.allclose(pos, self.pos)
-            assert fnames == self.fnames
-            data.tofile(fname+".dat")
+        import os.path
+        if os.path.exists(dat):
+            import time
+            started = time.time()
+            data = np.fromfile(dat, dtype=float).reshape(len(self.fnames), len(self.roi.positions), 2+2+6)
+            print("loaded in", time.time()-started, "s")
             return data
 
-        started = time.time()
-        data = np.fromfile(fname, dtype=float).reshape(len(self.fnames), len(self.roi.positions), 2+2+6)
-        print("loaded in", time.time()-started, "s")
-        return data
+        elif os.path.exists(txt):
+            pos, fnames, data = self._load_result_txt(txt)
+            assert np.allclose(pos, self.pos)
+            assert fnames == self.fnames
+            data.tofile(dat)
+            return data
 
 class HexDataSet(DataSet):
     iter = staticmethod(hexiter)
