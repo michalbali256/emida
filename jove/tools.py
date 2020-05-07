@@ -105,12 +105,19 @@ class DataSet:
         with scipy.fft.set_workers(nthreads):
             started = time.time()
             self.get_ref()
-            with open(output, "w") as fh:
-                for x, y, fname in self:
-                    print(".", end="", flush=True)
-                    fh.write("{:.6f} {:.6f} {} {}\n".format(x, y, len(self.roi.positions), fname))
-                    for (j,i), (cor, xp, yp, q) in zip(self.roi.positions, self.get_cor(fname, fit_size=fit_size)):
-                        fh.write("{} {} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(j, i, xp, yp, *q))
+            if output.endswith(".txt"):
+                with open(output, "w") as fh:
+                    for x, y, fname in self:
+                        print(".", end="", flush=True)
+                        fh.write("{:.6f} {:.6f} {} {}\n".format(x, y, len(self.roi.positions), fname))
+                        for (j,i), (cor, xp, yp, q) in zip(self.roi.positions, self.get_cor(fname, fit_size=fit_size)):
+                            fh.write("{} {} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(j, i, xp, yp, *q))
+            else:
+                with open(output, "wb") as fh:
+                    for x, y, fname in self:
+                        print(".", end="", flush=True)
+                        data = np.asarray([ (j,i,xp,yp,*q) for (j,i), (cor, xp, yp, q) in zip(self.roi.positions, self.get_cor(fname, fit_size=fit_size)) ], dtype=float)
+                        data.tofile(fh)
             print()
             print(time.time()-started)
 

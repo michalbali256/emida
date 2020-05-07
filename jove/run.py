@@ -12,15 +12,16 @@ initial = HexDataSet("../../Testing data/FeAl/INITIAL_FeAl/INITIAL_x{x:d}y{y:d}.
         ang="../../Testing data/FeAl/INITIAL_FeAl.ang")
 
 if __name__ == "__main__":
-    #from pylab import imshow, show
+    #from matplotlib.pyplot import imshow, show
+    #from PIL import Image
     #imshow(Image.open(deformed.ref))
     #deformed.roi.plot()
     #show()
 
     #deformed.decimate(10).run_gpu("out-deformed-emida-10.txt", fit_size=3)
-    deformed.decimate(10).run_python("out-deformed-jove-10.txt", fit_size=3)
+    #deformed.decimate(10).run_python("out-deformed-jove-10.txt", fit_size=3)
     #deformed.decimate(5).run_gpu("out-deformed-emida-5.txt", fit_size=3)
-    #deformed.decimate(5).run_python("out-deformed-jove-5.txt", fit_size=3)
+    deformed.decimate(5).run_python("out-deformed-jove-5.dat", fit_size=3)
     #deformed.run_gpu("out-deformed-emida.txt", fit_size=3)
     #deformed.run_python("out-deformed-jove.txt", fit_size=3)
 
