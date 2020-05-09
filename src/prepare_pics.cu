@@ -40,25 +40,31 @@ template void run_prepare_pics<double>(double * pic, const double * hanning_x,
 template<typename IN, typename OUT>
 __global__ void prepare_pics(
 	const IN* __restrict__ pic,
-	OUT* __restrict slices,
+	OUT* __restrict__ slices,
 	const OUT* hanning_x,
 	const OUT* hanning_y,
 	const OUT* sums,
-	const size2_t * begins,
+	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
+	size2_t out_size,
 	size_t batch_size)
 {
 	size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-	size_t slice_tid = tid % slice_size.area();
-	size_t slice_num = tid / slice_size.area();
-	
+	size_t slice_tid = tid % out_size.area();
+	size_t slice_num = tid / out_size.area();
+	size2_t slice_pos = { slice_tid % out_size.x, slice_tid / out_size.x };
+
 	if (slice_num >= batch_size)
 		return;
 
-	size2_t slice_pos = {slice_tid % slice_size.x, slice_tid / slice_size.x };
 	size2_t pic_pos = begins[slice_num] + slice_pos;
-	
+
+	if (slice_pos.x >= slice_size.x || slice_pos.y >= slice_size.y)
+	{
+		slices[tid] = 0;
+		return;
+	}
 
 	OUT pixel = pic[pic_pos.pos(src_size.x)];
 	//subtract mean of the picture
@@ -68,23 +74,26 @@ __global__ void prepare_pics(
 	slices[tid] = pixel;
 }
 
+
+
 template<typename IN, typename OUT>
 void run_prepare_pics(
-	const IN* __restrict__ pic,
-	OUT* __restrict slices,
+	const IN* pic,
+	OUT* slices,
 	const OUT* hanning_x,
 	const OUT* hanning_y,
 	const OUT* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
+	size2_t out_size,
 	size_t batch_size)
 {
 	size_t block_size = 1024;
-	size_t grid_size(div_up(slice_size.area() * batch_size, block_size));
-	prepare_pics<IN, OUT> <<<grid_size, block_size >>> (pic, slices, hanning_x, hanning_y, sums, begins, src_size, slice_size, batch_size);
+	size_t grid_size(div_up(out_size.area() * batch_size, block_size));
+	prepare_pics<<<grid_size, block_size >>> (pic, slices, hanning_x, hanning_y, sums, begins, src_size, slice_size, out_size, batch_size);
+	
 }
-
 
 template void run_prepare_pics<uint16_t, double>(
 	const uint16_t* pic,
@@ -95,6 +104,7 @@ template void run_prepare_pics<uint16_t, double>(
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
+	size2_t out_size,
 	size_t batch_size);
 
 template void run_prepare_pics<uint16_t, float>(
@@ -106,7 +116,9 @@ template void run_prepare_pics<uint16_t, float>(
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
+	size2_t out_size,
 	size_t batch_size);
+
 
 template void run_prepare_pics<double, double>(
 	const double* pic,
@@ -117,6 +129,7 @@ template void run_prepare_pics<double, double>(
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
+	size2_t out_size,
 	size_t batch_size);
 
 }

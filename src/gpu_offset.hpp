@@ -6,9 +6,16 @@
 #include "subtract_mean.hpp"
 #include "stopwatch.hpp"
 #include "slice_picture.hpp"
+#include "cufft_helpers.hpp"
 
 namespace emida
 {
+
+enum cross_policy
+{
+	CROSS_POLICY_BRUTE,
+	CROSS_POLICY_FFT
+};
 
 template<typename T, typename IN>
 class gpu_offset
@@ -31,6 +38,7 @@ private:
 	size2_t src_size_;
 	const std::vector<size2_t>* begins_;
 	size2_t slice_size_;
+	size2_t cross_in_size_;
 	size2_t cross_size_;
 	size_t b_size_;
 	size_t neigh_size_;
@@ -40,39 +48,46 @@ private:
 	int s;
 	int r;
 
+	int fft_size_[2];
+	cufftHandle plan_;
+	cufftHandle inv_plan_;
+
+	cross_policy cross_policy_;
+
 	mutable stopwatch sw;
 public:
-	gpu_offset(size2_t src_size, const std::vector<size2_t>* begins, size2_t slice_size, size2_t cross_size, int s = 3)
+	gpu_offset(size2_t src_size, const std::vector<size2_t>* begins, size2_t slice_size, size2_t cross_size, cross_policy policy = CROSS_POLICY_BRUTE, int s = 3)
 		: src_size_(src_size)
 		, begins_(begins)
 		, slice_size_(slice_size)
+		, cross_in_size_(policy == CROSS_POLICY_BRUTE ? slice_size : size2_t{slice_size.x * 2 + 2, slice_size.y * 2})
 		, cross_size_(cross_size)
 		, b_size_(begins->size())
 		, neigh_size_(s * s * b_size_)
 		, maxarg_one_pic_blocks_(div_up(cross_size.area(), maxarg_block_size_))
 		, maxarg_maxes_size_(maxarg_one_pic_blocks_* b_size_)
-		, sw(true, 2, 2)
+		, sw(false
+			, 2, 2)
 		, s(s)
 		, r((s - 1) / 2)
+		, fft_size_{ (int)slice_size.x * 2, (int)slice_size.y * 2 }
+		, cross_policy_(policy)
 	{}
 
-	void allocate_memory_prepare()
+	void allocate_memory()
 	{
 		cu_pic_in_ = cuda_malloc<IN>(src_size_.area());
 		cu_temp_in_ = cuda_malloc<IN>(src_size_.area());
-
-		cu_pic_ = cuda_malloc<T>(slice_size_.area() * b_size_);
-		cu_temp_ = cuda_malloc<T>(slice_size_.area() * b_size_);
+		 
+		//Enforce alignment by allocating cufft complex types
+		//Result we also need to allocate one row more because that is the size of ff-transpformed result
+		cu_pic_ = (T*) cuda_malloc<complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
+		cu_temp_ = (T*) cuda_malloc<complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
 
 		cu_sums_pic_ = cuda_malloc<T>(b_size_);
 		cu_sums_temp_ = cuda_malloc<T>(b_size_);
 
 		cu_begins_ = vector_to_device(*begins_);
-	}
-
-	void allocate_memory()
-	{
-		allocate_memory_prepare();
 
 		auto hann_x = generate_hanning<T>(slice_size_.x);
 		auto hann_y = generate_hanning<T>(slice_size_.y);
@@ -92,10 +107,23 @@ public:
 			cu_maxes_i_ = cuda_malloc<size2_t>(b_size_);
 		}
 
+		FFTCH(cufftPlanMany(&plan_, 2, fft_size_,
+			NULL, 1, 0,
+			NULL, 1, 0,
+			fft_type_R2C<T>(), (int)b_size_));
+
+
+		FFTCH(cufftPlanMany(&inv_plan_, 2, fft_size_,
+			NULL, 1, 0,
+			NULL, 1, 0,
+			fft_type_C2R<T>(), (int)b_size_));
 	}
 
-	void prepare_for_cross(IN* pic, IN* temp) const
+	//gets two pictures with size cols x rows and returns subpixel offset between them
+	offsets_t<T> get_offset(IN* pic, IN* temp) const
 	{
+		sw.zero();
+		
 		copy_to_device(pic, src_size_.area(), cu_pic_in_);
 		copy_to_device(temp, src_size_.area(), cu_temp_in_); sw.tick("Temp and pic to device: ");
 
@@ -105,24 +133,21 @@ public:
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
 
-		run_prepare_pics(cu_pic_in_, cu_pic_, cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, b_size_);
-		run_prepare_pics(cu_temp_in_, cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, b_size_);
+		run_prepare_pics(cu_pic_in_, cu_pic_, cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
+		run_prepare_pics(cu_temp_in_, cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
-	}
 
-	//gets two pictures with size cols x rows and returns subpixel offset between them
-	offsets_t<T> get_offset(IN* pic, IN* temp) const
-	{
-		sw.zero();
-		
-		prepare_for_cross(pic, temp);
-
-		run_cross_corr(cu_temp_, cu_pic_, cu_cross_res_, slice_size_, cross_size_, b_size_);
+		if(cross_policy_ == CROSS_POLICY_BRUTE)
+			run_cross_corr(cu_temp_, cu_pic_, cu_cross_res_, slice_size_, cross_size_, b_size_);
+		else
+			cross_corr_fft();
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run cross corr: ");
+
+		
 
 		T* cu_neighbors = cu_neighbors_;
 		std::vector<vec2<size_t>> maxes_i;
@@ -189,14 +214,52 @@ public:
 			size_t max_i = maxes[max_res_i].index - b * cross_size_.area();
 			res[b].x = max_i % cross_size_.x;
 			res[b].y = max_i / cross_size_.x;
-			if (res[b].x == 0 || res[b].x == cross_size_.x)
-				++stopwatch::global_stats.border.x;
-			if (res[b].y == 0 || res[b].y == cross_size_.y)
-				++stopwatch::global_stats.border.y;
 			++stopwatch::global_stats.total_pics;
 		}
 
 		return res;
+	}
+
+	
+	inline void cross_corr_fft() const
+	{
+		stopwatch sw(false, 2, 4);
+
+		//auto vec = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
+		CUCH(cudaDeviceSynchronize());
+
+		
+
+		fft_real_to_complex(plan_, cu_pic_);
+		fft_real_to_complex(plan_, cu_temp_);
+		CUCH(cudaDeviceSynchronize()); sw.tick("R2C: ");
+
+		//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
+		//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * b_size_);
+
+		run_hadamard((complex_trait<T>::type *)cu_pic_, (complex_trait<T>::type *)cu_temp_, cross_in_size_.area() / 2 * b_size_);
+		CUCH(cudaDeviceSynchronize()); sw.tick("Multiply: ");
+
+		
+		//auto vec2 = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
+
+		//auto out = cuda_malloc<T>(cross_in_size_.area());
+
+		fft_complex_to_real(inv_plan_, cu_pic_);
+		CUCH(cudaDeviceSynchronize()); sw.tick("C2R: ");
+
+		//auto vec3 = device_to_vector(out, cross_in_size_.area() * b_size_);
+
+		int i = 0;
+	}
+
+	T* get_cu_pic()
+	{
+		return cu_pic_;
+	}
+	T* get_cu_temp()
+	{
+		return cu_temp_;
 	}
 };
 

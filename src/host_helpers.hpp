@@ -28,7 +28,7 @@ inline std::vector<T> generate_hanning(size_t size)
 	std::vector<T> res;
 	res.resize(size);
 	for (size_t i = 0; i < size; i++)
-		res[i] = 0.5 * (1 - cos(2 * PI * i / (size - 1)));
+		res[i] = (T)(0.5 * (1 - cos(2 * PI * i / (size - 1))));
 	return res;
 }
 
