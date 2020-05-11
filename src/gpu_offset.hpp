@@ -75,8 +75,8 @@ public:
 		 
 		//Enforce alignment by allocating cufft complex types
 		//Result we also need to allocate one row more because that is the size of ff-transpformed result
-		cu_pic_ = (T*) cuda_malloc<complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
-		cu_temp_ = (T*) cuda_malloc<complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
+		cu_pic_ = (T*) cuda_malloc<typename complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
+		cu_temp_ = (T*) cuda_malloc<typename complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
 
 		cu_sums_pic_ = cuda_malloc<T>(b_size_);
 		cu_sums_temp_ = cuda_malloc<T>(b_size_);
