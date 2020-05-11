@@ -232,7 +232,7 @@ public:
 		//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
 		//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * b_size_);
 
-		run_hadamard((complex_trait<T>::type*)cu_pic_, (complex_trait<T>::type*)cu_temp_, { cross_in_size_.x / 2, cross_in_size_.y }, b_size_);
+		run_hadamard((typename complex_trait<T>::type*)cu_pic_, (typename complex_trait<T>::type*)cu_temp_, { cross_in_size_.x / 2, cross_in_size_.y }, b_size_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("Multiply: ");
 
 		
