@@ -99,4 +99,10 @@ struct range
 	size2_t end;
 };
 
+enum cross_policy
+{
+	CROSS_POLICY_BRUTE,
+	CROSS_POLICY_FFT
+};
+
 }

@@ -125,21 +125,22 @@ bool params::parse(int argc, char** argv)
 		("b,slicepos", "Path to file with positions of slice middles in each picture", value_type<std::string>(), "FILE_PATH")
 		("a,analysis", "The application will write time measurements and statistics about processed files to standard error output.")
 		("q,writecoefs", "In addition to offsets, output also coefficients of parabola fitting for each region of interest.")
-		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "TYPE")
-		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum.", value_type<int>(), "TYPE")
+		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "double|float")
+		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum. Allowed values: 3, 5, 7, 9", value_type<int>(), "SIZE")
+		("crosspolicy", "Specified whether to use FFT to compute cross correlation. Allowed values: brute, fft.", value_type<std::string>(), "brute|fft")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 	
 	auto parsed = cmd.parse(argc, argv);
 
 	if (!parsed.parse_ok())
 	{
-		std::cout << "Argument parsing error." << "\n";
-		std::cout << cmd.help() << "\n";
+		std::cerr << "Argument parsing error." << "\n";
+		std::cerr << cmd.help() << "\n";
 		return false;
 	}
 	if (parsed["help"])
 	{
-		std::cout << cmd.help() << "\n";
+		std::cerr << cmd.help() << "\n";
 		return true;
 	}
 
@@ -237,6 +238,20 @@ bool params::parse(int argc, char** argv)
 		catch(const std::runtime_error&)
 		{
 			std::cerr << "Error: the fitsize " << fitting_size << " is not supported.\n";
+			return false;
+		}
+	}
+
+	if (parsed["crosspolicy"])
+	{
+		const std::string& crosspolicy = parsed["crosspolicy"]->get_value<std::string>();
+		if (crosspolicy == "fft")
+			cross_pol = CROSS_POLICY_FFT;
+		else if (crosspolicy == "brute")
+			cross_pol = CROSS_POLICY_BRUTE;
+		else
+		{
+			std::cerr << "Invalid crosspolicy argument.\n";
 			return false;
 		}
 	}

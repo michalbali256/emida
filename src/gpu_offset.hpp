@@ -11,12 +11,6 @@
 namespace emida
 {
 
-enum cross_policy
-{
-	CROSS_POLICY_BRUTE,
-	CROSS_POLICY_FFT
-};
-
 template<typename T, typename IN>
 class gpu_offset
 {
@@ -61,7 +55,7 @@ public:
 		, begins_(begins)
 		, slice_size_(slice_size)
 		, cross_in_size_(policy == CROSS_POLICY_BRUTE ? slice_size : size2_t{slice_size.x * 2 + 2, slice_size.y * 2})
-		, cross_size_(cross_size)
+		, cross_size_(policy == CROSS_POLICY_BRUTE ? cross_size : slice_size * 2 - 1)
 		, b_size_(begins->size())
 		, neigh_size_(s * s * b_size_)
 		, maxarg_one_pic_blocks_(div_up(cross_size.area(), maxarg_block_size_))
@@ -95,6 +89,7 @@ public:
 		cu_hann_x_ = vector_to_device(hann_x);
 		cu_hann_y_ = vector_to_device(hann_y);
 
+		//cu_cross_res_ = cross_policy_ == CROSS_POLICY_FFT ? cu_pic_ : cuda_malloc<T>(cross_size_.area() * b_size_);
 		cu_cross_res_ = cuda_malloc<T>(cross_size_.area() * b_size_);
 
 		cu_maxes_ = cuda_malloc<data_index<T>>(maxarg_maxes_size_);
@@ -140,7 +135,7 @@ public:
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
 
 		if(cross_policy_ == CROSS_POLICY_BRUTE)
-			run_cross_corr(cu_temp_, cu_pic_, cu_cross_res_, slice_size_, cross_size_, b_size_);
+			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, b_size_);
 		else
 			cross_corr_fft();
 
@@ -184,8 +179,8 @@ public:
 			for (size_t i = 0; i < b_size_; ++i)
 			{
 
-				res[i].x = (int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x;
-				res[i].y = (int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y;
+				res[i].x =-((int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
+				res[i].y =-((int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
 			}
 		}sw.tick("Offsets finalisation: ");
 		sw.total();
@@ -223,7 +218,7 @@ public:
 	
 	inline void cross_corr_fft() const
 	{
-		stopwatch sw(false, 2, 4);
+		stopwatch sw(true, 2, 4);
 
 		//auto vec = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
 		CUCH(cudaDeviceSynchronize());
@@ -237,7 +232,7 @@ public:
 		//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
 		//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * b_size_);
 
-		run_hadamard((complex_trait<T>::type *)cu_pic_, (complex_trait<T>::type *)cu_temp_, cross_in_size_.area() / 2 * b_size_);
+		run_hadamard((complex_trait<T>::type*)cu_pic_, (complex_trait<T>::type*)cu_temp_, { cross_in_size_.x / 2, cross_in_size_.y }, b_size_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("Multiply: ");
 
 		
@@ -248,7 +243,11 @@ public:
 		fft_complex_to_real(inv_plan_, cu_pic_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("C2R: ");
 
-		//auto vec3 = device_to_vector(out, cross_in_size_.area() * b_size_);
+		run_finalize_fft(cu_pic_, cu_cross_res_, cross_size_, b_size_);
+		CUCH(cudaDeviceSynchronize()); sw.tick("finalize: ");
+
+		//auto vec3 = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
+		//auto vec4 = device_to_vector(cu_cross_res_, cross_size_.area() * b_size_);
 
 		int i = 0;
 	}

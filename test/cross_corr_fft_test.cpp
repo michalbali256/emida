@@ -33,7 +33,7 @@ TEST(fft, test)
 
 	size2_t slice_size{ 4,4 };
 	std::vector<size2_t> begins{ {0,0} };
-	gpu_offset<double, uint16_t> offs({ 0,0 }, &begins, slice_size, slice_size * 2 - 1, CROSS_POLICY_FFT);
+	gpu_offset<double, uint16_t> offs({ 10,10 }, &begins, slice_size, slice_size * 2 - 1, CROSS_POLICY_FFT);
 	offs.allocate_memory();
 	copy_to_device(in, offs.get_cu_pic());
 	copy_to_device(in_temp, offs.get_cu_temp());

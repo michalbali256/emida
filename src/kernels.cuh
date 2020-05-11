@@ -47,6 +47,9 @@ template<typename T, typename RES>
 void run_sum(const T* data, RES* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
 
 template<typename T>
-void run_hadamard(T* A, const T* B, size_t size);
+void run_hadamard(T* A, const T* B, size2_t one_size, size_t batch_size);
+
+template<typename T>
+void run_finalize_fft(const T* in, T* out, size2_t out_size, size_t batch_size);
 
 }
