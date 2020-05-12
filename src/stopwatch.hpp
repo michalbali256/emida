@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <array>
 
 #include "common.hpp"
 

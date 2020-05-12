@@ -119,27 +119,27 @@ bool params::parse(int argc, char** argv)
 		("d,deformed", "Path to file with list of paths to deformed pictures.", value_type<std::string>(), "TXT_FILE", false)
 		("o,outpics", "If specified, the program will write offsets into pictures and save them in specified folder.", value_type<std::string>(), "FOLDER")
 		("c,crosssize", "Size of neighbourhood that is analyzed in each slice of picture. Must be odd numbers.", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
-		("p,picsize", "Size of one input tiff picture. Default is 873,873", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
 		("s,slicesize", "Size of slices of pictures that are to be compared. The parameter specifies \"radius\" - half of slice size. Topleft corner of each slice is <slicepos>-<slicesize> and bottom right corner is <slicepos>+<slicesize>-1", value_type<emida::size2_t>(), "X_RADIUS,Y_RADIUS")
 		("slicestep", "If slicepos not specified, specifies density of slices", value_type<emida::size2_t>(), "X_SIZE,Y_SIZE")
-		("b,slicepos", "Path to file with positions of slice middles in each picture", value_type<std::string>(), "FILE_PATH")
+		("b,slicepos", "Path to file with positions of slice middles in each picture", value_type<std::string>(), "FILE_PATH", false)
 		("a,analysis", "The application will write time measurements and statistics about processed files to standard error output.")
 		("q,writecoefs", "In addition to offsets, output also coefficients of parabola fitting for each region of interest.")
-		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "TYPE")
-		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum.", value_type<int>(), "TYPE")
+		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "double|float")
+		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum. Allowed values: 3, 5, 7, 9", value_type<int>(), "SIZE")
+		("crosspolicy", "Specified whether to use FFT to compute cross correlation. Allowed values: brute, fft.", value_type<std::string>(), "brute|fft")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 	
 	auto parsed = cmd.parse(argc, argv);
 
 	if (!parsed.parse_ok())
 	{
-		std::cout << "Argument parsing error." << "\n";
-		std::cout << cmd.help() << "\n";
+		std::cerr << "Argument parsing error." << "\n";
+		std::cerr << cmd.help() << "\n";
 		return false;
 	}
 	if (parsed["help"])
 	{
-		std::cout << cmd.help() << "\n";
+		std::cerr << cmd.help() << "\n";
 		return true;
 	}
 
@@ -147,11 +147,6 @@ bool params::parse(int argc, char** argv)
 	deformed_list_file_name = parsed["deformed"]->get_value<std::string>();
 	if (parsed["outpics"])
 		out_dir = parsed["outpics"]->get_value<std::string>();
-
-	if (parsed["picsize"])
-		pic_size = parsed["picsize"]->get_value<size2_t>();
-	else
-		pic_size = { 873, 873 };
 
 	if (parsed["slicesize"])
 	{
@@ -188,14 +183,9 @@ bool params::parse(int argc, char** argv)
 				return false;
 			}
 			size2_t end = m + slice_size / 2;
-			if (begin.x >= pic_size.x || begin.y >= pic_size.y)
-			{
-				std::cerr << "Error: A slice out of bounds\n";
-				return false;
-			}
 		}
 	}
-	else
+	/*else
 	{
 		size2_t step = { 32, 32 };
 		if (parsed["slicestep"])
@@ -205,7 +195,7 @@ bool params::parse(int argc, char** argv)
 		for (auto& o : slice_mids)
 			o = o + (slice_size / 2);
 	
-	}
+	}*/
 
 	if (cross_size.x > slice_size.x * 2 - 1 || cross_size.y > slice_size.y * 2 - 1)
 	{
@@ -239,6 +229,25 @@ bool params::parse(int argc, char** argv)
 			std::cerr << "Error: the fitsize " << fitting_size << " is not supported.\n";
 			return false;
 		}
+	}
+
+	if (parsed["crosspolicy"])
+	{
+		const std::string& crosspolicy = parsed["crosspolicy"]->get_value<std::string>();
+		if (crosspolicy == "fft")
+		{
+			cross_pol = CROSS_POLICY_FFT;
+			if (parsed["crosssize"])
+				std::cerr << "Warning: --crosssize (-c) is ignored with FFT policy.\n";
+		}
+		else if (crosspolicy == "brute")
+			cross_pol = CROSS_POLICY_BRUTE;
+		else
+		{
+			std::cerr << "Invalid crosspolicy argument.\n";
+			return false;
+		}
+		
 	}
 
 	analysis = parsed["analysis"] ? true : false;

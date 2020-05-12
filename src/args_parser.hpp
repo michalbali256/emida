@@ -23,7 +23,6 @@ struct params
 	std::string deformed_list_file_name;
 
 	std::optional<std::string> out_dir;
-	size2_t pic_size;
 	size2_t cross_size;
 	size2_t slice_size = { 64, 64 };
 	std::vector<size2_t> slice_mids;
@@ -31,6 +30,7 @@ struct params
 	precision_type precision = precision_type::DOUBLE;
 	bool analysis = false;
 	int fitting_size = 3;
+	cross_policy cross_pol = CROSS_POLICY_FFT;
 };
 
 

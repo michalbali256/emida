@@ -11,13 +11,13 @@ jobs:
       steps:
       - uses: actions/checkout@v1
       - name: Requirements install
-        run: apt-get update && apt-get install -y liblzma-dev libz-dev g++-8 cmake git
+        run: apt-get update && apt-get install -y g++-8 cmake git libtiff-dev
       - name: Set g++-8
         run: |
           update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 200
           update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 200
       - name: Configure
-        run: mkdir build && cd build && cmake -DCMAKE_C_COMPILER=gcc ../
+        run: mkdir build && cd build && cmake ../
       - name: Build
         run: cd build && cmake --build . -- -j 4
       - name: Upload Emida
