@@ -18,7 +18,8 @@ std::vector<typename complex_trait<T>::type> get_fft_shift(size_t N, size_t shif
 	res.resize(N);
 
 	for(size_t i = 0; i < N; ++i)
-		res[i] = { (T)cos(2 * PI / N * i * shift), (T)sin(2 * PI / N * i * shift) };
+		res[i] = { (T)1, (T)0 };
+	//res[i] = { (T)cos(2 * PI / N * i * shift), (T)sin(2 * PI / N * i * shift) };
 
 	return res;
 }

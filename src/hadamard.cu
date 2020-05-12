@@ -35,10 +35,10 @@ __global__ void hadamard(T * __restrict__ A, const T * __restrict__ B, const T* 
 	
 	T mul = { (A[i].x * B[i].x + A[i].y * B[i].y),
 		(-A[i].x * B[i].y + A[i].y * B[i].x)};
-	mul = complex_mul(mul, shx[slice_pos.x]);
-	mul = complex_mul(mul, shy[slice_pos.y]);
-	size_t num_elements = (one_size.x - 1) * 2 * one_size.y;
-	mul = { mul.x / num_elements, mul.y / num_elements };
+	//mul = complex_mul(mul, shx[slice_pos.x]);
+	//mul = complex_mul(mul, shy[slice_pos.y]);
+	//size_t num_elements = (one_size.x - 1) * 2 * one_size.y;
+	//mul = { mul.x / num_elements, mul.y / num_elements };
 	A[i] = mul;
 }
 
@@ -80,7 +80,9 @@ __global__ void finalize_fft(const T* in, T* __restrict__ out, size2_t out_size,
 	if (slice_num >= batch_size)
 		return;
 
-	out[i] = in[slice_num * in_size.area() + slice_pos.pos(in_size.x)];
+	size2_t in_pos = (slice_pos + ((out_size + 1) / 2 + 1)) % (out_size+1);
+
+	out[i] = in[slice_num * in_size.area() + in_pos.pos(in_size.x)];
 }
 
 template<typename T>

@@ -88,6 +88,17 @@ struct vec2
 		return { x / rhs, y / rhs };
 	}
 
+	template<typename U>
+	__host__ __device__ vec2<T> operator%(const U& rhs) const
+	{
+		return { x % rhs, y % rhs };
+	}
+	__host__ __device__ vec2<T> operator%(const vec2<T>& rhs) const
+	{
+		return { x % rhs.x, y % rhs.y };
+	}
+
+
 	__host__ __device__ size_t pos(size_t cols) const { return y * cols + x; }
 };
 
