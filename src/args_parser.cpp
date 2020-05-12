@@ -254,6 +254,8 @@ bool params::parse(int argc, char** argv)
 			std::cerr << "Invalid crosspolicy argument.\n";
 			return false;
 		}
+		if(parsed["crosssize"])
+			std::cerr << "Warning: --crosssize (-c) is ignored with FFT policy.\n";
 	}
 
 	analysis = parsed["analysis"] ? true : false;

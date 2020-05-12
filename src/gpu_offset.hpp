@@ -58,7 +58,7 @@ public:
 		, cross_size_(policy == CROSS_POLICY_BRUTE ? cross_size : slice_size * 2 - 1)
 		, b_size_(begins->size())
 		, neigh_size_(s * s * b_size_)
-		, maxarg_one_pic_blocks_(div_up(cross_size.area(), maxarg_block_size_))
+		, maxarg_one_pic_blocks_(div_up(cross_size_.area(), maxarg_block_size_))
 		, maxarg_maxes_size_(maxarg_one_pic_blocks_* b_size_)
 		, sw(false
 			, 2, 2)
@@ -68,11 +68,11 @@ public:
 		, cross_policy_(policy)
 	{}
 
-	void allocate_memory()
+	void allocate_memory(IN* temp)
 	{
 		cu_pic_in_ = cuda_malloc<IN>(src_size_.area());
 		cu_temp_in_ = cuda_malloc<IN>(src_size_.area());
-		 
+		
 		//Enforce alignment by allocating cufft complex types
 		//Result we also need to allocate one row more because that is the size of ff-transpformed result
 		cu_pic_ = (T*) cuda_malloc<typename complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
@@ -112,24 +112,35 @@ public:
 			NULL, 1, 0,
 			NULL, 1, 0,
 			fft_type_C2R<T>(), (int)b_size_));
+
+		//prepare temp
+
+		if (temp == nullptr)
+			return;
+		copy_to_device(temp, src_size_.area(), cu_temp_in_);
+
+		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, b_size_);
+
+		run_prepare_pics(cu_temp_in_, cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
+
+		if(cross_policy_ == CROSS_POLICY_FFT)
+			fft_real_to_complex(plan_, cu_temp_);
 	}
 
 	//gets two pictures with size cols x rows and returns subpixel offset between them
-	offsets_t<T> get_offset(IN* pic, IN* temp) const
+	offsets_t<T> get_offset(IN* pic) const
 	{
 		sw.zero();
 		
 		copy_to_device(pic, src_size_.area(), cu_pic_in_);
-		copy_to_device(temp, src_size_.area(), cu_temp_in_); sw.tick("Temp and pic to device: ");
+		sw.tick("Pic to device: ");
 
 		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, b_size_);
-		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, b_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
 
 		run_prepare_pics(cu_pic_in_, cu_pic_, cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
-		run_prepare_pics(cu_temp_in_, cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
@@ -171,7 +182,7 @@ public:
 		{
 			for (size_t i = 0; i < b_size_; ++i)
 			{
-				res[i] = subp_offset[i] - r;
+				res[i] = -(subp_offset[i] - r);
 			}
 		}
 		else
@@ -226,7 +237,6 @@ public:
 		
 
 		fft_real_to_complex(plan_, cu_pic_);
-		fft_real_to_complex(plan_, cu_temp_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("R2C: ");
 
 		//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
