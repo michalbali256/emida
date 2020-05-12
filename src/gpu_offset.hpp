@@ -119,9 +119,6 @@ public:
 		}
 
 
-
-
-
 		if (cross_policy_ == CROSS_POLICY_FFT)
 		{
 			auto fft_shift_x = get_fft_shift<T>(slice_size_.x * 2, slice_size_.x + 1);
@@ -140,8 +137,6 @@ public:
 				NULL, 1, 0,
 				NULL, 1, 0,
 				fft_type_C2R<T>(), (int)b_size_));
-
-			
 		}
 
 		//prepare temp
