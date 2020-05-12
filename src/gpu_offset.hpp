@@ -11,10 +11,24 @@
 namespace emida
 {
 
+template<typename T>
+std::vector<typename complex_trait<T>::type> get_fft_shift(size_t N, size_t shift)
+{
+	std::vector<typename complex_trait<T>::type> res;
+	res.resize(N);
+
+	for(size_t i = 0; i < N; ++i)
+		res[i] = { (T)cos(2 * PI / N * i * shift), (T)sin(2 * PI / N * i * shift) };
+
+	return res;
+}
+
 template<typename T, typename IN>
 class gpu_offset
 {
 private:
+	using complex_t = typename complex_trait<T>::type;
+
 	IN* cu_pic_in_;
 	IN* cu_temp_in_;
 	T* cu_pic_;
@@ -45,6 +59,8 @@ private:
 	int fft_size_[2];
 	cufftHandle plan_;
 	cufftHandle inv_plan_;
+	complex_t* cu_fft_shift_x_;
+	complex_t* cu_fft_shift_y_;
 
 	cross_policy cross_policy_;
 
@@ -60,8 +76,7 @@ public:
 		, neigh_size_(s * s * b_size_)
 		, maxarg_one_pic_blocks_(div_up(cross_size_.area(), maxarg_block_size_))
 		, maxarg_maxes_size_(maxarg_one_pic_blocks_* b_size_)
-		, sw(false
-			, 2, 2)
+		, sw(true, 2, 2)
 		, s(s)
 		, r((s - 1) / 2)
 		, fft_size_{ (int)slice_size.x * 2, (int)slice_size.y * 2 }
@@ -75,8 +90,8 @@ public:
 		
 		//Enforce alignment by allocating cufft complex types
 		//Result we also need to allocate one row more because that is the size of ff-transpformed result
-		cu_pic_ = (T*) cuda_malloc<typename complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
-		cu_temp_ = (T*) cuda_malloc<typename complex_trait<T>::type>(cross_in_size_.area() / 2 * b_size_);
+		cu_pic_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * b_size_);
+		cu_temp_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * b_size_);
 
 		cu_sums_pic_ = cuda_malloc<T>(b_size_);
 		cu_sums_temp_ = cuda_malloc<T>(b_size_);
@@ -102,16 +117,31 @@ public:
 			cu_maxes_i_ = cuda_malloc<size2_t>(b_size_);
 		}
 
-		FFTCH(cufftPlanMany(&plan_, 2, fft_size_,
-			NULL, 1, 0,
-			NULL, 1, 0,
-			fft_type_R2C<T>(), (int)b_size_));
 
 
-		FFTCH(cufftPlanMany(&inv_plan_, 2, fft_size_,
-			NULL, 1, 0,
-			NULL, 1, 0,
-			fft_type_C2R<T>(), (int)b_size_));
+
+
+		if (cross_policy_ == CROSS_POLICY_FFT)
+		{
+			auto fft_shift_x = get_fft_shift<T>(slice_size_.x * 2, slice_size_.x + 1);
+			auto fft_shift_y = get_fft_shift<T>(slice_size_.y * 2, slice_size_.y + 1);
+
+			cu_fft_shift_x_ = vector_to_device(fft_shift_x);
+			cu_fft_shift_y_ = vector_to_device(fft_shift_y);
+
+			FFTCH(cufftPlanMany(&plan_, 2, fft_size_,
+				NULL, 1, 0,
+				NULL, 1, 0,
+				fft_type_R2C<T>(), (int)b_size_));
+
+
+			FFTCH(cufftPlanMany(&inv_plan_, 2, fft_size_,
+				NULL, 1, 0,
+				NULL, 1, 0,
+				fft_type_C2R<T>(), (int)b_size_));
+
+			
+		}
 
 		//prepare temp
 
@@ -122,8 +152,8 @@ public:
 		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, b_size_);
 
 		run_prepare_pics(cu_temp_in_, cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
-
-		if(cross_policy_ == CROSS_POLICY_FFT)
+		
+		if (cross_policy_ == CROSS_POLICY_FFT)
 			fft_real_to_complex(plan_, cu_temp_);
 	}
 
@@ -226,10 +256,8 @@ public:
 		return res;
 	}
 
-	
 	inline void cross_corr_fft() const
 	{
-		stopwatch sw(true, 2, 4);
 
 		//auto vec = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
 		CUCH(cudaDeviceSynchronize());
@@ -242,7 +270,7 @@ public:
 		//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * b_size_);
 		//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * b_size_);
 
-		run_hadamard((typename complex_trait<T>::type*)cu_pic_, (typename complex_trait<T>::type*)cu_temp_, { cross_in_size_.x / 2, cross_in_size_.y }, b_size_);
+		run_hadamard((complex_t*)cu_pic_, (complex_t*)cu_temp_, cu_fft_shift_x_, cu_fft_shift_x_, { cross_in_size_.x / 2, cross_in_size_.y }, b_size_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("Multiply: ");
 
 		

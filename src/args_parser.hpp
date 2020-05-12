@@ -31,7 +31,7 @@ struct params
 	precision_type precision = precision_type::DOUBLE;
 	bool analysis = false;
 	int fitting_size = 3;
-	cross_policy cross_pol;
+	cross_policy cross_pol = CROSS_POLICY_FFT;
 };
 
 

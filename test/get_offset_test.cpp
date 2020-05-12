@@ -84,6 +84,17 @@ TEST_P(get_offset_fixture, size_)
 	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 2e-14);
 }
 
+struct stringer_policy
+{
+	std::string operator()(::testing::TestParamInfo<cross_policy> p)
+	{
+		if (p.param == CROSS_POLICY_FFT)
+			return "FFT";
+		else
+			return "BRUTE";
+	}
+};
+
 struct stringer
 {
 	std::string operator()(::testing::TestParamInfo<std::tuple<size2_t, cross_policy>> p)
@@ -91,11 +102,7 @@ struct stringer
 		size2_t cross_size = std::get<0>(p.param);
 		cross_policy cr_policy = std::get<1>(p.param);
 		std::stringstream ss;
-		if (cr_policy == CROSS_POLICY_FFT)
-			ss << "FFT_";
-		else
-			ss << "BRUTE_";
-		ss << cross_size.x << "x" << cross_size.y;
+		ss << stringer_policy()(::testing::TestParamInfo<cross_policy>(cr_policy, 0)) << "_" << cross_size.x << "x" << cross_size.y;
 		return ss.str();
 	}
 };
@@ -106,39 +113,21 @@ INSTANTIATE_TEST_SUITE_P(
 	::testing::Values(
 		std::make_tuple <size2_t, cross_policy>({ 3, 3 }, CROSS_POLICY_BRUTE),
 		std::make_tuple <size2_t, cross_policy>({ 5, 5 }, CROSS_POLICY_BRUTE),
-		std::make_tuple <size2_t, cross_policy>({ 3, 3 }, CROSS_POLICY_FFT),
-		std::make_tuple <size2_t, cross_policy>({ 5, 5 }, CROSS_POLICY_FFT)
+		std::make_tuple <size2_t, cross_policy>({ 3, 3 }, CROSS_POLICY_FFT)
 	),
 	stringer()
 );
 
 
-TEST(get_offset, size64x64x1_cross3x3)
+
+class get_offset_batched : public ::testing::TestWithParam<cross_policy> {
+
+};
+
+TEST_P(get_offset_batched, batched)
 {
+	cross_policy c_policy = GetParam();
 
-}
-
-TEST(get_offset, size64x64x1_cross5x5)
-{
-	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
-	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
-
-	vec2<size_t> src_size{ pic.n, pic.n };
-	vec2<size_t> size{ 64, 64 };
-
-	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
-	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
-
-	auto offset = get_offset<double>(a.data(), b.data(), size, { 5,5 });
-
-	//results from test.py, first left topmost square
-	//precision 1e-14 is OK, 1e-15 is failing
-	EXPECT_NEAR(offset[0].x, 0.07583538046549165, 2e-14);
-	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 2e-14);
-}
-
-TEST(get_offset, batched)
-{
 	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
 	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
 
@@ -149,7 +138,7 @@ TEST(get_offset, batched)
 
 	auto begins = get_slice_begins(src_size, size, step);
 
-	gpu_offset<double, double> offs(src_size, &begins, size, { 127,127 });
+	gpu_offset<double, double> offs(src_size, &begins, size, { 127,127 }, c_policy);
 	offs.allocate_memory(temp.data.data());
 	auto [offsets, _] = offs.get_offset(pic.data.data());
 	
@@ -212,6 +201,15 @@ TEST(get_offset, batched)
 
 	EXPECT_VEC_VECTORS_NEAR(offsets, expected, 7e-14);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+	get_offset,
+	get_offset_batched,
+	::testing::Values(
+		CROSS_POLICY_BRUTE, CROSS_POLICY_FFT),
+	stringer_policy()
+);
+
 
 #ifdef MEASURE_TIME
 

@@ -22,7 +22,7 @@ __device__ cuDoubleComplex complex_mul<cuDoubleComplex>(cuDoubleComplex A, cuDou
 constexpr double PI = 3.14159265358979323846;
 
 template<typename T>
-__global__ void hadamard(T * __restrict__ A, const T * __restrict__ B, size2_t one_size, size_t batch_size)
+__global__ void hadamard(T * __restrict__ A, const T * __restrict__ B, const T* __restrict__ shx, const T* __restrict__ shy, size2_t one_size, size_t batch_size)
 {
 	size_t i = blockIdx.x * blockDim.x + threadIdx.x;
 	
@@ -35,13 +35,10 @@ __global__ void hadamard(T * __restrict__ A, const T * __restrict__ B, size2_t o
 	
 	T mul = { (A[i].x * B[i].x + A[i].y * B[i].y),
 		(-A[i].x * B[i].y + A[i].y * B[i].x)};
-	size_t xn = (one_size.x - 1) * 2;
-	size_t my = one_size.y / 2 + 1;
-	T shx = { cos(2 * PI / xn * slice_pos.x * one_size.x), sin(2 * PI / xn * slice_pos.x * one_size.x) };
-	T shy = { cos(2 * PI / one_size.y * slice_pos.y * my), sin(2 * PI / one_size.y * slice_pos.y * my) };
-	mul = complex_mul(mul, shx);
-	mul = complex_mul(mul, shy);
-	mul = { mul.x / (xn*one_size.y), mul.y / (xn * one_size.y) };
+	mul = complex_mul(mul, shx[slice_pos.x]);
+	mul = complex_mul(mul, shy[slice_pos.y]);
+	size_t num_elements = (one_size.x - 1) * 2 * one_size.y;
+	mul = { mul.x / num_elements, mul.y / num_elements };
 	A[i] = mul;
 }
 
@@ -59,16 +56,16 @@ __global__ void hadamard(T* __restrict__ A, const T* __restrict__ B, size2_t one
 }*/
 
 template<typename T>
-void run_hadamard(T* A, const T* B, size2_t one_size, size_t batch_size)
+void run_hadamard(T* A, const T* B, const T* shx, const T* shy, size2_t one_size, size_t batch_size)
 {
 	size_t block_size = 1024;
 	size_t grid_size(div_up(one_size.area() * batch_size, block_size));
-	hadamard <<<grid_size, block_size >>> (A, B, one_size, batch_size);
+	hadamard <<<grid_size, block_size >>> (A, B, shx, shy, one_size, batch_size);
 }
 
 
-template void run_hadamard<cufftComplex>(cufftComplex* A, const cufftComplex* B, size2_t one_size, size_t batch_size);
-template void run_hadamard<cufftDoubleComplex>(cufftDoubleComplex* A, const cufftDoubleComplex* B, size2_t one_size, size_t batch_size);
+template void run_hadamard<cufftComplex>(cufftComplex* A, const cufftComplex* B, const cufftComplex* shx, const cufftComplex* shy, size2_t one_size, size_t batch_size);
+template void run_hadamard<cufftDoubleComplex>(cufftDoubleComplex* A, const cufftDoubleComplex* B, const cufftDoubleComplex* shx, const cufftDoubleComplex* shy, size2_t one_size, size_t batch_size);
 
 template<typename T>
 __global__ void finalize_fft(const T* in, T* __restrict__ out, size2_t out_size, size_t batch_size)
