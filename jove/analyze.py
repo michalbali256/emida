@@ -180,14 +180,14 @@ class Cor:
         self.dset.get_ref()
         limits = self.ax.axis()
         self.imgs = [
-                self.ax.imshow(cor, extent=(j-2*s-.5,j+2*s-.5,i+2*s-.5,i-2*s-.5), vmin=-1, vmax=1)
+                self.ax.imshow(cor-q[0], extent=(j-2*s-.5,j+2*s-.5,i+2*s-.5,i-2*s-.5), vmin=-0.5, vmax=0, cmap='jet')
                 for (j,i), (cor, xp, yp, q) in zip(self.dset.roi.positions, self.dset.get_cor(fname, fit_size=3)) ]
         self.ax.axis(limits)
 
     def update(self, i):
         fname = self.dset.fnames[i]
         for img, (cor, xp, yp, q) in zip(self.imgs, self.dset.get_cor(fname, fit_size=3)):
-            img.set_data(cor)
+            img.set_data(cor-q[0])
             self.ax.draw_artist(img)
 
 
@@ -208,6 +208,7 @@ if __name__ == "__main__":
     mask, F, epsilon, omega, quality = post_process(data, calib, M)
 
     from viewer import *
+    disp_scale = 10
     v2 = Viewer(pos=dset.pos, actors=[
         #HexBg(bg[:,:2], bg[:,2], cmap='gray'),
         HexBg(dset.pos, quality, cmap='gray'),
@@ -215,9 +216,9 @@ if __name__ == "__main__":
         Cursor(dset.pos),
         Img(dset.fnames),
 
-        Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=0.1),
-        FQuiver(data[:,:,:2], F, mask, calib, color="b", angles='xy', scale_units='xy', scale=0.1),
-        Ellipses(data[:,:,:2] + 10*data[:,:,2:4], data[:,:,4:],  facecolor='none', edgecolor='g'),
+        Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=1/disp_scale),
+        FQuiver(data[:,:,:2], F, mask, calib, color="b", angles='xy', scale_units='xy', scale=1/disp_scale),
+        Ellipses(data[:,:,:2] + disp_scale*data[:,:,2:4], data[:,:,4:],  facecolor='none', edgecolor='g'),
 
         #Cor(dset),
         #Ellipses(data[:,:,:2]+data[:,:,2:4], data[:,:,4:],  facecolor='none', edgecolor='g'),
