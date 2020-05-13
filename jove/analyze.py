@@ -37,15 +37,20 @@ def numeric_fit(old, new, calib, F):
 def post_process(data, calib, M):
     import time
     started = time.time()
-    mask, Fs = [], []
+    mask, Fs, quality = [], [], []
     for i,d in enumerate(data):
         if i % 100 == 0:
             print(".", end="", flush=True)
         xy, uv, q = d[:,:2], d[:,2:4], d[:,4:]
 
-        # filter by determinant
-        d = 4*q[:,3]*q[:,5]-q[:,4]*q[:,4]
-        m = d > 1e-7
+        # represent as matrix [[a, b], [b, c]]
+        # flip signs since maximum is negative definite
+        a, b, c = -q[:,3], -q[:,4]/2, -q[:,5]
+
+        # asses quality by determinant
+        d = a*c-b*b
+        m = d > 1e-6
+        quality.append(np.median(d))
 
         if m.sum() > 10:
             F = algebraic_fit(xy[m], (xy+uv)[m], calib)
@@ -57,6 +62,7 @@ def post_process(data, calib, M):
 
     F = np.asarray(Fs)
     mask = np.asarray(mask)
+    quality = np.asarray(quality)
 
     # camera to sample coordinates
     #F = F.dot(M.T)
@@ -92,7 +98,7 @@ def post_process(data, calib, M):
     #epsilon = (F+F_T)/2 - np.eye(3)[np.newaxis,:,:]
     #omega = (F-F_T)/2
     print("post_processed in", time.time()-started, "s")
-    return mask, F, epsilon, omega
+    return mask, F, epsilon, omega, quality
 
 def apply_transform(F, old, calib):
     new = np.column_stack([old - calib[:2], np.repeat(calib[2], len(old))]).dot(F.T)
@@ -132,40 +138,36 @@ class Ellipses:
         self.kw = kw
 
     def init(self, viewer):
-        from matplotlib.collections import PolyCollection
+        from matplotlib.collections import EllipseCollection
         self.ax = viewer.ax2
-        pos = self.get_ellipses(0)
-        self.col = PolyCollection(pos, animated=True, **self.kw)
+        xy, a, b, alpha = self.get_ellipses(0)
+        self.col = EllipseCollection(2*a, 2*b, np.rad2deg(alpha), units='xy', offsets=xy, transOffset=self.ax.transData, animated=True, **self.kw)
         self.ax.add_collection(self.col)
 
     def update(self, i):
-        pos = self.get_ellipses(i)
-        self.col.set_paths(pos)
-        self.ax.draw_artist(self.col)
+        xy, a, b, alpha = self.get_ellipses(i)
+        col = self.col
+        col._offsets[:] = xy
+        col._widths[:] = a
+        col._heights[:] = b
+        col._angles[:] = alpha
+        self.ax.draw_artist(col)
 
     def get_ellipses(self, i, n=12):
-        from numpy import sqrt, pi, sin, cos, arctan, where, linspace, stack, newaxis
         q = self.q[i]
         xy = self.xy[i]
 
-        G = q[:,0]
-        D, F = q[:,1]/2, q[:,2]/2
-        A, B, C = q[:,3], q[:,4]/2, q[:,5]
+        # represent as matrix [[a, b], [b, c]]
+        # flip signs since maximum is negative definite
+        a, b, c = -q[:,3], -q[:,4]/2, -q[:,5]
 
-        a = sqrt(2*(A*F*F+C*D*D+G*B*B-2*B*D*F-A*C*G)/(B*B-A*C)/(+sqrt((A-C)*(A-C)+4*B*B)-(A+C)))
-        b = sqrt(2*(A*F*F+C*D*D+G*B*B-2*B*D*F-A*C*G)/(B*B-A*C)/(-sqrt((A-C)*(A-C)+4*B*B)-(A+C)))
-        t = arctan(2*B/(A-C))/2 + where(A>C, pi/2, 0)
+        # eigen-decomoposition
+        E, F, G = (a+c)/2, (a-c)/2, b
+        _h = np.hypot(G, F)
+        l1, l2 = E+_h, E-_h
+        alpha = 0.5*np.arctan2(G, F)
 
-        tt = linspace(0, 2*pi, n, endpoint=False)
-        xx = a[:,newaxis]*sin(tt[newaxis,:])
-        yy = b[:,newaxis]*cos(tt[newaxis,:])
-
-        s, c = sin(t[:,newaxis]), cos(t[:,newaxis])
-        w = stack([xx* c + yy*-s,
-                   xx*s + yy*c], axis=2)
-
-        data = xy[:,newaxis,:] + w
-        return data
+        return xy, 1/np.sqrt(l1), 1/np.sqrt(l2), alpha
 
 class Cor:
     def __init__(self, dset):
@@ -178,14 +180,14 @@ class Cor:
         self.dset.get_ref()
         limits = self.ax.axis()
         self.imgs = [
-                self.ax.imshow(cor, extent=(j-2*s-.5,j+2*s-.5,i+2*s-.5,i-2*s-.5), vmin=-1, vmax=1)
+                self.ax.imshow(cor-q[0], extent=(j-2*s-.5,j+2*s-.5,i+2*s-.5,i-2*s-.5), vmin=-0.5, vmax=0, cmap='jet')
                 for (j,i), (cor, xp, yp, q) in zip(self.dset.roi.positions, self.dset.get_cor(fname, fit_size=3)) ]
         self.ax.axis(limits)
 
     def update(self, i):
         fname = self.dset.fnames[i]
         for img, (cor, xp, yp, q) in zip(self.imgs, self.dset.get_cor(fname, fit_size=3)):
-            img.set_data(cor)
+            img.set_data(cor-q[0])
             self.ax.draw_artist(img)
 
 
@@ -203,19 +205,20 @@ if __name__ == "__main__":
     calib = np.array([48.8235, 77.5223, 69.8357])
     calib = 873*(np.array([0,1,0]) + np.array([1,-1,1])*calib/100)
     M = np.eye(3)
-    mask, F, epsilon, omega = post_process(data, calib, M)
-
+    mask, F, epsilon, omega, quality = post_process(data, calib, M)
 
     from viewer import *
+    disp_scale = 10
     v2 = Viewer(pos=dset.pos, actors=[
-        HexBg(bg[:,:2], bg[:,2], cmap='gray'),
+        #HexBg(bg[:,:2], bg[:,2], cmap='gray'),
+        HexBg(dset.pos, quality, cmap='gray'),
         Dots(dset.pos),
         Cursor(dset.pos),
         Img(dset.fnames),
 
-        Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=0.1),
-        FQuiver(data[:,:,:2], F, mask, calib, color="b", angles='xy', scale_units='xy', scale=0.1),
-        Ellipses(data[:,:,:2] + 10*data[:,:,2:4], data[:,:,4:],  facecolor='none', edgecolor='g'),
+        Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=1/disp_scale),
+        FQuiver(data[:,:,:2], F, mask, calib, color="b", angles='xy', scale_units='xy', scale=1/disp_scale),
+        Ellipses(data[:,:,:2] + disp_scale*data[:,:,2:4], data[:,:,4:],  facecolor='none', edgecolor='g'),
 
         #Cor(dset),
         #Ellipses(data[:,:,:2]+data[:,:,2:4], data[:,:,4:],  facecolor='none', edgecolor='g'),
