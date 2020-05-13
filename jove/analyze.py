@@ -138,40 +138,36 @@ class Ellipses:
         self.kw = kw
 
     def init(self, viewer):
-        from matplotlib.collections import PolyCollection
+        from matplotlib.collections import EllipseCollection
         self.ax = viewer.ax2
-        pos = self.get_ellipses(0)
-        self.col = PolyCollection(pos, animated=True, **self.kw)
+        xy, a, b, alpha = self.get_ellipses(0)
+        self.col = EllipseCollection(2*a, 2*b, np.rad2deg(alpha), units='xy', offsets=xy, transOffset=self.ax.transData, animated=True, **self.kw)
         self.ax.add_collection(self.col)
 
     def update(self, i):
-        pos = self.get_ellipses(i)
-        self.col.set_paths(pos)
-        self.ax.draw_artist(self.col)
+        xy, a, b, alpha = self.get_ellipses(i)
+        col = self.col
+        col._offsets[:] = xy
+        col._widths[:] = a
+        col._heights[:] = b
+        col._angles[:] = alpha
+        self.ax.draw_artist(col)
 
     def get_ellipses(self, i, n=12):
-        from numpy import sqrt, pi, sin, cos, arctan, where, linspace, stack, newaxis
         q = self.q[i]
         xy = self.xy[i]
 
-        G = q[:,0]
-        D, F = q[:,1]/2, q[:,2]/2
-        A, B, C = q[:,3], q[:,4]/2, q[:,5]
+        # represent as matrix [[a, b], [b, c]]
+        # flip signs since maximum is negative definite
+        a, b, c = -q[:,3], -q[:,4]/2, -q[:,5]
 
-        a = sqrt(2*(A*F*F+C*D*D+G*B*B-2*B*D*F-A*C*G)/(B*B-A*C)/(+sqrt((A-C)*(A-C)+4*B*B)-(A+C)))
-        b = sqrt(2*(A*F*F+C*D*D+G*B*B-2*B*D*F-A*C*G)/(B*B-A*C)/(-sqrt((A-C)*(A-C)+4*B*B)-(A+C)))
-        t = arctan(2*B/(A-C))/2 + where(A>C, pi/2, 0)
+        # eigen-decomoposition
+        E, F, G = (a+c)/2, (a-c)/2, b
+        _h = np.hypot(G, F)
+        l1, l2 = E+_h, E-_h
+        alpha = 0.5*np.arctan2(G, F)
 
-        tt = linspace(0, 2*pi, n, endpoint=False)
-        xx = a[:,newaxis]*sin(tt[newaxis,:])
-        yy = b[:,newaxis]*cos(tt[newaxis,:])
-
-        s, c = sin(t[:,newaxis]), cos(t[:,newaxis])
-        w = stack([xx* c + yy*-s,
-                   xx*s + yy*c], axis=2)
-
-        data = xy[:,newaxis,:] + w
-        return data
+        return xy, 1/np.sqrt(l1), 1/np.sqrt(l2), alpha
 
 class Cor:
     def __init__(self, dset):
