@@ -37,15 +37,20 @@ def numeric_fit(old, new, calib, F):
 def post_process(data, calib, M):
     import time
     started = time.time()
-    mask, Fs = [], []
+    mask, Fs, quality = [], [], []
     for i,d in enumerate(data):
         if i % 100 == 0:
             print(".", end="", flush=True)
         xy, uv, q = d[:,:2], d[:,2:4], d[:,4:]
 
-        # filter by determinant
-        d = 4*q[:,3]*q[:,5]-q[:,4]*q[:,4]
-        m = d > 1e-7
+        # represent as matrix [[a, b], [b, c]]
+        # flip signs since maximum is negative definite
+        a, b, c = -q[:,3], -q[:,4]/2, -q[:,5]
+
+        # asses quality by determinant
+        d = a*c-b*b
+        m = d > 1e-6
+        quality.append(np.median(d))
 
         if m.sum() > 10:
             F = algebraic_fit(xy[m], (xy+uv)[m], calib)
@@ -57,6 +62,7 @@ def post_process(data, calib, M):
 
     F = np.asarray(Fs)
     mask = np.asarray(mask)
+    quality = np.asarray(quality)
 
     # camera to sample coordinates
     #F = F.dot(M.T)
@@ -92,7 +98,7 @@ def post_process(data, calib, M):
     #epsilon = (F+F_T)/2 - np.eye(3)[np.newaxis,:,:]
     #omega = (F-F_T)/2
     print("post_processed in", time.time()-started, "s")
-    return mask, F, epsilon, omega
+    return mask, F, epsilon, omega, quality
 
 def apply_transform(F, old, calib):
     new = np.column_stack([old - calib[:2], np.repeat(calib[2], len(old))]).dot(F.T)
@@ -203,12 +209,12 @@ if __name__ == "__main__":
     calib = np.array([48.8235, 77.5223, 69.8357])
     calib = 873*(np.array([0,1,0]) + np.array([1,-1,1])*calib/100)
     M = np.eye(3)
-    mask, F, epsilon, omega = post_process(data, calib, M)
-
+    mask, F, epsilon, omega, quality = post_process(data, calib, M)
 
     from viewer import *
     v2 = Viewer(pos=dset.pos, actors=[
-        HexBg(bg[:,:2], bg[:,2], cmap='gray'),
+        #HexBg(bg[:,:2], bg[:,2], cmap='gray'),
+        HexBg(dset.pos, quality, cmap='gray'),
         Dots(dset.pos),
         Cursor(dset.pos),
         Img(dset.fnames),
