@@ -36,13 +36,18 @@ inline void process_files(const params& a)
 	for (auto& o : slice_begins)
 		o = o - (a.slice_size / 2);
 
-	gpu_offset<T, uint16_t> offs(a.pic_size, &slice_begins, a.slice_size, a.cross_size, a.fitting_size);
-	offs.allocate_memory();
-
-	//TODO: allocate cuda host memory to avoid copying the data twice
-	std::vector<uint16_t> initial_raster(a.pic_size.area()); 
-	if (!load_tiff(a.initial_file_name, initial_raster.data(), a.pic_size))
+	size2_t pic_size;
+	if(!get_size(a.initial_file_name, pic_size))
 		return;
+
+	std::vector<uint16_t> initial_raster(pic_size.area());
+	if (!load_tiff(a.initial_file_name, initial_raster.data(), pic_size))
+		return;
+
+	gpu_offset<T, uint16_t> offs(pic_size, &slice_begins, a.slice_size, a.cross_size, a.cross_pol, a.fitting_size);
+	offs.allocate_memory(initial_raster.data());
+
+	
 
 	std::ifstream infile(a.deformed_list_file_name);
 	std::string line;
@@ -58,13 +63,13 @@ inline void process_files(const params& a)
 
 
 		//TODO: allocate cuda host memory to avoid copying the data twice
-		std::vector<uint16_t> deformed_raster(a.pic_size.area());
+		std::vector<uint16_t> deformed_raster(pic_size.area());
 		bool OK = true;
-		OK &= load_tiff(fname, deformed_raster.data(), a.pic_size); sw.tick("Load tiff: ", 2);
+		OK &= load_tiff(fname, deformed_raster.data(), pic_size); sw.tick("Load tiff: ", 2);
 		if (!OK)
 			continue;
 
-		auto [offsets, coefs] = offs.get_offset(deformed_raster.data(), initial_raster.data());
+		auto [offsets, coefs] = offs.get_offset(deformed_raster.data());
 		sw.tick("Get offset: ", 2);
 
 		if (a.analysis)

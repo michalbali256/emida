@@ -5,9 +5,9 @@ import numpy.matlib
 import numpy as np
 import numpy.linalg
 
-common_denom = 700
+common_denom = 198*25*8*9*35
 def A_gen():
-    shape = (5,5)
+    shape = (9,9)
 
     yi, xi = np.indices(shape)
     i = np.ones(shape)
@@ -34,7 +34,7 @@ def A_gen():
     delta = mul2 - rounded
     for r in delta:
         for i in r:
-            if i > 1E-11:
+            if i > 1E-9:
                 print ('Error ', i)
     #print(mul2)
     return rounded

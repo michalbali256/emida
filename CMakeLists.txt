@@ -99,7 +99,7 @@ target_link_libraries(emida_lib
 	${TIFF_LIBRARIES}
     ${FILESYSTEM_LIB}
     )
-
+CUDA_ADD_CUFFT_TO_TARGET(emida_lib)
 if(TIFF_FROM_SOURCE)
     add_dependencies(emida_lib tiff_project)
 endif()

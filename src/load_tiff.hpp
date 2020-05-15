@@ -51,5 +51,20 @@ inline bool load_tiff(const std::string & file_name, uint16_t * raster, vec2<siz
 	return true;
 }
 
+bool get_size(const std::string & file_name, size2_t& size)
+{
+	TIFF* tif = TIFFOpen(file_name.c_str(), "r");
+	if (!tif)
+		return false; //message is already written by libtiff
+
+	uint32 w, h;
+	TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
+	TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
+	size.x = w;
+	size.y = h;
+
+	TIFFClose(tif);
+	return true;
+}
 
 }

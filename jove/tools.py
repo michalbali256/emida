@@ -137,10 +137,10 @@ class DataSet:
             "-d", "emida-work.txt",
             "-b", "emida-roi.txt",
             "-i", dset.ref,
-            "-p", "{},{}".format(*isize),
-            "-c", "{},{}".format(c,c),
+            #"-c", "{},{}".format(c,c),
             "-f", "{}".format(2*fit_size+1),
             "-q",
+            "--crosspolicy=fft"
         ]
         print(" ".join(args))
 
