@@ -46,7 +46,7 @@ def subpixel_peak(d, s=1):
 
 
 from scipy.signal import choose_conv_method, correlate
-import scipy.fft
+from scipy import fft
 class DataSet:
     def __init__(self, fmt, size, step, ang=None, ref=None, roi=None):
         self.fmt = fmt
@@ -66,7 +66,7 @@ class DataSet:
         for x, y in self.iter(self.size, self.step):
             yield x/100, y/100, self.fmt.format(x=int(x), y=int(y))
 
-    def roi_iter(self, data):
+    def roi_iter(self, data, flip=False):
         s = self.roi.size
         for j,i in self.roi.positions:
             r = data[i-s:i+s, j-s:j+s]
@@ -76,23 +76,22 @@ class DataSet:
             n = np.sqrt((r*r).sum())
             if n > 0:
                 r /= n # normalize
-            yield r
+            if flip:
+                r = r[::-1,::-1]
+            yield fft.rfft2(r, (4*s,4*s))
 
     def get_ref(self):
         s = self.roi.size
         self.window = np.hanning(2*s)
 
         ref = np.asarray(Image.open(self.ref))
-        self.ref_rois = list( self.roi_iter(ref) )
-
-        self.conv_method, times = choose_conv_method(self.ref_rois[0], self.ref_rois[0], mode='full', measure=True)
-        print("conv method", self.conv_method, times)
+        self.ref_rois = list( self.roi_iter(ref, flip=False) )
 
     def get_cor(self, fname, fit_size=3):
         s = self.roi.size
         data = np.asarray(Image.open(fname))
-        for a, b in zip(self.ref_rois, self.roi_iter(data)):
-            cor = correlate(a, b, mode='full', method=self.conv_method)
+        for a, b in zip(self.ref_rois, self.roi_iter(data, flip=True)):
+            cor = fft.irfft2(a*b, (4*s, 4*s))[:-1,:-1]
             (yp, xp), q = subpixel_peak(cor, fit_size)
             xp = xp-2*s+1
             yp = yp-2*s+1
@@ -102,7 +101,7 @@ class DataSet:
         import time
         import multiprocessing
         nthreads = multiprocessing.cpu_count()
-        with scipy.fft.set_workers(nthreads):
+        with fft.set_workers(nthreads):
             started = time.time()
             self.get_ref()
             if output.endswith(".txt"):
