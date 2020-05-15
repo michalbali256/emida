@@ -119,10 +119,10 @@ class Viewer:
 from matplotlib.pyplot import show
 
 if __name__ == "__main__":
-    from run import initial as dset
+    from run import initial
 
-    from numpy import loadtxt
-    bg = loadtxt(dset.ang, usecols=(3,4,5))
+    dset = initial.decimate(5)
+    bg = dset.load_ang()
 
     v = Viewer(pos=dset.pos, actors=[
         HexBg(bg[:,:2], bg[:,2], cmap='gray'),
@@ -130,14 +130,13 @@ if __name__ == "__main__":
         Img(dset.fnames)
     ])
    
-    from tools import load_result
-    pos, fnames, data = load_result("out-initial-jove-5.txt")
+    data = dset.load_result("out-initial-jove-5.txt")
 
-    v2 = Viewer(pos=pos, actors=[
+    v2 = Viewer(pos=dset.pos, actors=[
         HexBg(bg[:,:2], bg[:,2], cmap='gray'),
-        Dots(pos),
-        Cursor(pos), 
-        Img(fnames),
+        Dots(dset.pos),
+        Cursor(dset.pos), 
+        Img(dset.fnames),
         Quiver(data[:,:,:2], data[:,:,2:4], color="r", angles='xy', scale_units='xy', scale=0.1)
     ])
 
