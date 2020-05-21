@@ -1,0 +1,8 @@
+*.aux
+thesis.pdf
+*.synctex.gz
+*.xmpi
+*.lof
+*.lot
+*.out
+*.toc
