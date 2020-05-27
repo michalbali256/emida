@@ -26,20 +26,20 @@ When the crystal structure of material is changed (e.g. under stress), the defor
 
 \begin{figure}
 	
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.4\textwidth}
 		\centering
 		\includegraphics[width=.9\linewidth]{img/roi_shifts_initial}
 		\caption{Initial, undeformed pattern}
 		\label{roi-shifts:initial}
 	\end{subfigure}%
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.4\textwidth}
 		\centering
 		\includegraphics[width=.9\linewidth]{img/DEFORMED_x3600y6235}
 		\caption{Deformed pattern}
 		\label{fig:sub2}
 	\end{subfigure}
 	\centering
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.4\textwidth}
 		\centering
 		\includegraphics[width=.9\linewidth]{img/roi_shifts}
 		\caption{Deformation visualization}
@@ -59,44 +59,55 @@ In this chapter we describe the technique based on cross correlation in detail.
 
 \section{Cross correlation}
 
+Cross correlation contains a measure of similarity of two series for each possible shift between them. It is used in signal processing to find a shorter known feature in a signal or in image processing to match a locate a smaller shape in a bigger picture. In analysis of EBSPs, it is used to find the most probable relative displacement between two images (subregions of images).
 
+Cross correlation of two discrete functions $f$ and $g$ is function $C$ defined as follows:
+$$
+C[n] = (f \star g)[n] = \sum_{m=-\infty}^{\infty}f[m]g[m+n].
+$$
+where $\star$ denotes cross correlation.
 
+If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions $f$ and $g$ similar, when $g$ is shifted by $n$.
 
 \section{Algorithm description}
 
-\begin{algorithm}[H]
-	\KwIn{input}
-	\KwData{this text}
-	\KwResult{how to write algorithm with \LaTeX2e }
-	initialization\;
+\begin{algorithm}
+	\caption{Com}
+	
+	\KwIn{
+		one reference EBSP\;
+		N deformed EBSPs\;
+	 	position of M regions of interest (ROI) from each EBSP to be compared \;
+ 		size of one ROI\;}
+	\KwOut{deformation shifts for all M ROIs from all N deformed EBSPs}
+	\vspace{5px}
+	
+	refEBSP  $\leftarrow$ load reference EBSP from disk\;
 	\ForEach{deformed EBSP}{
-		load EBSP from disk\;
+		defEBSP $\leftarrow$ load EBSP from disk\;
 		\ForEach{ROI in EBSP}{
-			cross correlate ROI from undefromed and deformed EBSP\;
-			argmax\;
-			subpixel peak\;
+			refROI, defROI $\leftarrow$ extract ROI from refEBSP and defEBSP\;
+			
+			find the mean of both ROIs and subtract it\;
+			apply (Hann) window to both ROIs
+			
+			crossResult $\leftarrow$ cross correlate refROI with defROI\;
+			%
+			maxX, maxY $\leftarrow$ subpixelPeak(crossResult)\;
+			output [maxX, MaxY]\;
 		}
 	}
-	\caption{How to write algorithms}
+	
+	\SetKwProg{Fn}{Function}{ is}{end}
+	\SetKwFunction{FSubpixelPeak}{subpixelPeak}    
+	\Fn{\FSubpixelPeak{crossResult}}{
+		max $\leftarrow$ argmax(crossResult)\;
+		neigh $\leftarrow$ extract neighborhood of max\;
+		
+		fit a quadratic function to neigh using the least squares method\;
+		\KwRet maximum of the quadratic function\;
+	}
+	
+	
 \end{algorithm}
-
-Vstup:
-Porovnavany obrazok
-Obrazok predlohy
-vyseky obrazku (nieco ako 32x32, parametrizovatelne)
-I. cast
-1. Pre kazdy vysek velkosti SxS: 
-2. nacitat vyseky z oboch obrazkov,
-3. vypocitat priemer pixelov
-4. odpocitat priemer od oboch vysekov, aby sa hodnoty posunuli blizko k nule
-5. aplikovat hanning (alebo iny) window na oba vyseky
-6. cross-correlation - vysledkom je obrazok (2S-1)x(2S-1)
-7. subpixel\_peak - je potrebne najst posunutie dvoch vysekov tak aby boli co najpodobnejsie.
-8. najst maximalny pixel
-10. zobrat okolie okolo neho a nafitovat hyperbolu metodou najmensich stvorcov
-Vysledkom je zoznam posunuti jednotlivych vysekov
-
-II. cast - z posunuti vypocitat vyslednu maticu zobrazenia.
-Z vektorov spravne postavit maticu ktora zachycuje sustavu linearnych rovnic
-vyriesit metodou najmensich stvorcov.
 
