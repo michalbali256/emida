@@ -6,3 +6,5 @@ thesis.pdf
 *.lot
 *.out
 *.toc
+thesis.run.xml
+thesis.bcf
