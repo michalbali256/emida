@@ -1,4 +1,4 @@
-\chapter{Algorithm \todo{To be renamed?}}
+\chapter{Algorithm description \todo{To be renamed?}}
 
 Electron backscatter diffraction (EBSD) is a scientific tool used to examine crystalline materials. The principle of EBSD is sketched in \cref{ebsd-principle}. It is based on electron diffraction: when a beam of electrons is emitted towards the specimen, some of the electrons backscatter. They are then reflected on phosphor screen which is coupled with compact lens that directs the captured image towards a camera. The result of this procedure is a grayscale image of the \emph{electron backscatter pattern} (EBSP). An example of EBSP is shown in \cref{roi-shifts:initial}.
 
@@ -59,20 +59,100 @@ In this chapter we describe the technique based on cross correlation in detail.
 
 \section{Cross correlation}
 
-Cross correlation contains a measure of similarity of two series for each possible shift between them. It is used in signal processing to find a shorter known feature in a signal or in image processing to match a locate a smaller shape in a bigger picture. In analysis of EBSPs, it is used to find the most probable relative displacement between two images (subregions of images).
+Cross correlation provides a measure of similarity of two series for each possible shift between them. It is used in signal processing to find a shorter known feature in a signal or in image processing to locate a smaller shape in a bigger picture. In analysis of EBSPs, it is used to find the most probable relative displacement between two images (subregions of images).
 
 Cross correlation of two discrete functions $f$ and $g$ is function $C$ defined as follows:
 $$
-C[n] = (f \star g)[n] = \sum_{m=-\infty}^{\infty}f[m]g[m+n].
+C[n] = (f \star g)[n] = \sum_{m=-\infty}^{\infty}f[m]g[m+n],
 $$
 where $\star$ denotes cross correlation.
 
-If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions $f$ and $g$ similar, when $g$ is shifted by $n$.
+If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions $f$ and $g$ similar, when $g$ is shifted by $n$ to the left. For each negative $n$, $g$ is shifted to the right. \Cref{correlation-example} shows two example functions and their cross correlation.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\linewidth]{img/correlation}
+	\caption{The principle of EBSD. The image is taken from \cite{correlation_example}.}
+	\label{correlation-example}
+\end{figure}
+
+Definition of cross correlation can be extended for two dimensions. For two two--dimensional functions $f$ and $g$, their cross correlation is defined as:
+$$
+C[i,j] = (f \star g)[i,j] = \sum_{n=-\infty}^{\infty}\sum_{m=-\infty}^{\infty}f[n,m]g[n+i,m+j].
+$$
+
+Analogously to one--dimensional cross correlation, $(f \star g)[i,j]$ is a number that is higher if $f$ is similar to $g$ shifted by $i$ horizontally and by $j$ vertically. \Cref{2d-correlation-example} demonstrates how cross correlation can be used to search for a smaller pattern in a bigger picture. The brightest points (maxima) in \cref{2d-correlation-example-result} correspond to the best matches between the pattern and the image.
+
+\begin{figure}
+	\centering
+		\begin{subfigure}{.4\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/shapes}
+		\caption{An image}
+		\label{roi-shifts:initial}
+	\end{subfigure}
+	\begin{subfigure}{.4\textwidth}
+	\centering
+	\includegraphics[width=0.4\linewidth]{img/search_shape}
+	\caption{Search pattern}
+	\label{fig:sub2}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/shapes_correlated}
+		\caption{Cross correlation of the (a) and (b) images}
+		\label{2d-correlation-example-result}
+	\end{subfigure}
+	
+	\caption{The principle of EBSD. The image is taken from \cite{correlation_example}.}
+	\label{2d-correlation-example}
+\end{figure}
+
+Theoretically, the domain of cross correlation is whole $\mathbb{Z}^2$. However, when cross correlating two images, $(f \star g)[i,j]$ does not make sense for too big $i$ or $j$ because the images would be shifted so much they would not overlap. For two images with sizes $w_1 \times h_1$ and $w_2 \times h_2$, the size of their cross correlation is $(w_1 + w_2 - 1) \times (h_1 + h_2 - 1)$. The result is a rectangle with the following corners: $[-w_1+1,-h_1+1]$, $[-w_1+1,h_2-1]$, $[w_2-1,h_2-1]$, $[w_2-1,-h_1+1]$. Those are the points of cross correlation, where the result is computed from the images overlapping only by one pixel.
+
+\subsection{Normalized cross correlation}
+
+Cross correlation as it is defined in the previous section has a major flaw for image processing: it is affected by the brightness of the images.
+
+
+\begin{figure}
+	\centering
+	\begin{subfigure}{.4\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/normalized_initial}
+		\caption{An image}
+		\label{roi-shifts:initial}
+	\end{subfigure}
+	\begin{subfigure}{.4\textwidth}
+		\centering
+		\includegraphics[width=0.4\linewidth]{img/normalized_pattern}
+		\caption{Search pattern}
+		\label{fig:sub2}
+	\end{subfigure}
+	\begin{subfigure}{.49\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/normalized_simple_corr}
+		\caption{Simple cross correlation of the (a) and (b) images}
+		\label{2d-correlation-example-result}
+	\end{subfigure}
+	\begin{subfigure}{.49\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{img/normalized_corr}
+		\caption{Normalized cross correlation of the (a) and (b) images}
+		\label{2d-correlation-example-result}
+	\end{subfigure}
+	
+	\caption{The principle of EBSD. The image is taken from \cite{correlation_example}.}
+	\label{2d-correlation-example}
+\end{figure}
+
 
 \section{Algorithm description}
 
+
+
 \begin{algorithm}
-	\caption{Com}
+	\caption{EBSP deformation processing}
 	
 	\KwIn{
 		one reference EBSP\;
