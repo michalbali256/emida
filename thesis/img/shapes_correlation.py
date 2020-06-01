@@ -29,13 +29,16 @@ s=50
 area = [Rectangle( (j-s, i-s), 2*s, 2*s)]
 #gca().add_collection(PatchCollection(area, facecolor='none', edgecolor='r'))
 imshow(img)
+savefig("shapes.png", bbox_inches = 'tight', pad_inches = 0)
 show()
 
 print(img)
 
+fig = figure(figsize=(1,1))
 area = img[i-s:i+s, j-s:j+s]
 
 imshow(area)
+fig.savefig("shapes_pattern.png", bbox_inches = 'tight', pad_inches = 0)
 show()
 
 fig = plt.figure()
@@ -59,7 +62,7 @@ Y = np.arange(cor.shape[0]) - s
 
 # Plot the surface.
 #surf = ax.plot_surface(X, Y, cor, cmap=cm.coolwarm, linewidth=0, antialiased=False)
-imshow(cor, extent = [-2*s , cor.shape[1]+2*s, cor.shape[0]+2*s , -2*s])
+imshow(cor, extent = [-2*s, cor.shape[1]-2*s, cor.shape[0]-2*s , -2*s])
 
 # Customize the z axis.
 #ax.set_zlim(-1.01, 1.01)
@@ -68,5 +71,5 @@ imshow(cor, extent = [-2*s , cor.shape[1]+2*s, cor.shape[0]+2*s , -2*s])
 
 # Add a color bar which maps values to colors.
 #fig.colorbar(surf, shrink=0.5, aspect=5)
-
+savefig("shapes_correlated.png", bbox_inches = 'tight', pad_inches = 0)
 plt.show()

@@ -36,14 +36,14 @@ When the crystal structure of material is changed (e.g. under stress), the defor
 		\centering
 		\includegraphics[width=.9\linewidth]{img/DEFORMED_x3600y6235}
 		\caption{Deformed pattern}
-		\label{fig:sub2}
+		
 	\end{subfigure}
 	\centering
 	\begin{subfigure}{.4\textwidth}
 		\centering
 		\includegraphics[width=.9\linewidth]{img/roi_shifts}
 		\caption{Deformation visualization}
-		\label{fig:sub2}
+		\label{roi-shifts:result}
 	\end{subfigure}
 
 	\caption{Deformed pattern with arrows visualizing the deformation. The arrows are upscaled for the visualization, because the pattern is deformed only by several pixels (the biggest offset is less than 10 pixels long).}
@@ -72,7 +72,7 @@ If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions 
 \begin{figure}
 	\centering
 	\includegraphics[width=0.7\linewidth]{img/correlation}
-	\caption{The principle of EBSD. The image is taken from \cite{correlation_example}.}
+	\caption{The cross--correlation of two example functions. The image is taken from \cite{correlation_example}.}
 	\label{correlation-example}
 \end{figure}
 
@@ -85,17 +85,16 @@ Analogously to one--dimensional cross--correlation, $(f \star g)[i,j]$ is a numb
 
 \begin{figure}
 	\centering
-		\begin{subfigure}{.4\textwidth}
+		\begin{subfigure}{.49\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{img/shapes}
 		\caption{An image}
-		\label{roi-shifts:initial}
 	\end{subfigure}
-	\begin{subfigure}{.4\textwidth}
+	\begin{subfigure}{.49\textwidth}
 	\centering
-	\includegraphics[width=0.4\linewidth]{img/search_shape}
+	\includegraphics[width=0.4\linewidth]{img/shapes_pattern}
 	\caption{Search pattern}
-	\label{fig:sub2}
+	%\label{fig:sub2}
 	\end{subfigure}
 	\begin{subfigure}{.5\textwidth}
 		\centering
@@ -104,7 +103,7 @@ Analogously to one--dimensional cross--correlation, $(f \star g)[i,j]$ is a numb
 		\label{2d-correlation-example-result}
 	\end{subfigure}
 	
-	\caption{The principle of EBSD. The image is taken from \cite{correlation_example}.}
+	\caption{An example of cross--correlation used to find an object in an image. The maxima of the cross--correlation result correspond to the location of the search pattern (b) in the image (a).}
 	\label{2d-correlation-example}
 \end{figure}
 
@@ -113,19 +112,6 @@ Theoretically, the domain of cross--correlation is whole $\mathbb{Z}^2$. However
 \subsection{Zero--normalized cross--correlation}
 
 Cross--correlation as it is defined in the previous section has a major flaw for image processing: it is heavily affected by the brightness of the images. Consider an image, that has some subregions brighter than others. Then, by definition of cross--correlation, that subregions add more to the result, regardless of the second image. \Cref{normalized-initial} shows an example of an image that is much brighter in the top part then in the bottom. \Cref{normalized-simple-cross} shows the result of cross--correlation with the search pattern in \cref{normalized-pattern}. It is clear that the highest values are located where the original image is brightest instead of locating the search pattern.
-
-That is why zero--normalized cross--correlation is used. It is based on subtracting respective means from each image. Normalized cross--correlation of two images $f$ and $g$ is defined as follows:
-
-\[
-\textsc{ZNCC}[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
-\]  
-where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image f with size $W \times H$, they are defined like so:
-\begin{align*}
-\mu_f &= \frac{1}{WH} \sum_{x,y}{}f[x,y], \\
-\sigma_f &= \sqrt{\frac{1}{WH-1} \sum_{x,y}(f[x,y]-\mu_f)^2}.
-\end{align*}
-
-\Cref{normalized-cross} shows the zero--normalized cross--correlation of the figures \ref{normalized-initial} and \ref{normalized-pattern}. The area of the highest correlation is now clearly visible and corresponds to a Kukuchi line in the original image. Subtracting the mean of both images makes the algorithm less prone to brightness changes across the image.
 
 \begin{figure}
 	\centering
@@ -154,45 +140,73 @@ where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$
 		\label{normalized-cross}
 	\end{subfigure}
 	
-	\caption{The principle of EBSD. The image is taken from \cite{correlation_example}.}
-	\label{2d-correlation-example}
+	\caption{A comparison between the simple and zero--normalized cross--correlation. An image of EBSP (a) is correlated with its subregion (b). (c) shows that simple cross--correlation is affected by varying brightness in different parts of images. (d) shows that normalization of the images improve the cross--correlation results.}
 \end{figure}
+
+That is why zero--normalized cross--correlation is used. It is based on subtracting respective means from each image. Normalized cross--correlation of two images $f$ and $g$ is defined as follows:
+
+\[
+\textsc{ZNCC}[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
+\]  
+where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image f with size $W \times H$, they are defined like so:
+\begin{align*}
+\mu_f &= \frac{1}{WH} \sum_{x,y}{}f[x,y], \\
+\sigma_f &= \sqrt{\frac{1}{WH-1} \sum_{x,y}(f[x,y]-\mu_f)^2}.
+\end{align*}
+
+\Cref{normalized-cross} shows the zero--normalized cross--correlation of the figures \ref{normalized-initial} and \ref{normalized-pattern}. The area of the highest correlation is now clearly visible and corresponds to a Kukuchi line in the original image. Subtracting the mean of both images makes the algorithm less prone to brightness changes across the image.
+
+
 
 The intuition behind this behavior is as follows. By the definition of simple cross--correlation, pixels with low brightness multiply and result in low correlation. After subtracting the means, low values in both images become negative. However, two negative numbers multiply into a positive value, so they increase the correlation. On contrary, very bright and very dull pixels multiply into a negative number so their difference causes that they lower the overall correlation value.
 
 
 \section{Algorithm description}
 
-In the following section, we describe how is the zero--normalized cross--corre\-lation used to analyze the deformation of EBSPs. Algorithm \ref{algo-whole} describes the whole process in pseudocode. 
+In the following section, we describe how is the zero--normalized cross--corre\-lation used to analyze the deformation of EBSPs.
+
+As described in the beginning of this chapter, the algorithm we implement in this thesis takes deformed EBSPs and cross--correlates several regions of interest with a reference EBSP. A region of interest (ROI) is a rectangular part of an image defined by its size and position. The algorithm then finds the maximum of the cross--correlation, which yields the vector of deformation with pixel accuracy. Finally, it improves the accuracy by finding the maximum of a fitted quadratic function.
+
+The algorithm takes the following input:
+\begin{itemize}
+	\item s reference EBSP image with size $W \times H$
+	\item $N$ deformed EBSP images, each with size $W \times H$
+	\item $M$ positions ROIs that will be compared from each image
+	\item size $w \times h$ of each ROI
+	\item size of neighbourhood $s \times s$ of the cross correlation maximum that will be used to fit the quadratic function
+\end{itemize}
+The result of the algorithm is a list of $M$ shifts for each of the $N$ deformed EBSPs (see \cref{roi-shifts:result} for visualization of the shifts for one EBSP).
+
+Algorithm \ref{algo-whole} describes the whole process in pseudocode. It goes through all deformed EBSPs and all ROI positions specified in the input. It computes the zero--normalized cross--corre\-lation in three steps: find means of the ROIs, subtract them and compute cross--correlation. The result is an image (two--dimensional array) with size $(2w-1) \times (2h-1)$.
+
+
 
 \begin{algorithm}
 	\caption{EBSP deformation processing}
 	\label{algo-whole}
-	\KwIn{
-		one reference EBSP\;
-		N deformed EBSPs\;
-	 	position of M regions of interest (ROI) from each EBSP to be compared \;
- 		size of one ROI\;}
+	\KwIn{one reference EBSP \newline
+		N deformed EBSPs \newline
+	 	position of M regions of interest (ROI) from each EBSP \newline
+ 		size of one ROI \newline}
 	\KwOut{deformation shifts for all M ROIs from all N deformed EBSPs}
 	\vspace{5px}
 	
 	refEBSP  $\leftarrow$ load reference EBSP from disk\;
 	\ForEach{deformed EBSP}{
 		defEBSP $\leftarrow$ load EBSP from disk\;
-		\ForEach{ROI in EBSP}{
+		\ForEach{\emph{roiPos} in ROI positions}{
 			refROI, defROI $\leftarrow$ extract ROI from refEBSP and defEBSP\;
 			
 			find the mean of both ROIs and subtract it\;
-			apply (Hann) window to both ROIs
 			
-			crossResult $\leftarrow$ cross--correlate refROI with defROI\;
+			crossResult $\leftarrow$ cross--correlate(refROI,defROI)\;
 			%
 			maxX, maxY $\leftarrow$ subpixelPeak(crossResult)\;
-			output [maxX, MaxY]\;
+			output [maxX, maxY]\;
 		}
 	}
 	
-	\SetKwProg{Fn}{Function}{ is}{end}
+	\SetKwProg{Fn}{Function}{}{end}
 	\SetKwFunction{FSubpixelPeak}{subpixelPeak}    
 	\Fn{\FSubpixelPeak{crossResult}}{
 		max $\leftarrow$ argmax(crossResult)\;
@@ -201,7 +215,9 @@ In the following section, we describe how is the zero--normalized cross--corre\-
 		fit a quadratic function to neigh using the least squares method\;
 		\KwRet maximum of the quadratic function\;
 	}
-	
-	
 \end{algorithm}
+
+\section{Least squares}
+
+
 
