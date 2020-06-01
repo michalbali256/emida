@@ -50,24 +50,24 @@ When the crystal structure of material is changed (e.g. under stress), the defor
 	\label{roi-shifts}
 \end{figure}
 
-The comparison is done by cross correlating respective subregions of the deformed and reference EBSPs. The position of the maximum value in the correlation result determines the most probable shift with one pixel precision, which is not enough. To achieve subpixel accuracy, we estimate the peak of the cross correlation by interpolating from a small neighborhood of the maximum.
+The comparison is done by cross--correlating respective subregions of the deformed and reference EBSPs. The position of the maximum value in the correlation result determines the most probable shift with one pixel precision, which is not enough. To achieve subpixel accuracy, we estimate the peak of the cross--correlation by interpolating from a small neighborhood of the maximum.
 
-Once the shifts are computed, they are further processed to obtain an estimation of the actual crystal deformation and other characteristics. However, we do not address that part of the analysis in this thesis, as it is not nearly as computationally expensive as the cross correlation of the EBSPs. Moreover, the comparison is commonly used in analysis of EBSPs, while the processing of the shifts may be different for various purposes.
+Once the shifts are computed, they are further processed to obtain an estimation of the actual crystal deformation and other characteristics. However, we do not address that part of the analysis in this thesis, as it is not nearly as computationally expensive as the cross--correlation of the EBSPs. Moreover, the comparison is commonly used in analysis of EBSPs, while the processing of the shifts may be different for various purposes.
 
-In this chapter we describe the technique based on cross correlation in detail.
+In this chapter we describe the technique based on cross--correlation in detail.
 \todo{summarize the chapter once it is done}
 
-\section{Cross correlation}
+\section{Cross--correlation}
 
-Cross correlation provides a measure of similarity of two series for each possible shift between them. It is used in signal processing to find a shorter known feature in a signal or in image processing to locate a smaller shape in a bigger picture. In analysis of EBSPs, it is used to find the most probable relative displacement between two images (subregions of images).
+Cross--correlation provides a measure of similarity of two series for each possible shift between them. It is used in signal processing to find a shorter known feature in a signal or in image processing to locate a smaller shape in a bigger picture. In analysis of EBSPs, it is used to find the most probable relative displacement between two images (subregions of images).
 
-Cross correlation of two discrete functions $f$ and $g$ is function $C$ defined as follows:
-$$
+Cross--correlation of two discrete functions $f$ and $g$ is function $C$ defined as follows:
+\[
 C[n] = (f \star g)[n] = \sum_{m=-\infty}^{\infty}f[m]g[m+n],
-$$
-where $\star$ denotes cross correlation.
+\]
+where $\star$ denotes cross--correlation.
 
-If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions $f$ and $g$ similar, when $g$ is shifted by $n$ to the left. For each negative $n$, $g$ is shifted to the right. \Cref{correlation-example} shows two example functions and their cross correlation.
+If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions $f$ and $g$ similar, when $g$ is shifted by $n$ to the left. For each negative $n$, $g$ is shifted to the right. \Cref{correlation-example} shows two example functions and their cross--correlation.
 
 \begin{figure}
 	\centering
@@ -76,12 +76,12 @@ If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions 
 	\label{correlation-example}
 \end{figure}
 
-Definition of cross correlation can be extended for two dimensions. For two two--dimensional functions $f$ and $g$, their cross correlation is defined as:
-$$
-C[i,j] = (f \star g)[i,j] = \sum_{n=-\infty}^{\infty}\sum_{m=-\infty}^{\infty}f[n,m]g[n+i,m+j].
-$$
+Definition of cross--correlation can be extended for two dimensions. For two two--dimensional functions $f$ and $g$, their cross--correlation is defined as:
+\[
+C[i,j] = (f \star g)[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty}f[x,y]g[x+i,y+j].
+\]
 
-Analogously to one--dimensional cross correlation, $(f \star g)[i,j]$ is a number that is higher if $f$ is similar to $g$ shifted by $i$ horizontally and by $j$ vertically. \Cref{2d-correlation-example} demonstrates how cross correlation can be used to search for a smaller pattern in a bigger picture. The brightest points (maxima) in \cref{2d-correlation-example-result} correspond to the best matches between the pattern and the image.
+Analogously to one--dimensional cross--correlation, $(f \star g)[i,j]$ is a number that is higher if $f$ is similar to $g$ shifted by $i$ horizontally and by $j$ vertically. \Cref{2d-correlation-example} demonstrates how cross--correlation can be used to search for a smaller pattern in a bigger picture. The brightest points (maxima) in \cref{2d-correlation-example-result} correspond to the best matches between the pattern and the image.
 
 \begin{figure}
 	\centering
@@ -100,7 +100,7 @@ Analogously to one--dimensional cross correlation, $(f \star g)[i,j]$ is a numbe
 	\begin{subfigure}{.5\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{img/shapes_correlated}
-		\caption{Cross correlation of the (a) and (b) images}
+		\caption{Cross--correlation of the (a) and (b) images}
 		\label{2d-correlation-example-result}
 	\end{subfigure}
 	
@@ -108,52 +108,66 @@ Analogously to one--dimensional cross correlation, $(f \star g)[i,j]$ is a numbe
 	\label{2d-correlation-example}
 \end{figure}
 
-Theoretically, the domain of cross correlation is whole $\mathbb{Z}^2$. However, when cross correlating two images, $(f \star g)[i,j]$ does not make sense for too big $i$ or $j$ because the images would be shifted so much they would not overlap. For two images with sizes $w_1 \times h_1$ and $w_2 \times h_2$, the size of their cross correlation is $(w_1 + w_2 - 1) \times (h_1 + h_2 - 1)$. The result is a rectangle with the following corners: $[-w_1+1,-h_1+1]$, $[-w_1+1,h_2-1]$, $[w_2-1,h_2-1]$, $[w_2-1,-h_1+1]$. Those are the points of cross correlation, where the result is computed from the images overlapping only by one pixel.
+Theoretically, the domain of cross--correlation is whole $\mathbb{Z}^2$. However, when cross--correlating two images, $(f \star g)[i,j]$ does not make sense for too big $i$ or $j$ because the images would be shifted so much they would not overlap. For two images with sizes $w_1 \times h_1$ and $w_2 \times h_2$, the size of their cross--correlation is $(w_1 + w_2 - 1) \times (h_1 + h_2 - 1)$. The result is a rectangle with the following corners: $[-w_1+1,-h_1+1]$, $[-w_1+1,h_2-1]$, $[w_2-1,h_2-1]$, $[w_2-1,-h_1+1]$. Those are the points of cross--correlation, where the result is computed from the images overlapping only by one pixel.
 
-\subsection{Normalized cross correlation}
+\subsection{Zero--normalized cross--correlation}
 
-Cross correlation as it is defined in the previous section has a major flaw for image processing: it is affected by the brightness of the images.
+Cross--correlation as it is defined in the previous section has a major flaw for image processing: it is heavily affected by the brightness of the images. Consider an image, that has some subregions brighter than others. Then, by definition of cross--correlation, that subregions add more to the result, regardless of the second image. \Cref{normalized-initial} shows an example of an image that is much brighter in the top part then in the bottom. \Cref{normalized-simple-cross} shows the result of cross--correlation with the search pattern in \cref{normalized-pattern}. It is clear that the highest values are located where the original image is brightest instead of locating the search pattern.
 
+That is why zero--normalized cross--correlation is used. It is based on subtracting respective means from each image. Normalized cross--correlation of two images $f$ and $g$ is defined as follows:
+
+\[
+\textsc{ZNCC}[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
+\]  
+where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image f with size $W \times H$, they are defined like so:
+\begin{align*}
+\mu_f &= \frac{1}{WH} \sum_{x,y}{}f[x,y], \\
+\sigma_f &= \sqrt{\frac{1}{WH-1} \sum_{x,y}(f[x,y]-\mu_f)^2}.
+\end{align*}
+
+\Cref{normalized-cross} shows the zero--normalized cross--correlation of the figures \ref{normalized-initial} and \ref{normalized-pattern}. The area of the highest correlation is now clearly visible and corresponds to a Kukuchi line in the original image. Subtracting the mean of both images makes the algorithm less prone to brightness changes across the image.
 
 \begin{figure}
 	\centering
-	\begin{subfigure}{.4\textwidth}
+	\begin{subfigure}{.5\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{img/normalized_initial}
-		\caption{An image}
-		\label{roi-shifts:initial}
+		\caption{An EBSP}
+		\label{normalized-initial}
 	\end{subfigure}
 	\begin{subfigure}{.4\textwidth}
 		\centering
 		\includegraphics[width=0.4\linewidth]{img/normalized_pattern}
 		\caption{Search pattern}
-		\label{fig:sub2}
+		\label{normalized-pattern}
 	\end{subfigure}
 	\begin{subfigure}{.49\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{img/normalized_simple_corr}
-		\caption{Simple cross correlation of the (a) and (b) images}
-		\label{2d-correlation-example-result}
+		\caption{Simple cross--correlation of the (a) and (b) images}
+		\label{normalized-simple-cross}
 	\end{subfigure}
 	\begin{subfigure}{.49\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{img/normalized_corr}
-		\caption{Normalized cross correlation of the (a) and (b) images}
-		\label{2d-correlation-example-result}
+		\caption{Normalized cross--correlation of the (a) and (b) images}
+		\label{normalized-cross}
 	\end{subfigure}
 	
 	\caption{The principle of EBSD. The image is taken from \cite{correlation_example}.}
 	\label{2d-correlation-example}
 \end{figure}
 
+The intuition behind this behavior is as follows. By the definition of simple cross--correlation, pixels with low brightness multiply and result in low correlation. After subtracting the means, low values in both images become negative. However, two negative numbers multiply into a positive value, so they increase the correlation. On contrary, very bright and very dull pixels multiply into a negative number so their difference causes that they lower the overall correlation value.
+
 
 \section{Algorithm description}
 
-
+In the following section, we describe how is the zero--normalized cross--corre\-lation used to analyze the deformation of EBSPs. Algorithm \ref{algo-whole} describes the whole process in pseudocode. 
 
 \begin{algorithm}
 	\caption{EBSP deformation processing}
-	
+	\label{algo-whole}
 	\KwIn{
 		one reference EBSP\;
 		N deformed EBSPs\;
@@ -171,7 +185,7 @@ Cross correlation as it is defined in the previous section has a major flaw for 
 			find the mean of both ROIs and subtract it\;
 			apply (Hann) window to both ROIs
 			
-			crossResult $\leftarrow$ cross correlate refROI with defROI\;
+			crossResult $\leftarrow$ cross--correlate refROI with defROI\;
 			%
 			maxX, maxY $\leftarrow$ subpixelPeak(crossResult)\;
 			output [maxX, MaxY]\;
