@@ -36,7 +36,7 @@ def subpixel_peak(d, s=1):
     #print(xp, yp)
     y, x = yp-s, xp-s
     l = d[y:y+2*s+1, x:x+2*s+1]
-    
+    print(l)
     #setup matrix A for least squares
     yi, xi = np.indices(l.shape)
     #print("l example") 
@@ -55,7 +55,7 @@ def subpixel_peak(d, s=1):
 # [1. 2. 2. 4. 4. 4.]]
 
     b = l.reshape(-1)
-    
+    print(b)
     #f(x,y) = a + bx + cy + dx^2 + exy + fy^2
     q = np.linalg.lstsq(A, b, rcond=None)[0]
     #q1 = mylstsq(b)
@@ -65,6 +65,7 @@ def subpixel_peak(d, s=1):
     xs, ys = np.linalg.solve([[2*q[3],   q[4]],
                               [  q[4], 2*q[5]]],
                             [-q[1], -q[2]])
+    print('AAA', xs, ys)
     return y+ys, x+xs 
 
 #s = 16

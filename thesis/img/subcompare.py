@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import numpy as np
-from pylab import *
 from PIL import Image
 from matplotlib.patches import Rectangle, Ellipse
 from matplotlib.collections import PatchCollection

@@ -165,7 +165,7 @@ The intuition behind this behavior is as follows. By the definition of simple cr
 
 In the following section, we describe how is the zero--normalized cross--corre\-lation used to analyze the deformation of EBSPs.
 
-As described in the beginning of this chapter, the algorithm we implement in this thesis takes deformed EBSPs and cross--correlates several regions of interest with a reference EBSP. A region of interest (ROI) is a rectangular part of an image defined by its size and position. The algorithm then finds the maximum of the cross--correlation, which yields the vector of deformation with pixel accuracy. Finally, it improves the accuracy by finding the maximum of a fitted quadratic function.
+As described in the beginning of this chapter, the algorithm we implement in this thesis takes deformed EBSPs and cross--correlates several regions of interest with a reference EBSP. A region of interest (ROI) is a rectangular part of an image defined by its size and position. The algorithm then finds the maximum of the cross--correlation, which yields the vector of deformation with one pixel accuracy. Finally, it improves the accuracy by finding the maximum of a fitted quadratic function.
 
 The algorithm takes the following input:
 \begin{itemize}
@@ -177,9 +177,13 @@ The algorithm takes the following input:
 \end{itemize}
 The result of the algorithm is a list of $M$ shifts for each of the $N$ deformed EBSPs (see \cref{roi-shifts:result} for visualization of the shifts for one EBSP).
 
-Algorithm \ref{algo-whole} describes the whole process in pseudocode. It goes through all deformed EBSPs and all ROI positions specified in the input. It computes the zero--normalized cross--corre\-lation in three steps: find means of the ROIs, subtract them and compute cross--correlation. The result is an image (two--dimensional array) with size $(2w-1) \times (2h-1)$.
-
-
+Algorithm \ref{algo-whole} describes the whole process in pseudocode. It goes through all deformed EBSPs and all ROI positions specified in the input. For each ROI, it computes the zero--normalized cross--corre\-lation in three steps:
+\begin{enumerate}
+	\item Find means of the ROI
+	\item Subtract the means from ROIs
+	\item Compute cross--correlation
+\end{enumerate}
+The result is an image (two--dimensional array) with size $(2w-1) \times (2h-1)$.
 
 \begin{algorithm}
 	\caption{EBSP deformation processing}
@@ -209,15 +213,64 @@ Algorithm \ref{algo-whole} describes the whole process in pseudocode. It goes th
 	\SetKwProg{Fn}{Function}{}{end}
 	\SetKwFunction{FSubpixelPeak}{subpixelPeak}    
 	\Fn{\FSubpixelPeak{crossResult}}{
-		max $\leftarrow$ argmax(crossResult)\;
-		neigh $\leftarrow$ extract neighborhood of max\;
+		[maxX, maxY] $\leftarrow$ argmax(crossResult)\;
+		neigh $\leftarrow$ extract neighborhood of [maxX, maxY]\;
 		
 		fit a quadratic function to neigh using the least squares method\;
 		\KwRet maximum of the quadratic function\;
 	}
 \end{algorithm}
 
+Next, we find the maximum of the cross--correlation. The location of the maximum $[x,y]$ in the matrix is the shift between the deformed and reference ROI. However, the precision of one pixel is not enough because it is too big in comparison with the nanoworld the EBSP technique studies. That is why we use the cross--correlated data to estimate the maximum with subpixel accuracy.
+
+We take a square--shaped neighborhood of the maximum with size $s \times s$ and fit a two--dimensional quadratic function defined as:
+\[
+f(x,y) = a + bx + cy + dxy + ex^2 + fy^2,
+\]
+where $a, b, c, d, e, f \in \mathbb{R}$. To fit such function is to estimate the 6 coefficients $a \dots f$. From the known points of the neighborhood $N$ of size $s \times s$, it is possible to create the following system of equations:
+\[
+\forall [x,y] \in \{0,1,\dots , s-1\}^2 : a + xb + yc + xyd + x^2e + y^2f = N[x,y].
+\]
+$a \dots f$ are unknown variables.
+
+We have $s^2$ known points, which means $s^2$ equations. The smallest $s$ that makes sense is 3, so we always have a linear system with more equations than unknown variables.
+
+For instance, let $s$ be 3 and $N$ be the neighborhood of the maximum:
+
+\[
+N =
+\begin{bmatrix}
+	751 & 819 & 765 \\
+	825 & 934 & 810 \\
+	768 & 798 & 725
+\end{bmatrix}.
+\]
+Then, the linear system looks like this:
+\[
+\begin{bmatrix}
+ 1 & 0 & 0 & 0 & 0 & 0\\
+ 1 & 1 & 0 & 1 & 0 & 0\\
+ 1 & 2 & 0 & 4 & 0 & 0\\
+ 1 & 0 & 1 & 0 & 0 & 1\\
+ 1 & 1 & 1 & 1 & 1 & 1\\
+ 1 & 2 & 1 & 4 & 2 & 1\\
+ 1 & 0 & 2 & 0 & 0 & 4\\
+ 1 & 1 & 2 & 1 & 2 & 4\\
+ 1 & 2 & 2 & 4 & 4 & 4
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+a \\ b \\ c \\ d \\ e \\ f
+\end{bmatrix}
+=
+\begin{bmatrix}
+751 \\ 819 \\ 765 \\ 825 \\ 934 \\ 810 \\ 768 \\ 798 \\ 725
+\end{bmatrix}.
+\]
+The left side contains all the points from the set $\{0,1,2\}^2$; right side contains all the corresponding values from neighborhood $N$.
+
 \section{Least squares}
 
+To estimate the solution of such overdetermined system, we use the \emph{least squares} method. 
 
 
