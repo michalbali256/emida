@@ -20,7 +20,7 @@ The electrons do not reflect randomly, but based on the examined specimen, they 
 
 EBSD is commonly used with scanning electron microscopes (SEM). A SEM is a device that repeatedly emits an electron beam towards the specimen, scanning the surface in a raster pattern. That allows to create images of the surface of the sample with much greater magnification than light microscopes.
 
-When used with EBSD, it creates the EBSPs in a raster scan pattern. It scans a part of the surface, measuring the crystalline structure of the specimen in many spots and saving the information as an EBSP. So the procedure results in thousands of images, one for each point in the raster. For example, test data that we used for this thesis contained over 15000 images taken from a 120x120 raster covering an area of the specimen surface approximately \SI{70}{\nano\meter}~x~\SI{70}{\nano\meter} big.
+When used with EBSD, it creates the EBSPs in a raster scan pattern. It scans a part of the surface, measuring the crystalline structure of the specimen in many spots and saving the information as an EBSP. So the procedure results in thousands of images, one for each point in the raster. For example, test data that we used for this thesis contained over 15000 images taken from a $120 \times 120$ raster covering an area of the specimen surface approximately $\SI{70}{\nano\meter} \times \SI{70}{\nano\meter}$ big.
 
 When the crystal structure of material is changed (e.g. under stress), the deformation can be observed in the EBSP too. Therefore, EBSPs of deformed specimen can be compared to undeformed ones to measure elastic strain and crystal lattice rotation.  \Cref{roi-shifts} shows a visualization of such comparison. Since different parts of the images may be deformed differently, a commonly used technique \cite{wilkinson2006high,wilkinson2010high,britton2012high} is to choose several (usually tens to hundreds) subregions of the EBSPs and determine the vector of shift between the corresponding regions from both patterns. The shifts estimate the real deformation of the crystalline structure.
 
@@ -148,7 +148,7 @@ That is why zero--normalized cross--correlation is used. It is based on subtract
 \[
 \textsc{ZNCC}[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
 \]  
-where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image f with size $W \times H$, they are defined like so:
+where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image $f$ with size $W \times H$, they are defined like so:
 \begin{align*}
 \mu_f &= \frac{1}{WH} \sum_{x,y}{}f[x,y], \\
 \sigma_f &= \sqrt{\frac{1}{WH-1} \sum_{x,y}(f[x,y]-\mu_f)^2}.
