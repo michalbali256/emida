@@ -160,6 +160,20 @@ where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$
 
 The intuition behind this behavior is as follows. By the definition of simple cross--correlation, pixels with low brightness multiply and result in low correlation. After subtracting the means, low values in both images become negative. However, two negative numbers multiply into a positive value, so they increase the correlation. On contrary, very bright and very dull pixels multiply into a negative number so their difference causes that they lower the overall correlation value.
 
+\section{Least squares}
+
+The least squares method is used 
+To estimate the solution of such overdetermined system, we use the \emph{least squares} method.
+
+\[
+Ax = b
+\]
+
+\[
+\min \norm{Ax - b}
+\]
+
+
 
 \section{Algorithm description}
 
@@ -169,7 +183,7 @@ As described in the beginning of this chapter, the algorithm we implement in thi
 
 The algorithm takes the following input:
 \begin{itemize}
-	\item s reference EBSP image with size $W \times H$
+	\item reference EBSP image with size $W \times H$
 	\item $N$ deformed EBSP images, each with size $W \times H$
 	\item $M$ positions ROIs that will be compared from each image
 	\item size $w \times h$ of each ROI
@@ -221,6 +235,8 @@ The result is an image (two--dimensional array) with size $(2w-1) \times (2h-1)$
 	}
 \end{algorithm}
 
+\subsection{Subpixel peak}
+
 Next, we find the maximum of the cross--correlation. The location of the maximum $[x,y]$ in the matrix is the shift between the deformed and reference ROI. However, the precision of one pixel is not enough because it is too big in comparison with the nanoworld the EBSP technique studies. That is why we use the cross--correlated data to estimate the maximum with subpixel accuracy.
 
 We take a square--shaped neighborhood of the maximum with size $s \times s$ and fit a two--dimensional quadratic function defined as:
@@ -229,11 +245,34 @@ f(x,y) = a + bx + cy + dxy + ex^2 + fy^2,
 \]
 where $a, b, c, d, e, f \in \mathbb{R}$. To fit such function is to estimate the 6 coefficients $a \dots f$. From the known points of the neighborhood $N$ of size $s \times s$, it is possible to create the following system of equations:
 \[
-\forall [x,y] \in \{0,1,\dots , s-1\}^2 : a + xb + yc + xyd + x^2e + y^2f = N[x,y].
+\forall [x,y] \in \{0,1,\dots , s-1\}^2 : a + xb + yc + xyd + x^2e + y^2f = N[x,y],
 \]
-$a \dots f$ are unknown variables.
+where $a \dots f$ are unknown variables.
 
-We have $s^2$ known points, which means $s^2$ equations. The smallest $s$ that makes sense is 3, so we always have a linear system with more equations than unknown variables.
+We have $s^2$ known points, from which we create $s^2$ equations. Since we have 6 unknown variables, $s$ has to be at least 3, so we have more equations than unknowns. 
+
+We solve the system using the least squares method, which estimates the coefficients $a \dots f$. That means we know the equation of the quadratic function which fits the neighborhood.
+
+\subsubsection{Maximum of fitted function}
+
+The last step in the algorithm is to find the maximum of the quadratic function. We do that using standard methods of mathematical analysis: we find where are the partial derivations of the function equal to zero.
+
+The partial derivations of the quadratic function are:
+\begin{align*}
+\frac{\partial f}{\partial x}(x,y) &= 2dx + ey + b,\\
+\frac{\partial f}{\partial y}(x,y) &= ex + 2fy + c.
+\end{align*}
+
+If the function has an extreme, then it is located at the point where the partial derivations are both zero. That implies the a linear system of equations with the following solution:
+
+\begin{align*}
+x_m &= \frac{2bf - ce}{e^2 - 4df}\\
+y_m &= \frac{2cd - be}{e^2 - 4df}
+\end{align*}
+
+The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum. All that is left is to combine those two to get the offset of one ROI of the EBSP.
+
+\subsubsection{Subpixel peak example}
 
 For instance, let $s$ be 3 and $N$ be the neighborhood of the maximum:
 
@@ -269,8 +308,4 @@ a \\ b \\ c \\ d \\ e \\ f
 \]
 The left side contains all the points from the set $\{0,1,2\}^2$; right side contains all the corresponding values from neighborhood $N$.
 
-\section{Least squares}
-
-To estimate the solution of such overdetermined system, we use the \emph{least squares} method. 
-
-
+When we use the least squares method to estimate a...f, ... 
