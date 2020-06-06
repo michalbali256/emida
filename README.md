@@ -69,7 +69,6 @@ emida -i data/FeAl/INITIAL_FeAl -d data/FeAl/DEFORMED_FeAl -o data/FeAl/OUT_FeAl
 Following options are mandatory:
 - `-i,--initial` specifies path to the reference image
 - `-d,--deformed` specifies path to file with list of the deformed pictures to process. The format of the file is described above.
-- `-p,--picsize` specifies size of input initial and deformed tiff pictures. All pictures should have the same size.
 
 Optional options:
 - `-b,--slicepos` specifies path to file with positions of regions to be compared in each picture, as descibed above.

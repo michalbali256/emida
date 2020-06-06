@@ -60,8 +60,12 @@ inline void process_files(params& a)
 {
 	stopwatch sw(true, 3);
 
-	size_t batch_files = 32;
+	size_t batch_files = 8;
 	size_t file_batch_size = a.slice_mids.size();
+
+	size2_t pic_size;
+	if (!get_size(a.initial_file_name, pic_size))
+		return;
 
 	auto slice_begins = a.slice_mids;
 	for (auto& o : slice_begins)
@@ -70,19 +74,22 @@ inline void process_files(params& a)
 	a.slice_mids = repeat_vector(a.slice_mids, batch_files);
 	for (size_t i = 0; i < batch_files; ++i)
 		for (size_t j = i * file_batch_size; j < (i + 1) * file_batch_size; ++j)
-			slice_begins[j].y += i * a.pic_size.y;
+			slice_begins[j].y += i * pic_size.y;
 
 
-	std::vector<uint16_t> initial_raster(a.pic_size.area());
-	if (!load_tiff(a.initial_file_name, initial_raster.data(), a.pic_size))
+	
+	std::vector<uint16_t> initial_raster(pic_size.area());
+
+	if (!load_tiff(a.initial_file_name, initial_raster.data(), pic_size))
 		return;
 	initial_raster = repeat_vector(initial_raster, batch_files);
 
-	gpu_offset<T, uint16_t> offs({ a.pic_size.x, a.pic_size.y * batch_files }, &slice_begins, a.slice_size, a.cross_size, a.cross_pol, a.fitting_size);
+	gpu_offset<T, uint16_t> offs({ pic_size.x, pic_size.y * batch_files }, &slice_begins, a.slice_size, a.cross_size, a.cross_pol, a.fitting_size);
+
 	offs.allocate_memory(initial_raster.data());
 
 	//TODO: allocate cuda host memory to avoid copying the data twice
-	std::vector<uint16_t> deformed_raster(a.pic_size.area() * batch_files);
+	std::vector<uint16_t> deformed_raster(pic_size.area() * batch_files);
 
 	std::vector<file> work = load_work(a.deformed_list_file_name);
 	
@@ -92,9 +99,10 @@ inline void process_files(params& a)
 		uint16_t * next = deformed_raster.data();
 		for (size_t i = c*batch_files; i < (c + 1) * batch_files; ++i)
 		{
-			OK &= load_tiff(work[i].fname, next, a.pic_size);
-			next += a.pic_size.area();
+			OK &= load_tiff(work[i].fname, next, pic_size);
+			next += pic_size.area();
 		}sw.tick("Load tiff: ", 2);
+
 		if (!OK)
 			continue;
 
