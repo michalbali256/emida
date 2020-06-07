@@ -162,22 +162,31 @@ The intuition behind this behavior is as follows. By the definition of simple cr
 
 \section{Least squares}
 
-The least squares method is used 
-To estimate the solution of such overdetermined system, we use the \emph{least squares} method.
+The least squares method is used to approximate the solution of systems of equations do not have an exact solution, since there are more equations than unknowns. Such systems are also called overdetermined systems. In EBSP analysis, the least squares method is used to approximate coefficients of a quadratic function from its several known points.
 
+In the first place, let us formulate the problem that the least squares method addresses. Let $n,m \in N, n > m; A \in \mathbb{R}^{n \times m}; x \in \mathbb{R}^m$ and $b \in \mathbb{R}^n$. Then $Ax = b$ is an overdetermined system of linear equations. It may have a solution, if $b$ is a linear combination of column vectors of $A$ ($b$ is in column space of $A$), but in general, that is not the case.
+
+Instead of solving the system, we search for a vector $x'$ that has the least difference from the solution:
 \[
-Ax = b
+x' = \min_x \norm{Ax - b},
+\]
+where $\norm{\cdot}$ denotes Euclidean norm. For a vector $x \in \mathbb{R}^n$, it is defined as:
+\[
+\norm{x} = \sqrt{\sum_{i=0}^{n} x_i^2}.
+\]
+So we minimize the sum of squared differences between the left and right sides of the equations in the system, hence the name least squares.
+
+The least squares solution can be calculated using only matrix multiplication and inversion as follows (a proof can be found for example in \cite{anton2013elementary}):  
+\[
+x' = (A^TA)^{-1}A^Tb.
 \]
 
-\[
-\min \norm{Ax - b}
-\]
-
+This formula is not used in practice because of effectiveness and numerical stability (instead, it is better to solve the equation $A^TAx = A^Tb$). However, for the algorithm described in this thesis the matrix $A$ does not depend on the input data and thus it is possible to precompute the $(A^TA)^{-1}A^T$ matrix. That reduces the computation of the least squares vector to one matrix--vector multiplication.
 
 
 \section{Algorithm description}
 
-In the following section, we describe how is the zero--normalized cross--corre\-lation used to analyze the deformation of EBSPs.
+In the following section, we describe how are the zero--normalized cross--corre\-lation and the least squares mathod used to analyze the deformation of EBSPs.
 
 As described in the beginning of this chapter, the algorithm we implement in this thesis takes deformed EBSPs and cross--correlates several regions of interest with a reference EBSP. A region of interest (ROI) is a rectangular part of an image defined by its size and position. The algorithm then finds the maximum of the cross--correlation, which yields the vector of deformation with one pixel accuracy. Finally, it improves the accuracy by finding the maximum of a fitted quadratic function.
 
@@ -241,17 +250,53 @@ Next, we find the maximum of the cross--correlation. The location of the maximum
 
 We take a square--shaped neighborhood of the maximum with size $s \times s$ and fit a two--dimensional quadratic function defined as:
 \[
-f(x,y) = a + bx + cy + dxy + ex^2 + fy^2,
+f(x,y) = a + bx + cy + dx^2 + exy + fy^2,
 \]
 where $a, b, c, d, e, f \in \mathbb{R}$. To fit such function is to estimate the 6 coefficients $a \dots f$. From the known points of the neighborhood $N$ of size $s \times s$, it is possible to create the following system of equations:
 \[
-\forall [x,y] \in \{0,1,\dots , s-1\}^2 : a + xb + yc + xyd + x^2e + y^2f = N[x,y],
+\forall [x,y] \in \{0,1,\dots , s-1\}^2 : a + xb + yc + x^2d + xye + y^2f = N[x,y],
 \]
 where $a \dots f$ are unknown variables.
 
 We have $s^2$ known points, from which we create $s^2$ equations. Since we have 6 unknown variables, $s$ has to be at least 3, so we have more equations than unknowns. 
 
 We solve the system using the least squares method, which estimates the coefficients $a \dots f$. That means we know the equation of the quadratic function which fits the neighborhood.
+
+\subsubsection{Subpixel peak example}
+
+For instance, let $s$ be 3 and $N$ be the neighborhood of the maximum:
+
+\[
+N =
+\begin{bmatrix}
+751 & 819 & 765 \\
+825 & 934 & 810 \\
+768 & 798 & 725
+\end{bmatrix}.
+\]
+Then, the linear system looks like this:
+\[
+\begin{bmatrix}
+1 & 0 & 0 & 0 & 0 & 0\\
+1 & 1 & 0 & 1 & 0 & 0\\
+1 & 2 & 0 & 4 & 0 & 0\\
+1 & 0 & 1 & 0 & 0 & 1\\
+1 & 1 & 1 & 1 & 1 & 1\\
+1 & 2 & 1 & 4 & 2 & 1\\
+1 & 0 & 2 & 0 & 0 & 4\\
+1 & 1 & 2 & 1 & 2 & 4\\
+1 & 2 & 2 & 4 & 4 & 4
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+a \\ b \\ c \\ d \\ e \\ f
+\end{bmatrix}
+=
+\begin{bmatrix}
+751 \\ 819 \\ 765 \\ 825 \\ 934 \\ 810 \\ 768 \\ 798 \\ 725
+\end{bmatrix}.
+\]
+The left side contains all the points from the set $\{0,1,2\}^2$; right side contains all the corresponding values from neighborhood $N$.
 
 \subsubsection{Maximum of fitted function}
 
@@ -271,41 +316,3 @@ y_m &= \frac{2cd - be}{e^2 - 4df}
 \end{align*}
 
 The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum. All that is left is to combine those two to get the offset of one ROI of the EBSP.
-
-\subsubsection{Subpixel peak example}
-
-For instance, let $s$ be 3 and $N$ be the neighborhood of the maximum:
-
-\[
-N =
-\begin{bmatrix}
-	751 & 819 & 765 \\
-	825 & 934 & 810 \\
-	768 & 798 & 725
-\end{bmatrix}.
-\]
-Then, the linear system looks like this:
-\[
-\begin{bmatrix}
- 1 & 0 & 0 & 0 & 0 & 0\\
- 1 & 1 & 0 & 1 & 0 & 0\\
- 1 & 2 & 0 & 4 & 0 & 0\\
- 1 & 0 & 1 & 0 & 0 & 1\\
- 1 & 1 & 1 & 1 & 1 & 1\\
- 1 & 2 & 1 & 4 & 2 & 1\\
- 1 & 0 & 2 & 0 & 0 & 4\\
- 1 & 1 & 2 & 1 & 2 & 4\\
- 1 & 2 & 2 & 4 & 4 & 4
-\end{bmatrix}
-\cdot
-\begin{bmatrix}
-a \\ b \\ c \\ d \\ e \\ f
-\end{bmatrix}
-=
-\begin{bmatrix}
-751 \\ 819 \\ 765 \\ 825 \\ 934 \\ 810 \\ 768 \\ 798 \\ 725
-\end{bmatrix}.
-\]
-The left side contains all the points from the set $\{0,1,2\}^2$; right side contains all the corresponding values from neighborhood $N$.
-
-When we use the least squares method to estimate a...f, ... 
