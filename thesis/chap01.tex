@@ -46,7 +46,7 @@ When the crystal structure of material is changed (e.g. under stress), the defor
 		\label{roi-shifts:result}
 	\end{subfigure}
 
-	\caption{Deformed pattern with arrows visualizing the deformation. The arrows are upscaled for the visualization, because the pattern is deformed only by several pixels (the biggest offset is less than 10 pixels long).}
+	\caption{Deformed pattern with arrows visualizing the deformation. The arrows are upscaled for the visualization, because the pattern is deformed only by several pixels (the biggest offset is less than 10 pixels long, while the whole picture has resolution $873 \times 873$).}
 	\label{roi-shifts}
 \end{figure}
 
@@ -54,8 +54,7 @@ The comparison is done by cross--correlating respective subregions of the deform
 
 Once the shifts are computed, they are further processed to obtain an estimation of the actual crystal deformation and other characteristics. However, we do not address that part of the analysis in this thesis, as it is not nearly as computationally expensive as the cross--correlation of the EBSPs. Moreover, the comparison is commonly used in analysis of EBSPs, while the processing of the shifts may be different for various purposes.
 
-In this chapter we describe the technique based on cross--correlation in detail.
-\todo{summarize the chapter once it is done}
+In this chapter we describe the algorithm used to analyze the deformation of EBSPs. We define cross--correlation and least squares --- techniques that are used in the analysis. Finally, we describe the algorithm that we study in this thesis.
 
 \section{Cross--correlation}
 
@@ -76,7 +75,7 @@ If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions 
 	\label{correlation-example}
 \end{figure}
 
-Definition of cross--correlation can be extended for two dimensions. For two two--dimensional functions $f$ and $g$, their cross--correlation is defined as:
+Definition of cross--correlation can be extended for two dimensions. For two--dimensional functions $f$ and $g$, their cross--correlation is defined as:
 \[
 C[i,j] = (f \star g)[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty}f[x,y]g[x+i,y+j].
 \]
@@ -144,7 +143,6 @@ Cross--correlation as it is defined in the previous section has a major flaw for
 \end{figure}
 
 That is why zero--normalized cross--correlation is used. It is based on subtracting respective means from each image. Normalized cross--correlation of two images $f$ and $g$ is defined as follows:
-
 \[
 \textsc{ZNCC}[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
 \]  
@@ -265,7 +263,6 @@ We solve the system using the least squares method, which estimates the coeffici
 \subsubsection{Subpixel peak example}
 
 For instance, let $s$ be 3 and $N$ be the neighborhood of the maximum:
-
 \[
 N =
 \begin{bmatrix}
@@ -309,7 +306,6 @@ The partial derivations of the quadratic function are:
 \end{align*}
 
 If the function has an extreme, then it is located at the point where the partial derivations are both zero. That implies the a linear system of equations with the following solution:
-
 \begin{align*}
 x_m &= \frac{2bf - ce}{e^2 - 4df}\\
 y_m &= \frac{2cd - be}{e^2 - 4df}
