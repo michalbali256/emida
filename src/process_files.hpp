@@ -49,7 +49,8 @@ void write_offsets(const params& a, std::vector<vec2<T>>& offsets, const std::ve
 		if (std::isnan(offsets[i].y))
 			offsets[i].y = std::numeric_limits<T>::quiet_NaN();
 		if(a.write_coefs)
-			printf("%llu %llu %f %f %f %f %f %f %f %f\n", a.slice_mids[i].x, a.slice_mids[i].y, offsets[i].x, offsets[i].y, coefs[i][0], coefs[i][1], coefs[i][2], coefs[i][3], coefs[i][4], coefs[i][5]);
+			printf("%llu %llu %f %f %f %f %f %f %f %f\n", a.slice_mids[i].x, a.slice_mids[i].y, offsets[i].x, offsets[i].y,
+				coefs[i][0], coefs[i][1], coefs[i][2], coefs[i][3], coefs[i][4], coefs[i][5]);
 		else
 			printf("%llu %llu %f %f\n", a.slice_mids[i].x, a.slice_mids[i].y, offsets[i].x, offsets[i].y);
 	}
@@ -70,13 +71,6 @@ inline void process_files(params& a)
 	auto slice_begins = a.slice_mids;
 	for (auto& o : slice_begins)
 		o = o - (a.slice_size / 2);
-	slice_begins = repeat_vector(slice_begins, batch_files);
-	a.slice_mids = repeat_vector(a.slice_mids, batch_files);
-	for (size_t i = 0; i < batch_files; ++i)
-		for (size_t j = i * file_batch_size; j < (i + 1) * file_batch_size; ++j)
-			slice_begins[j].y += i * pic_size.y;
-
-
 	
 	std::vector<uint16_t> initial_raster(pic_size.area());
 
@@ -84,7 +78,7 @@ inline void process_files(params& a)
 		return;
 	initial_raster = repeat_vector(initial_raster, batch_files);
 
-	gpu_offset<T, uint16_t> offs({ pic_size.x, pic_size.y * batch_files }, &slice_begins, a.slice_size, a.cross_size, a.cross_pol, a.fitting_size);
+	gpu_offset<T, uint16_t> offs(pic_size, &slice_begins, a.slice_size, a.cross_size, 1, a.cross_pol, a.fitting_size);
 
 	offs.allocate_memory(initial_raster.data());
 

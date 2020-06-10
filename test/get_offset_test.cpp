@@ -7,37 +7,6 @@
 
 using namespace emida;
 
-TEST(slice_picture, small)
-{
-	std::vector<int> v =
-	{
-		1, 2, 3, 4,
-		5, 6, 7, 8,
-		9, 10, 11, 12,
-		13, 14, 15, 16
-	};
-
-	std::vector<int> expected =
-	{
-		1, 2, 
-		5, 6,
-
-		3, 4,
-		7, 8,
-
-		9, 10, 
-		13, 14,
-
-		11, 12,
-		15, 16
-	};
-
-	auto sliced = slice_picture(v.data(), { 4, 4 }, { 2, 2 }, {2, 2});
-
-	EXPECT_EQ(sliced, expected);
-
-}
-
 TEST(get_offset, bigger)
 {
 	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
@@ -84,16 +53,15 @@ TEST_P(get_offset_fixture, size_)
 	EXPECT_NEAR(offset[0].y, -0.0982055210473689, 2e-14);
 }
 
-struct stringer_policy
+
+std::string policy_to_string(cross_policy p)
 {
-	std::string operator()(::testing::TestParamInfo<cross_policy> p)
-	{
-		if (p.param == CROSS_POLICY_FFT)
-			return "FFT";
-		else
-			return "BRUTE";
-	}
-};
+	if (p == CROSS_POLICY_FFT)
+		return "FFT";
+	else
+		return "BRUTE";
+}
+
 
 struct stringer
 {
@@ -102,7 +70,7 @@ struct stringer
 		size2_t cross_size = std::get<0>(p.param);
 		cross_policy cr_policy = std::get<1>(p.param);
 		std::stringstream ss;
-		ss << stringer_policy()(::testing::TestParamInfo<cross_policy>(cr_policy, 0)) << "_" << cross_size.x << "x" << cross_size.y;
+		ss << policy_to_string(cr_policy) << "_" << cross_size.x << "x" << cross_size.y;
 		return ss.str();
 	}
 };
@@ -119,33 +87,41 @@ INSTANTIATE_TEST_SUITE_P(
 );
 
 
+struct get_offset_batched_param
+{
+	cross_policy policy;
+	size_t batch_size;
+};
 
-class get_offset_batched : public ::testing::TestWithParam<cross_policy> {
+class get_offset_batched : public ::testing::TestWithParam<get_offset_batched_param> {
 
 };
 
 TEST_P(get_offset_batched, batched)
 {
-	cross_policy c_policy = GetParam();
+	get_offset_batched_param param = GetParam();
 
-	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
-	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
+	matrix<double> pic_file = matrix<double>::from_file("test/res/data_pic.txt");
+	matrix<double> temp_file = matrix<double>::from_file("test/res/data_temp.txt");
+	vec2<size_t> src_size{ pic_file.n, pic_file.n };
 
-	vec2<size_t> src_size{ pic.n, pic.n };
+	std::vector<double> pic = repeat_vector(pic_file.data, param.batch_size);
+	std::vector<double> temp = repeat_vector(temp_file.data, param.batch_size);
+	
 	vec2<size_t> size{ 64, 64 };
 	vec2<size_t> step{ 32, 32 };
 	size_t batch_size = get_sliced_batch_size(src_size, size, step);
 
 	auto begins = get_slice_begins(src_size, size, step);
 
-	gpu_offset<double, double> offs(src_size, &begins, size, { 127,127 }, c_policy);
-	offs.allocate_memory(temp.data.data());
-	auto [offsets, _] = offs.get_offset(pic.data.data());
+	gpu_offset<double, double> offs(src_size, &begins, size, { 127,127 }, param.batch_size, param.policy);
+	offs.allocate_memory(temp.data());
+	auto [offsets, _] = offs.get_offset(pic.data());
 	
 
 	//precision 1e-13 is OK, 1e-14 is failing
 
-	std::vector<vec2<double>> expected =
+	std::vector<vec2<double>> expected_base =
 	{
 		{0.07583538046549165, -0.0982055210473689},
 		{0.0663767374671167, -0.04069601894434527},
@@ -198,16 +174,30 @@ TEST_P(get_offset_batched, batched)
 		{-0.11304959759046085, 0.061363430916259176},
 	};
 
+	auto expected = repeat_vector(expected_base, param.batch_size);
+
 
 	EXPECT_VEC_VECTORS_NEAR(offsets, expected, 7e-14);
 }
+
+struct stringer_batched
+{
+	std::string operator()(::testing::TestParamInfo<get_offset_batched_param> p)
+	{
+		return policy_to_string(p.param.policy) + "x" + std::to_string(p.param.batch_size);
+	}
+};
 
 INSTANTIATE_TEST_SUITE_P(
 	get_offset,
 	get_offset_batched,
 	::testing::Values(
-		CROSS_POLICY_BRUTE, CROSS_POLICY_FFT),
-	stringer_policy()
+		get_offset_batched_param{ CROSS_POLICY_BRUTE, 1 },
+		get_offset_batched_param{ CROSS_POLICY_FFT, 1 },
+		get_offset_batched_param{ CROSS_POLICY_BRUTE, 5 },
+		get_offset_batched_param{ CROSS_POLICY_FFT, 5 }
+	),
+	stringer_batched()
 );
 
 
