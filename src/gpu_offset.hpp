@@ -145,9 +145,9 @@ public:
 			return;
 		copy_to_device(temp, src_size_.area(), cu_temp_in_);
 
-		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, b_size_);
+		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, b_size_, 1);
 
-		run_prepare_pics(cu_temp_in_, cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
+		run_prepare_pics(cu_temp_in_, cu_temp_, cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_, 1);
 		
 		if (cross_policy_ == CROSS_POLICY_FFT)
 			fft_real_to_complex(plan_, cu_temp_);
@@ -161,12 +161,12 @@ public:
 		copy_to_device(pic, src_size_.area(), cu_pic_in_);
 		sw.tick("Pic to device: ");
 
-		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, b_size_);
+		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, b_size_, 1);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
 
-		run_prepare_pics(cu_pic_in_, cu_pic_, cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_);
+		run_prepare_pics(cu_pic_in_, cu_pic_, cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, cross_in_size_, b_size_, 1);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");

@@ -30,6 +30,7 @@ void run_prepare_pics(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
+	size_t begins_size,
 	size_t batch_size);
 
 template<typename T>
@@ -44,7 +45,7 @@ void run_sum(const T* data, T* sums, size_t size, size_t batch_size);
 
 //computes sums of slices of the same size with specified positions (begins) in a big picture (data)
 template<typename T, typename RES>
-void run_sum(const T* data, RES* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t batch_size);
+void run_sum(const T* data, RES* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, size_t begins_size, size_t batch_size);
 
 template<typename T>
 void run_hadamard(T* A, const T* B, const T* shx, const T* shy, size2_t one_size, size_t batch_size);

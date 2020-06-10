@@ -37,28 +37,32 @@ void run_prepare_pics(T* pic, const T* hanning_x, const T* hanning_y, const T * 
 template void run_prepare_pics<double>(double * pic, const double * hanning_x,
 	const double* hanning_y, const double * sums, size2_t size, size_t batch_size);
 
+
+
 template<typename IN, typename OUT>
 __global__ void prepare_pics(
 	const IN* __restrict__ pic,
 	OUT* __restrict__ slices,
-	const OUT* hanning_x,
-	const OUT* hanning_y,
-	const OUT* sums,
-	const size2_t* begins,
+	const OUT* __restrict__ hanning_x,
+	const OUT* __restrict__ hanning_y,
+	const OUT* __restrict__ sums,
+	const size2_t* __restrict__ begins,
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
+	size_t begins_size,
 	size_t batch_size)
 {
 	size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 	size_t slice_tid = tid % out_size.area();
 	size_t slice_num = tid / out_size.area();
 	size2_t slice_pos = { slice_tid % out_size.x, slice_tid / out_size.x };
-
-	if (slice_num >= batch_size)
+	size_t begins_num = slice_num % begins_size;
+	size_t pic_num = slice_num / begins_size;
+	if (slice_num >= begins_size * batch_size)
 		return;
 
-	size2_t pic_pos = begins[slice_num] + slice_pos;
+	size2_t pic_pos = begins[begins_num] + slice_pos;
 
 	if (slice_pos.x >= slice_size.x || slice_pos.y >= slice_size.y)
 	{
@@ -66,7 +70,7 @@ __global__ void prepare_pics(
 		return;
 	}
 
-	OUT pixel = pic[pic_pos.pos(src_size.x)];
+	OUT pixel = pic[pic_num * src_size.area() + pic_pos.pos(src_size.x)];
 	//subtract mean of the picture
 	pixel -= sums[slice_num] / slice_size.area();
 	//apply hanning filter and convert to OUT (float or double)
@@ -87,11 +91,12 @@ void run_prepare_pics(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
+	size_t begins_size,
 	size_t batch_size)
 {
 	size_t block_size = 1024;
-	size_t grid_size(div_up(out_size.area() * batch_size, block_size));
-	prepare_pics<<<grid_size, block_size >>> (pic, slices, hanning_x, hanning_y, sums, begins, src_size, slice_size, out_size, batch_size);
+	size_t grid_size(div_up(out_size.area() * batch_size * begins_size, block_size));
+	prepare_pics<<<grid_size, block_size >>> (pic, slices, hanning_x, hanning_y, sums, begins, src_size, slice_size, out_size, begins_size, batch_size);
 	
 }
 
@@ -105,6 +110,7 @@ template void run_prepare_pics<uint16_t, double>(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
+	size_t begins_size,
 	size_t batch_size);
 
 template void run_prepare_pics<uint16_t, float>(
@@ -117,6 +123,7 @@ template void run_prepare_pics<uint16_t, float>(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
+	size_t begins_size,
 	size_t batch_size);
 
 
@@ -130,6 +137,7 @@ template void run_prepare_pics<double, double>(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
+	size_t begins_size,
 	size_t batch_size);
 
 }
