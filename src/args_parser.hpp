@@ -31,6 +31,7 @@ struct params
 	bool analysis = false;
 	int fitting_size = 3;
 	cross_policy cross_pol = CROSS_POLICY_FFT;
+	size_t batch_size = 1;
 };
 
 

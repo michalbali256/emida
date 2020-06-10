@@ -127,6 +127,7 @@ bool params::parse(int argc, char** argv)
 		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "double|float")
 		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum. Allowed values: 3, 5, 7, 9", value_type<int>(), "SIZE")
 		("crosspolicy", "Specified whether to use FFT to compute cross correlation. Allowed values: brute, fft.", value_type<std::string>(), "brute|fft")
+		("batchsize", "Specifies how many files are processed in one batch", value_type<int>(), "NUMBER")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 	
 	auto parsed = cmd.parse(argc, argv);
@@ -249,6 +250,19 @@ bool params::parse(int argc, char** argv)
 		}
 		
 	}
+
+	if (parsed["batchsize"])
+	{
+		int val = parsed["batchsize"]->get_value<int>();
+		if (val > 0)
+			batch_size = val;
+		else
+		{
+			std::cerr << "Error: batchsize must be greater than 0.";
+			return 1;
+		}
+	}
+
 
 	analysis = parsed["analysis"] ? true : false;
 	write_coefs = parsed["writecoefs"] ? true : false;
