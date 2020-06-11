@@ -75,7 +75,6 @@ inline void process_files(params& a)
 
 	if (!load_tiff(a.initial_file_name, initial_raster.data(), pic_size))
 		return;
-	initial_raster = repeat_vector(initial_raster, a.batch_size);
 	
 	gpu_offset<T, uint16_t> offs(pic_size, &slice_begins, a.slice_size, a.cross_size, a.batch_size, a.cross_pol, a.fitting_size);
 

@@ -44,7 +44,7 @@ public:
 
 	void run()
 	{
-		run_cross_corr<T, T>(cu_a_, cu_b_, cu_res_, size_, res_size_, batch_size_);
+		run_cross_corr<T, T>(cu_a_, cu_b_, cu_res_, size_, res_size_, batch_size_, 1);
 
 		
 		CUCH(cudaDeviceSynchronize());

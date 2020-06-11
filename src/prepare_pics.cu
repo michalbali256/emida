@@ -97,7 +97,6 @@ void run_prepare_pics(
 	size_t block_size = 1024;
 	size_t grid_size(div_up(out_size.area() * batch_size * begins_size, block_size));
 	prepare_pics<<<grid_size, block_size >>> (pic, slices, hanning_x, hanning_y, sums, begins, src_size, slice_size, out_size, begins_size, batch_size);
-	
 }
 
 template void run_prepare_pics<uint16_t, double>(

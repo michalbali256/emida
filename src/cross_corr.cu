@@ -25,65 +25,90 @@ namespace emida
 */
 
 template<typename T, typename RES>
-__global__ void cross_corr(const T* __restrict__ pics_a, const T* __restrict__ pics_b, RES* __restrict__ res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size)
+__global__ void cross_corr(
+	const T* __restrict__ pics,
+	const T* __restrict__ ref,
+	RES* __restrict__ res,
+	size2_t size,
+	size2_t res_size,
+	size_t ref_slices,
+	size_t batch_size)
 {
-	size_t pic_size = size.area();
+	size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t slice_tid = tid % res_size.area();
+	size_t slice_num = tid / res_size.area();
 
-	size_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
-	size_t cuda_y = blockIdx.y * blockDim.y + threadIdx.y;
-	
-	//number of picture that this thread computes
-	size_t pic_num = whole_x / res_size.x;
-
-	//x in that picture
-	size_t res_x = whole_x % res_size.x;
-
-	vec2<size_t> r = (res_size - 1) / 2;
-
-	int x_shift = res_x - r.x;
-	int y_shift = cuda_y - r.y;
-
-	//TODO: make cross_corr take only one-dimensional blocks: all threads with cuda_y >= res_size.y do nothing and
-	//there may be many of them
-	if (pic_num >= batch_size || cuda_y >= res_size.y)
+	if (slice_num >= ref_slices * batch_size)
 		return;
+
+	size2_t slice_pos = { slice_tid % res_size.x, slice_tid / res_size.x };
+	size_t ref_num = slice_num % ref_slices;
+	//size_t pic_num = slice_num / begins_size;
+	
+
+	size2_t r = (res_size - 1) / 2;
+
+	vec2<int> shift = { (int)slice_pos.x - (int)r.x, (int)slice_pos.y - (int)r.y };
 	
 	//change the pointers to point to the picture this thread computes
-	pics_a += pic_num * pic_size;
-	pics_b += pic_num * pic_size;
-	res += pic_num * res_size.area();
+	pics += slice_num * size.area();
+	ref += ref_num * size.area();
+	res += slice_num * res_size.area();
 
 	
-	size_t x_end = x_shift < 0 ? size.x : size.x - x_shift;
-	size_t y_end = y_shift < 0 ? size.y : size.y - y_shift;
+	size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+	size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
 
 	//control flow divergency in following fors??
 	RES sum = 0;
-	for (size_t y = y_shift >= 0 ? 0 : -y_shift; y < y_end; ++y)
+	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
 	{
-		for (size_t x = x_shift >= 0 ? 0 : -x_shift; x < x_end; ++x)
+		for (size_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
 		{
-			int x_shifted = x + x_shift;
-			int y_shifted = y + y_shift;
+			int x_shifted = x + shift.x;
+			int y_shifted = y + shift.y;
 			
-			sum += pics_a[y_shifted * size.x + x_shifted] * pics_b[y * size.x + x];
+			sum += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
 		}
 	}
-
-	res[cuda_y * res_size.x + res_x] = sum;
+	
+	res[slice_pos.pos(res_size.x)] = sum;
 }
 
 template<typename T, typename RES>
-void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size)
+void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t ref_slices, size_t batch_size)
 {	
-	dim3 block_size(16, 16);
-	dim3 grid_size(div_up(res_size.x * batch_size, block_size.x), div_up(res_size.y * batch_size, block_size.y));
-	cross_corr<T, RES> <<<grid_size, block_size>>> (pic_a, pic_b, res, size, res_size, batch_size);
+	size_t block_size = 1024;
+	size_t grid_size(div_up(res_size.area() * ref_slices * batch_size , block_size));
+	cross_corr<T, RES> <<<grid_size, block_size>>> (pic_a, pic_b, res, size, res_size, ref_slices, batch_size);
 }
 
 
-template void run_cross_corr<int, int>(const int*, const int*, int* res, vec2<size_t> size, vec2<size_t> res_size, size_t);
-template void run_cross_corr<double, double>(const double*, const double*, double* res, vec2<size_t> size, vec2<size_t> res_size, size_t);
-template void run_cross_corr<float, float>(const float*, const float*, float* res, vec2<size_t> size, vec2<size_t> res_size, size_t);
+template void run_cross_corr<int, int>(
+	const int*,
+	const int*,
+	int* res,
+	vec2<size_t> size,
+	vec2<size_t> res_size,
+	size_t,
+	size_t);
+
+template void run_cross_corr<double, double>(
+	const double*,
+	const double*,
+	double* res,
+	vec2<size_t> size,
+	vec2<size_t> res_size,
+	size_t,
+	size_t);
+
+template void run_cross_corr<float, float>(
+	const float*,
+	const float*,
+	float* res,
+	vec2<size_t> size,
+	vec2<size_t> res_size,
+	size_t,
+	size_t);
 
 }

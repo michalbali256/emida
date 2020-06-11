@@ -102,11 +102,10 @@ TEST_P(get_offset_batched, batched)
 	get_offset_batched_param param = GetParam();
 
 	matrix<double> pic_file = matrix<double>::from_file("test/res/data_pic.txt");
-	matrix<double> temp_file = matrix<double>::from_file("test/res/data_temp.txt");
+	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
 	vec2<size_t> src_size{ pic_file.n, pic_file.n };
 
 	std::vector<double> pic = repeat_vector(pic_file.data, param.batch_size);
-	std::vector<double> temp = repeat_vector(temp_file.data, param.batch_size);
 	
 	vec2<size_t> size{ 64, 64 };
 	vec2<size_t> step{ 32, 32 };
@@ -115,7 +114,7 @@ TEST_P(get_offset_batched, batched)
 	auto begins = get_slice_begins(src_size, size, step);
 
 	gpu_offset<double, double> offs(src_size, &begins, size, { 127,127 }, param.batch_size, param.policy);
-	offs.allocate_memory(temp.data());
+	offs.allocate_memory(temp.data.data());
 	auto [offsets, _] = offs.get_offset(pic.data());
 	
 

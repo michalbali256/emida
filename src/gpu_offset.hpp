@@ -95,15 +95,15 @@ public:
 	void allocate_memory(IN* temp)
 	{
 		cu_pic_in_ = cuda_malloc<IN>(src_size_.area() * batch_size_);
-		cu_temp_in_ = cuda_malloc<IN>(src_size_.area() * batch_size_);
+		cu_temp_in_ = cuda_malloc<IN>(src_size_.area());
 		
 		//Enforce alignment by allocating cufft complex types
 		//Result we also need to allocate one row more because that is the size of ff-transpformed result
 		cu_pic_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * total_slices_);
-		cu_temp_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * total_slices_);
+		cu_temp_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * begins_->size());
 
 		cu_sums_pic_ = cuda_malloc<T>(total_slices_);
-		cu_sums_temp_ = cuda_malloc<T>(total_slices_);
+		cu_sums_temp_ = cuda_malloc<T>(begins_->size());
 
 		cu_begins_ = vector_to_device(*begins_);
 
@@ -113,7 +113,7 @@ public:
 		cu_hann_x_ = vector_to_device(hann_x);
 		cu_hann_y_ = vector_to_device(hann_y);
 
-		//cu_cross_res_ = cross_policy_ == CROSS_POLICY_FFT ? cu_pic_ : cuda_malloc<T>(cross_size_.area() * total_slices_);
+		
 		cu_cross_res_ = cuda_malloc<T>(cross_size_.area() * total_slices_);
 
 		cu_maxes_ = cuda_malloc<data_index<T>>(maxarg_maxes_size_);
@@ -151,18 +151,28 @@ public:
 
 		if (temp == nullptr)
 			return;
-		copy_to_device(temp, src_size_.area() * batch_size_, cu_temp_in_);
+		copy_to_device(temp, src_size_.area(), cu_temp_in_);
 
-		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, begins_->size(), batch_size_);
+		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, begins_->size(), 1);
 		CUCH(cudaDeviceSynchronize());
 		
 		run_prepare_pics(cu_temp_in_, cu_temp_,
 			cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_,
-			src_size_, slice_size_, cross_in_size_, begins_->size(), batch_size_);
+			src_size_, slice_size_, cross_in_size_, begins_->size(), 1);
 		CUCH(cudaDeviceSynchronize());
 
 		if (cross_policy_ == CROSS_POLICY_FFT)
-			fft_real_to_complex(plan_, cu_temp_);
+		{
+			cufftHandle temp_plan;
+			FFTCH(cufftPlanMany(&temp_plan, 2, fft_size_,
+				NULL, 1, 0,
+				NULL, 1, 0,
+				fft_type_R2C<T>(), (int)begins_->size()));
+
+			fft_real_to_complex(temp_plan, cu_temp_);
+
+			FFTCH(cufftDestroy(temp_plan));
+		}
 	}
 
 	//gets two pictures with size cols x rows and returns subpixel offset between them
@@ -186,7 +196,7 @@ public:
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
 
 		if(cross_policy_ == CROSS_POLICY_BRUTE)
-			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, total_slices_);
+			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
 		else
 			cross_corr_fft();
 
@@ -280,7 +290,9 @@ public:
 		//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
 		//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * total_slices_);
 
-		run_hadamard((complex_t*)cu_pic_, (complex_t*)cu_temp_, cu_fft_shift_x_, cu_fft_shift_x_, { cross_in_size_.x / 2, cross_in_size_.y }, total_slices_);
+		run_hadamard((complex_t*)cu_pic_, (complex_t*)cu_temp_,
+			{ cross_in_size_.x / 2, cross_in_size_.y },
+			begins_->size(), batch_size_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("Multiply: ");
 
 		
