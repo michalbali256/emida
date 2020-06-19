@@ -34,16 +34,17 @@ __global__ void cross_corr(
 	size_t ref_slices,
 	size_t batch_size)
 {
-	size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-	size_t slice_tid = tid % res_size.area();
-	size_t slice_num = tid / res_size.area();
+	size_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t cuda_y = blockIdx.y * blockDim.y + threadIdx.y;
+	
+	//number of picture that this thread computes
+	size_t slice_num = whole_x / res_size.x;
 
-	if (slice_num >= ref_slices * batch_size)
+	if (slice_num >= ref_slices * batch_size || cuda_y >= res_size.y)
 		return;
 
-	size2_t slice_pos = { slice_tid % res_size.x, slice_tid / res_size.x };
+	size2_t slice_pos = { whole_x % res_size.x, cuda_y };
 	size_t ref_num = slice_num % ref_slices;
-	//size_t pic_num = slice_num / begins_size;
 	
 
 	size2_t r = (res_size - 1) / 2;
@@ -78,8 +79,8 @@ __global__ void cross_corr(
 template<typename T, typename RES>
 void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t ref_slices, size_t batch_size)
 {	
-	size_t block_size = 1024;
-	size_t grid_size(div_up(res_size.area() * ref_slices * batch_size , block_size));
+	dim3 block_size(16, 16);
+	dim3 grid_size(div_up(res_size.x * batch_size * ref_slices, block_size.x), div_up(res_size.y, block_size.y));
 	cross_corr<T, RES> <<<grid_size, block_size>>> (pic_a, pic_b, res, size, res_size, ref_slices, batch_size);
 }
 
@@ -110,5 +111,8 @@ template void run_cross_corr<float, float>(
 	vec2<size_t> res_size,
 	size_t,
 	size_t);
+
+
+
 
 }
