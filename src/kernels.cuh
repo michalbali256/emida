@@ -17,8 +17,18 @@ template<typename T, typename RES>
 void run_cross_corr(const T* pics,
 	const T* ref,
 	RES* res,
-	vec2<size_t> size,
-	vec2<size_t> res_size,
+	size2_t size,
+	size2_t res_size,
+	size_t ref_slices,
+	size_t batch_size);
+
+template<typename T, typename RES>
+void run_cross_corr_opt(const T* pic_a,
+	const T* pic_b,
+	RES* res,
+	size2_t size,
+	size2_t res_size,
+	size2_t block_size,
 	size_t ref_slices,
 	size_t batch_size);
 
