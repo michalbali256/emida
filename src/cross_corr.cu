@@ -122,11 +122,12 @@ template void run_cross_corr<float, float>(
 template<typename T>
 __device__ __inline__ void copy_subregion(const T * __restrict__ src, size2_t src_size, T* __restrict__ dest, size2_t dest_size, size2_t region_pos)
 {
-	for (size_t x = threadIdx.x; x < dest_size.x; x += blockDim.x)
-		for (size_t y = threadIdx.y; y < dest_size.y; y += blockDim.y)
+	for (size_t y = threadIdx.y; y < dest_size.y; y += blockDim.y)
+		for (size_t x = threadIdx.x; x < dest_size.x; x += blockDim.x)
 		{
-			if(x + region_pos.x < src_size.x && y + region_pos.y < src_size.y)
-				dest[y * dest_size.x + x] = src[(y + region_pos.y) * src_size.x + (x + region_pos.x)];
+			dest[y * dest_size.x + x] = x + region_pos.x < src_size.x && y + region_pos.y < src_size.y
+				? src[(y + region_pos.y) * src_size.x + (x + region_pos.x)]
+				: 0;
 		}
 }
 
@@ -152,8 +153,8 @@ __global__ void cross_corr_opt(
 		//printf("%d %d %d %d\n", blockDim.x, blockDim.y, gridDim.x, gridDim.y);
 
 		printf("%d %d %d %d %d %d\n", blockIdx.x, (int)block_grid_width, (int)pic_block_pos.x, (int)pic_block_pos.y, (int)ref_block_pos.x, (int)ref_block_pos.y);
-	}*/
-
+	}__syncthreads();*/
+	
 	T* smem = shared_memory_proxy<T>();
 	T* pic_reg = smem;
 	T* ref_reg = smem + reg_size.area();
@@ -161,10 +162,8 @@ __global__ void cross_corr_opt(
 
 	copy_subregion(pics, size, pic_reg, reg_size, pic_block_pos);
 	copy_subregion(ref, size, ref_reg, reg_size, ref_block_pos);
-
 	__syncthreads();
-
-	if (threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 2 && blockIdx.y == 0)
+	/*if (threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 2 && blockIdx.y == 0)
 	{
 		printf("bb %d %d\n", (int)pic_block_pos.x, (int)pic_block_pos.y);
 		for (size_t i = 0; i < reg_size.y; ++i)
@@ -184,15 +183,11 @@ __global__ void cross_corr_opt(
 			printf("\n");
 		}
 		
-	}__syncthreads();
-
-	/*if (pic_block_pos.x + threadIdx.x >= size.x || pic_block_pos.y + threadIdx.y >= size.y
-		|| ref_block_pos.x + threadIdx.x >= size.x || ref_block_pos.y + threadIdx.y >= size.y)
-		return;*/
+	}__syncthreads();*/
 
 	//size2_t r = (res_size - 1) / 2;
 	size2_t reg_r = reg_size - 1;
-	vec2<int> res_r = { (res_size.x - 1) / 2, (res_size.y - 1) / 2 };
+	vec2<int> res_r = { ((int)res_size.x - 1) / 2, ((int)res_size.y - 1) / 2 };
 	vec2<int> shift = { (int)threadIdx.x - (int)reg_r.x, (int)threadIdx.y - (int)reg_r.y };
 	vec2<int> block_shift = { (int)pic_block_pos.x - (int)ref_block_pos.x, (int)pic_block_pos.y - (int)ref_block_pos.y };
 	vec2<int> res_pos = block_shift + shift + res_r;
@@ -226,7 +221,7 @@ __global__ void cross_corr_opt(
 
 	//vec2<int> block_shift = { (int)ref_block_pos.x - (int)pic_block_pos.x, (int)ref_block_pos.y - (int)pic_block_pos.y };
 
-	printf("%d %d %d %d %d %d %f %d %d %d %d %d %d\n", threadIdx.x, threadIdx.y, (int)pic_block_pos.x, (int)pic_block_pos.y, (int)ref_block_pos.x, (int)ref_block_pos.y, sum, (block_shift + shift + res_r).x,(block_shift + shift + res_r).y, shift.x, shift.y, res_r.x, res_r.y);
+	//printf("%d %d %d %d %d %d %f %d %d %d %d %d %d\n", threadIdx.x, threadIdx.y, (int)pic_block_pos.x, (int)pic_block_pos.y, (int)ref_block_pos.x, (int)ref_block_pos.y, sum, (block_shift + shift + res_r).x,(block_shift + shift + res_r).y, shift.x, shift.y, res_r.x, res_r.y);
 	
 	atomicAdd(res_ptr, sum);
 
@@ -251,7 +246,7 @@ void run_cross_corr_opt(
 	size2_t in_block_size = (block_size + 1) / 2;
 	size_t blocks = div_up(size.x, in_block_size.x) * div_up(size.y, in_block_size.y);
 	dim3 grid_size(blocks, blocks);
-	cross_corr_opt<T, RES> <<<grid_size, block_dim, 2 * block_size.area() >>> (pic_a, pic_b, res, size, res_size, ref_slices, batch_size);
+	cross_corr_opt<T, RES> <<<grid_size, block_dim, 2 * block_size.area() * sizeof(T) >>> (pic_a, pic_b, res, size, res_size, ref_slices, batch_size);
 }
 
 template void run_cross_corr_opt<double, double>(
