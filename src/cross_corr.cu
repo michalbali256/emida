@@ -146,7 +146,11 @@ __global__ void cross_corr_opt(
 
 	size_t block_grid_width = div_up(size.x, reg_size.x);
 	
-	size2_t pic_block_pos = size2_t::from_id(blockIdx.x, block_grid_width) * reg_size;
+	size_t one_slice_blocks = gridDim.x / ref_slices;
+	size_t slice_num = blockIdx.x / one_slice_blocks;
+	size_t block_idx_x = blockIdx.x % one_slice_blocks;
+
+	size2_t pic_block_pos = size2_t::from_id(block_idx_x, block_grid_width) * reg_size;
 	size2_t ref_block_pos = size2_t::from_id(blockIdx.y, block_grid_width) * reg_size;
 	/*if (threadIdx.x == 0 && threadIdx.y == 0)
 	{
@@ -159,6 +163,11 @@ __global__ void cross_corr_opt(
 	T* pic_reg = smem;
 	T* ref_reg = smem + reg_size.area();
 	T* res_reg = smem + 2 * + reg_size.area();
+
+	//ref += ref_num * size.area();
+	ref += slice_num * size.area();
+	pics += slice_num * size.area();
+	res += slice_num * res_size.area();
 
 	copy_subregion(pics, size, pic_reg, reg_size, pic_block_pos);
 	copy_subregion(ref, size, ref_reg, reg_size, ref_block_pos);
@@ -194,12 +203,6 @@ __global__ void cross_corr_opt(
 	if (res_pos.x >= res_size.x || res_pos.y >= res_size.y)
 		return;
 	RES* res_ptr = res + (res_pos).pos(res_size.x);
-	
-
-	//printf("%d %d\n", shift.x, shift.y);
-	//ref += ref_num * size.area();
-	//pics += slice_num * size.area();
-	//res += slice_num * res_size.area();
 
 
 	size_t x_end = shift.x < 0 ? reg_size.x : reg_size.x - shift.x;
@@ -232,8 +235,8 @@ __global__ void cross_corr_opt(
 
 template<typename T, typename RES>
 void run_cross_corr_opt(
-	const T* pic_a,
-	const T* pic_b,
+	const T* pics,
+	const T* ref,
 	RES* res,
 	size2_t size,
 	size2_t res_size,
@@ -241,18 +244,27 @@ void run_cross_corr_opt(
 	size_t ref_slices,
 	size_t batch_size)
 {
-	//smem: 6 * blockDim.x * blockDim.y
 	dim3 block_dim(block_size.x, block_size.y);
 	size2_t in_block_size = (block_size + 1) / 2;
 	size_t blocks = div_up(size.x, in_block_size.x) * div_up(size.y, in_block_size.y);
-	dim3 grid_size(blocks, blocks);
-	cross_corr_opt<T, RES> <<<grid_size, block_dim, 2 * block_size.area() * sizeof(T) >>> (pic_a, pic_b, res, size, res_size, ref_slices, batch_size);
+	dim3 grid_size(blocks * ref_slices, blocks);
+	cross_corr_opt<T, RES> <<<grid_size, block_dim, 2 * in_block_size.area() * sizeof(T) >>> (pics, ref, res, size, res_size, ref_slices, batch_size);
 }
 
 template void run_cross_corr_opt<double, double>(
 	const double*,
 	const double*,
 	double* res,
+	size2_t size,
+	size2_t res_size,
+	size2_t block_size,
+	size_t,
+	size_t);
+
+template void run_cross_corr_opt<float, float>(
+	const float*,
+	const float*,
+	float* res,
 	size2_t size,
 	size2_t res_size,
 	size2_t block_size,

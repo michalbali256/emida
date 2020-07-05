@@ -195,8 +195,12 @@ public:
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
 
-		if(cross_policy_ == CROSS_POLICY_BRUTE)
+		if (cross_policy_ == CROSS_POLICY_BRUTE)
+		{
+			//cuda_memset(cu_cross_res_, 0, cross_size_.area() * total_slices_);
+			//run_cross_corr_opt(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, { 15,15 }, begins_->size(), batch_size_);
 			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
+		}
 		else
 			cross_corr_fft();
 

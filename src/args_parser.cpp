@@ -156,12 +156,6 @@ bool params::parse(int argc, char** argv)
 		if (parsed["slicepos"])
 			std::cerr << "Warning: --slicesize will be overriden by the first line of --slicepos file.";
 	}
-	
-	if (parsed["crosssize"])
-		cross_size = parsed["crosssize"]->get_value<size2_t>();
-	else
-		cross_size = slice_size * 2 - 1;
-
 
 	if (parsed["slicepos"])
 	{
@@ -170,10 +164,10 @@ bool params::parse(int argc, char** argv)
 			std::cerr << "Error: cannot use slicestep when slicepos specified\n";
 			return false;
 		}
-		
+
 		auto [size, loaded] = load_slice_begins(parsed["slicepos"]->get_value<std::string>());
 		slice_mids = loaded;
-		slice_size = { size*2, size*2 };
+		slice_size = { size * 2, size * 2 };
 
 		for (auto m : slice_mids)
 		{
@@ -186,6 +180,14 @@ bool params::parse(int argc, char** argv)
 			size2_t end = m + slice_size / 2;
 		}
 	}
+	
+	if (parsed["crosssize"])
+		cross_size = parsed["crosssize"]->get_value<size2_t>();
+	else
+		cross_size = slice_size * 2 - 1;
+
+
+
 	/*else
 	{
 		size2_t step = { 32, 32 };
