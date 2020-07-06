@@ -191,13 +191,13 @@ class cross_corr_test : public ::testing::TestWithParam<corr_param> {
 
 };
 
-INSTANTIATE_TEST_SUITE_P(
+/*INSTANTIATE_TEST_SUITE_P(
     cross_corr_opt,
     cross_corr_test,
     ::testing::Values(
         corr_param{ {3, 3}, {5, 5}, {3, 3}, 1, "matrix_res5x5_block3x3" },
         corr_param{ {3, 3}, {5, 5}, {3, 3}, 2, "matrix_res5x5_block3x3_slicesx2" },
-        corr_param{ {3, 3}, {5, 5}, {5, 5}, 1, "matrix_res5x5_block5x5" },
+        corr_param{ {3, 3}, {5, 5}, {5, 5}, 1, "matrix_res5x5_block5x5" }
         corr_param{ {3, 3}, {5, 5}, {5, 5}, 2, "matrix_res5x5_block5x5_slicesx2" },
         corr_param{ {5, 5}, {9, 9}, {5, 5}, 1, "matrix_res9x9_block5x5" },
         corr_param{ {5, 5}, {9, 9}, {5, 5}, 2, "matrix_res9x9_block5x5_slicesx2" },
@@ -205,6 +205,17 @@ INSTANTIATE_TEST_SUITE_P(
         corr_param{ {5, 5}, {9, 9}, {9, 9}, 2, "matrix_res9x9_block9x9_slicesx2" },
         corr_param{ {96, 96}, {191, 191}, {31, 31}, 1, "matrix_res191x191_block31x31" },
         corr_param{ {96, 96}, {191, 191}, {31, 31}, 2, "matrix_res191x191_block31x31_slicesx2" }
+    ),
+    stringer<corr_param>()
+);*/
+
+INSTANTIATE_TEST_SUITE_P(
+    cross_corr_opt,
+    cross_corr_test,
+    ::testing::Values(
+        corr_param{ {5, 5}, {9, 9}, {5, 5}, 1, "matrix_res9x9_block5x5" },
+        corr_param{ {96, 96}, {191, 191}, {31, 31}, 1, "matrix_res191x191_block31x31" },
+        corr_param{ {96, 96}, {191, 191}, {31, 31}, 2, "matrix_res191x191_block31x31_slx2" }
     ),
     stringer<corr_param>()
 );

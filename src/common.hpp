@@ -110,6 +110,7 @@ struct vec2
 };
 
 using size2_t = vec2<size_t>;
+using int2_t = vec2<int>;
 
 struct range
 {

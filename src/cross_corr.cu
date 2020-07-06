@@ -132,7 +132,7 @@ __device__ __inline__ void copy_subregion(const T * __restrict__ src, size2_t sr
 }
 
 template<typename T, typename RES>
-__global__ void cross_corr_opt(
+__global__ void cross_corr_nopt(
 	const T* __restrict__ pics,
 	const T* __restrict__ ref,
 	RES* __restrict__ res,
@@ -142,7 +142,6 @@ __global__ void cross_corr_opt(
 	size_t batch_size)
 {
 	size2_t reg_size = { (blockDim.x + 1) / 2, (blockDim.y + 1) / 2 };
-	size2_t res_reg_size = { blockDim.x - 1, blockDim.y - 1 };
 
 	size_t block_grid_width = div_up(size.x, reg_size.x);
 	
@@ -227,6 +226,7 @@ __global__ void cross_corr_opt(
 	//printf("%d %d %d %d %d %d %f %d %d %d %d %d %d\n", threadIdx.x, threadIdx.y, (int)pic_block_pos.x, (int)pic_block_pos.y, (int)ref_block_pos.x, (int)ref_block_pos.y, sum, (block_shift + shift + res_r).x,(block_shift + shift + res_r).y, shift.x, shift.y, res_r.x, res_r.y);
 	
 	atomicAdd(res_ptr, sum);
+	
 
 	//pics += ref_slices * size.area();
 	//res += ref_slices * res_size.area();
@@ -234,7 +234,7 @@ __global__ void cross_corr_opt(
 }
 
 template<typename T, typename RES>
-void run_cross_corr_opt(
+void run_cross_corr_nopt(
 	const T* pics,
 	const T* ref,
 	RES* res,
@@ -248,7 +248,121 @@ void run_cross_corr_opt(
 	size2_t in_block_size = (block_size + 1) / 2;
 	size_t blocks = div_up(size.x, in_block_size.x) * div_up(size.y, in_block_size.y);
 	dim3 grid_size(blocks * ref_slices, blocks);
-	cross_corr_opt<T, RES> <<<grid_size, block_dim, 2 * in_block_size.area() * sizeof(T) >>> (pics, ref, res, size, res_size, ref_slices, batch_size);
+	cross_corr_nopt<T, RES> <<<grid_size, block_dim, 2 * in_block_size.area() * sizeof(T) >>> (pics, ref, res, size, res_size, ref_slices, batch_size);
+}
+
+template void run_cross_corr_nopt<double, double>(
+	const double*,
+	const double*,
+	double* res,
+	size2_t size,
+	size2_t res_size,
+	size2_t block_size,
+	size_t,
+	size_t);
+
+template void run_cross_corr_nopt<float, float>(
+	const float*,
+	const float*,
+	float* res,
+	size2_t size,
+	size2_t res_size,
+	size2_t block_size,
+	size_t,
+	size_t);
+
+constexpr int stripe_size = 1;
+
+template<typename T, typename RES>
+__global__ void cross_corr_opt(
+	const T* __restrict__ pics,
+	const T* __restrict__ ref,
+	RES* __restrict__ res,
+	int2_t size,
+	int2_t res_size,
+	size_t ref_slices,
+	size_t batch_size)
+{
+	size_t slice_num = blockIdx.x / res_size.y;
+	size_t res_y = blockIdx.x % res_size.y;
+
+	ref += slice_num * size.area();
+	pics += slice_num * size.area();
+	res += slice_num * res_size.area();
+
+	T* smem = shared_memory_proxy<T>();
+	T* res_line = smem;
+	for (int i = threadIdx.x; i < res_size.x; i += blockDim.x)
+	{
+		res_line[i] = 0;
+	}
+	__syncthreads();
+
+
+	int2_t r = size - 1;
+	
+	int y_shift = res_y - (int)r.y;
+	int y_begin = y_shift >= 0 ? 0 : -y_shift;
+
+
+	int warp_idx = threadIdx.x / warpSize;
+	int lane_idx = threadIdx.x % warpSize;
+
+	//T sums[30];
+	for (int s = 0; s < size.y - abs(y_shift); s += stripe_size)
+	{
+		int y = s + y_begin;
+		for (int x_shift = -size.x + 1 + warp_idx; x_shift < size.x; x_shift += blockDim.x / warpSize)
+		{
+			T sum = 0;
+
+			int x_end = x_shift < 0 ? size.x : size.x - x_shift;
+			int x_begin = x_shift < 0 ? -x_shift : 0;
+			for (int x = x_begin + lane_idx; x < x_end; x += warpSize)
+			{
+				int x_shifted = x + x_shift;
+				int y_shifted = y + y_shift;
+				//if(blockIdx.x < 1)
+					//printf("%d %d %d %d %d [%d %d] [%d %d] [%d %d] %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, x, y, x_shifted, y_shifted, x_end);
+				sum += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
+			}
+			//printf("%d %d %d %d %d [%d %d] %f %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, sum, x_shift + r.x);
+
+			for (int offset = warpSize / 2; offset > 0; offset /= 2)
+				sum += __shfl_down_sync(0xFFFFFFFF,sum, offset);
+			//return val;
+			//if(lane_idx == 0)
+			//	atomicAdd(res_line + x_shift + r.x, sum);
+			if(lane_idx == 0)
+				*(res_line + x_shift + r.x) += sum;
+
+		}
+		
+	}
+
+	__syncthreads();
+
+	for (int i = threadIdx.x; i < res_size.x; i += blockDim.x)
+	{
+		res[res_size.x * res_y + i] = res_line[i];
+	}
+}
+
+template<typename T, typename RES>
+void run_cross_corr_opt(
+	const T* pics,
+	const T* ref,
+	RES* res,
+	size2_t size,
+	size2_t res_size,
+	size2_t block_size,
+	size_t ref_slices,
+	size_t batch_size)
+{
+	size_t block_dim = 256;
+	size_t grid_size = res_size.y * ref_slices;
+	size_t shared_mem_size = res_size.x * sizeof(T) * 2;
+	cross_corr_opt<T, RES> <<<grid_size, block_dim, shared_mem_size >>> (pics, ref, res, { (int)size.x, (int)size.y }, { (int)res_size.x, (int)res_size.y }, ref_slices, batch_size);
 }
 
 template void run_cross_corr_opt<double, double>(
@@ -270,6 +384,5 @@ template void run_cross_corr_opt<float, float>(
 	size2_t block_size,
 	size_t,
 	size_t);
-
 
 }
