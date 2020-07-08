@@ -119,6 +119,240 @@ template void run_cross_corr<float, float>(
 	size_t,
 	size_t);
 
+//*******************************************************************************************************************************************************
+
+template<int k, typename T, typename RES>
+__device__ __inline__ void compute(const T* __restrict__ pics, const T* __restrict__ ref, RES* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift)
+{
+	size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+	size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+
+	//control flow divergency in following fors??
+	RES sum[k];
+
+	#pragma unroll
+	for (size_t i = 0; i < k; ++i)
+		sum[i] = 0;
+	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+	{
+		for (size_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
+		{
+			int x_shifted = x + shift.x;
+			int y_shifted = y + shift.y;
+			
+			
+			for (size_t i = 0; i < k; ++i)
+				sum[i] += pics[y_shifted * size.x + x_shifted + i] * ref[y * size.x + x];
+		}
+	}
+
+	#pragma unroll
+	for (size_t i = 0; i < k; ++i)
+		res[slice_pos.y * res_size.x + slice_pos.x + i] = sum[i];
+}
+
+template<>
+__device__ __inline__ void compute<2, double, double>(const double* __restrict__ pics, const double* __restrict__ ref, double* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift)
+{
+	size_t x_start = shift.x < 0 ? -shift.x : 0;
+	size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+	size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+
+	//control flow divergency in following fors??
+	double sum[2];
+
+	sum[0] = 0;
+	sum[1] = 0;
+	
+
+	
+
+	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+	{
+		int y_shifted = y + shift.y;
+		double cach[2];
+		cach[0] = pics[y_shifted * size.x + x_start + shift.x];
+		int x_shifted = x_start + shift.x;
+		for (size_t x = x_start; x < x_end; x+=2)
+		{
+			++x_shifted;
+			cach[1] = pics[y_shifted * size.x + x_shifted];
+			//sum[0] += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
+			//sum[1] += pics[y_shifted * size.x + x_shifted + 1] * ref[y * size.x + x];
+			sum[0] += cach[0] * ref[y * size.x + x];
+			sum[1] += cach[1] * ref[y * size.x + x];
+			
+			++x_shifted;
+			cach[0] = pics[y_shifted * size.x + x_shifted];
+			sum[0] += cach[1] * ref[y * size.x + x + 1];
+			sum[1] += cach[0] * ref[y * size.x + x + 1];
+			
+		}
+	}
+
+	res[slice_pos.y * res_size.x + slice_pos.x] = sum[0];
+	res[slice_pos.y * res_size.x + slice_pos.x + 1] = sum[1];
+}
+
+template<>
+__device__ __inline__ void compute<3, double, double>(const double* __restrict__ pics, const double* __restrict__ ref, double* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift)
+{
+	size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+	size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+
+	//control flow divergency in following fors??
+	double sum[3];
+
+	sum[0] = 0;
+	sum[1] = 0;
+	sum[3] = 0;
+
+
+	size_t x_start = shift.x >= 0 ? 0 : -shift.x;
+
+	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+	{
+		int y_shifted = y + shift.y;
+		double cach[3];
+		cach[0] = pics[y_shifted * size.x + x_start + shift.x];
+		cach[1] = pics[y_shifted * size.x + x_start + shift.x + 1];
+		int x_shifted = x_start + shift.x;
+		for (size_t x = x_start; x < x_end; x += 3)
+		{
+			++x_shifted;
+			cach[2] = pics[y_shifted * size.x + x_shifted];
+			//sum[0] += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
+			//sum[1] += pics[y_shifted * size.x + x_shifted + 1] * ref[y * size.x + x];
+			sum[0] += cach[0] * ref[y * size.x + x];
+			sum[1] += cach[1] * ref[y * size.x + x];
+			sum[2] += cach[2] * ref[y * size.x + x];
+
+			++x_shifted;
+			cach[0] = pics[y_shifted * size.x + x_shifted];
+			sum[0] += cach[1] * ref[y * size.x + x + 1];
+			sum[1] += cach[2] * ref[y * size.x + x + 1];
+			sum[2] += cach[0] * ref[y * size.x + x + 1];
+
+			++x_shifted;
+			cach[1] = pics[y_shifted * size.x + x_shifted];
+			sum[0] += cach[2] * ref[y * size.x + x + 2];
+			sum[1] += cach[0] * ref[y * size.x + x + 2];
+			sum[2] += cach[1] * ref[y * size.x + x + 2];
+
+		}
+	}
+
+	res[slice_pos.y * res_size.x + slice_pos.x] = sum[0];
+	res[slice_pos.y * res_size.x + slice_pos.x + 1] = sum[1];
+	res[slice_pos.y * res_size.x + slice_pos.x + 2] = sum[2];
+}
+
+
+template<typename T, typename RES>
+__device__ __inline__ void compute_dyn(const T* __restrict__ pics, const T* __restrict__ ref, RES* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift, int k)
+{
+	switch (k)
+	{
+	case 1:
+		compute<1>(pics, ref, res, size, res_size, slice_pos, shift);
+		break;
+	case 2:
+		compute<2>(pics, ref, res, size, res_size, slice_pos, shift);
+		break;
+	case 3:
+		compute<3>(pics, ref, res, size, res_size, slice_pos, shift);
+		break;
+	case 4:
+		compute<4>(pics, ref, res, size, res_size, slice_pos, shift);
+		break;
+	case 5:
+		compute<5>(pics, ref, res, size, res_size, slice_pos, shift);
+		break;
+	case 6:
+		compute<6>(pics, ref, res, size, res_size, slice_pos, shift);
+		break;
+	default:
+		printf("%d", k);
+	}
+}
+
+
+template<int k, typename T, typename RES>
+__global__ void cross_corr_r(
+	const T* __restrict__ pics,
+	const T* __restrict__ ref,
+	RES* __restrict__ res,
+	size2_t size,
+	size2_t res_size,
+	size_t ref_slices,
+	size_t batch_size)
+{
+	size_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t cuda_y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	//number of picture that this thread computes
+	size_t slice_num = whole_x / res_size.x;
+
+	if (slice_num >= ref_slices || cuda_y >= res_size.y)
+		return;
+
+	size2_t slice_pos = { (whole_x % div_up(res_size.x, k))*k, cuda_y };
+	size_t ref_num = slice_num % ref_slices;
+
+	
+
+	size2_t r = (res_size - 1) / 2;
+
+	vec2<int> shift = { (int)slice_pos.x - (int)r.x, (int)slice_pos.y - (int)r.y };
+
+	ref += ref_num * size.area();
+	pics += slice_num * size.area();
+	res += slice_num * res_size.area();
+
+	
+
+	for (size_t i = 0; i < batch_size; ++i)
+	{
+		//printf("[%d %d] %d %d\n", (int)slice_pos.x, (int)slice_pos.y, k, (int)res_size.x);
+		if ((int)slice_pos.x + k > (int)res_size.x)
+			compute_dyn(pics, ref, res, size, res_size, slice_pos, shift, (int)res_size.x - (int)slice_pos.x);
+		else
+			compute<k, T, RES>(pics, ref, res, size, res_size, slice_pos, shift);
+
+		pics += ref_slices * size.area();
+		res += ref_slices * res_size.area();
+	}
+}
+
+template<typename T, typename RES>
+void run_cross_corr_r(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t ref_slices, size_t batch_size)
+{
+	constexpr int k = 2;
+	dim3 block_size(16, 16);
+	dim3 grid_size(div_up(div_up(res_size.x, k) * ref_slices, block_size.x), div_up(res_size.y, block_size.y));
+	cross_corr_r<k, T, RES> <<<grid_size, block_size >>> (pic_a, pic_b, res, size, res_size, ref_slices, batch_size);
+}
+
+template void run_cross_corr_r<double, double>(
+	const double*,
+	const double*,
+	double* res,
+	vec2<size_t> size,
+	vec2<size_t> res_size,
+	size_t,
+	size_t);
+
+template void run_cross_corr_r<float, float>(
+	const float*,
+	const float*,
+	float* res,
+	vec2<size_t> size,
+	vec2<size_t> res_size,
+	size_t,
+	size_t);
+
+
+//*******************************************************************************************************************************************************
 template<typename T>
 __device__ __inline__ void copy_subregion(const T * __restrict__ src, size2_t src_size, T* __restrict__ dest, size2_t dest_size, size2_t region_pos)
 {
@@ -271,6 +505,8 @@ template void run_cross_corr_nopt<float, float>(
 	size_t,
 	size_t);
 
+
+//*******************************************************************************************************************************************************
 constexpr int stripe_size = 1;
 
 template<typename T, typename RES>
@@ -329,7 +565,7 @@ __global__ void cross_corr_opt(
 			//printf("%d %d %d %d %d [%d %d] %f %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, sum, x_shift + r.x);
 
 			for (int offset = warpSize / 2; offset > 0; offset /= 2)
-				sum += __shfl_down_sync(0xFFFFFFFF,sum, offset);
+				sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
 			//return val;
 			//if(lane_idx == 0)
 			//	atomicAdd(res_line + x_shift + r.x, sum);

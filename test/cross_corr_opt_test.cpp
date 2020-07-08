@@ -118,7 +118,7 @@ TEST(cross_corr_opt, matrix_res5x5_block_5x5)
 
     cuda_memset(cu_res, 0, res_size.area());
 
-    run_cross_corr_opt(cu_a, cu_b, cu_res, size, res_size, {5,5}, 1, 1);
+    run_cross_corr_r(cu_a, cu_b, cu_res, size, res_size, 1, 1);
 
     CUCH(cudaGetLastError());
     CUCH(cudaDeviceSynchronize());
@@ -209,7 +209,7 @@ class cross_corr_test : public ::testing::TestWithParam<corr_param> {
     stringer<corr_param>()
 );*/
 
-INSTANTIATE_TEST_SUITE_P(
+/*INSTANTIATE_TEST_SUITE_P(
     cross_corr_opt,
     cross_corr_test,
     ::testing::Values(
@@ -218,7 +218,7 @@ INSTANTIATE_TEST_SUITE_P(
         corr_param{ {96, 96}, {191, 191}, {31, 31}, 2, "matrix_res191x191_block31x31_slx2" }
     ),
     stringer<corr_param>()
-);
+);*/
 
 TEST_P(cross_corr_test, size_)
 {
@@ -240,7 +240,7 @@ TEST_P(cross_corr_test, size_)
     cuda_memset(cu_res, 0, GetParam().res_size.area());
     
     auto b_s = GetParam().block_size;
-    run_cross_corr_opt(cu_a, cu_b, cu_res, GetParam().size, GetParam().res_size, GetParam().block_size, GetParam().slices, 1);
+    run_cross_corr_r(cu_a, cu_b, cu_res, GetParam().size, GetParam().res_size, GetParam().slices, 1);
 
     CUCH(cudaGetLastError());
     CUCH(cudaDeviceSynchronize());
