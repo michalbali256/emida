@@ -658,9 +658,9 @@ __global__ void cross_corr_opt_tr(
 	__syncthreads();
 
 
-	int2_t r = size - 1;
+	int2_t res_r = (res_size - 1) / 2;
 
-	int x_shift = res_x - (int)r.x;
+	int x_shift = res_x - (int)res_r.x;
 	int x_begin = x_shift >= 0 ? 0 : -x_shift;
 
 
@@ -670,35 +670,72 @@ __global__ void cross_corr_opt_tr(
 	int team_idx = lane_idx / team_size;
 	int team_lane = lane_idx % team_size;
 
+	constexpr int k = 1;
 	//T sums[30];
 	for (int s = 0; s < size.x - abs(x_shift); s += stripe_size_tr)
 	{
 
-		for (int y_shift = -size.y + 1 + warp_idx; y_shift < size.y; y_shift += blockDim.x / warpSize)
+		for (int y_shift = -res_r.y + warp_idx*k; y_shift <= res_r.y; y_shift += blockDim.x / warpSize * k)
 		{
-			T sum = 0;
+			
+			T sum[k];
+			T cach[k];
+			#pragma unroll
+			for (int i = 0; i < k; ++i)
+				sum[i] = 0;
 
 			int y_end = y_shift < 0 ? size.y : size.y - y_shift;
 			int y_begin = y_shift < 0 ? -y_shift : 0;
 
 			int x = s + x_begin + team_idx;
 			int x_shifted = x + x_shift;
+
 			if (x < size.x && x_shifted < size.x)
-				for (int y = y_begin + team_lane; y < y_end; y += team_size)
+			{
+
+				for (int y = y_begin; y < y_end; y += 1)
 				{
 					int y_shifted = y + y_shift;
 
 					//if(blockIdx.x < 1)
 						//printf("%d %d %d %d %d [%d %d] [%d %d] [%d %d] %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, x, y, x_shifted, y_shifted, x_end);
-					sum += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
+					#pragma unroll
+					for (int i = 0; i < k; ++i)
+						sum[i] += pics[y_shifted * size.x + x_shifted + i] * ref[y * size.x + x];
+
+					/*++y_shifted;
+					cach[2] = pics[y_shifted * size.x + x_shifted];
+					//sum[0] += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
+					//sum[1] += pics[y_shifted * size.x + x_shifted + 1] * ref[y * size.x + x];
+					sum[0] += cach[0] * ref[y * size.x + x];
+					sum[1] += cach[1] * ref[y * size.x + x];
+					sum[2] += cach[2] * ref[y * size.x + x];
+
+					++y_shifted;
+					cach[0] = pics[y_shifted * size.x + x_shifted];
+					sum[0] += cach[1] * ref[y * size.x + x + 1];
+					sum[1] += cach[2] * ref[y * size.x + x + 1];
+					sum[2] += cach[0] * ref[y * size.x + x + 1];
+
+					++y_shifted;
+					cach[1] = pics[y_shifted * size.x + x_shifted];
+					sum[0] += cach[2] * ref[y * size.x + x + 2];
+					sum[1] += cach[0] * ref[y * size.x + x + 2];
+					sum[2] += cach[1] * ref[y * size.x + x + 2];*/
+
 				}
+			}
 			//printf("%d %d %d %d %d [%d %d] %f %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, sum, x_shift + r.x);
 
 			for (int offset = warpSize / 2; offset > 0; offset /= 2)
-				sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+				sum[0] += __shfl_down_sync(0xFFFFFFFF, sum[0], offset);
 
 			if (lane_idx == 0)
-				*(res_line + y_shift + r.x) += sum;
+			{
+				#pragma unroll
+				for (int i = 0; i < k; ++i)
+					*(res_line + y_shift + res_r.x + i) += sum[i];
+			}
 
 		}
 

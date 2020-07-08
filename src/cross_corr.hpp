@@ -21,17 +21,25 @@ inline size_t idx(size_t cols, size_t x, size_t y)
 
 template<typename T>
 std::vector<T> cross_corr_serial(const T* pics, const T* refs, size2_t pic_size, size_t ref_slices)
-{ 
+{
 	size2_t res_size = (pic_size * 2 - 1);
+	return cross_corr_serial(pics, refs, pic_size, res_size, ref_slices);
+}
+
+template<typename T>
+std::vector<T> cross_corr_serial(const T* pics, const T* refs, size2_t pic_size, size2_t res_size, size_t ref_slices)
+{ 
+	
+	size2_t res_r = (res_size - 1) / 2;
 
 	std::vector<T> res_vector(res_size.area() * ref_slices);
 	T* res = res_vector.data();
 
 	for (size_t i = 0; i < ref_slices; ++i)
 	{
-		for (int x_shift = -(int)pic_size.x + 1; x_shift < (int)pic_size.x; ++x_shift)
+		for (int x_shift = -(int)res_r.x; x_shift <= (int)res_r.x; ++x_shift)
 		{
-			for (int y_shift = -(int)pic_size.y + 1; y_shift < (int)pic_size.y; ++y_shift)
+			for (int y_shift = -(int)res_r.y; y_shift <= (int)res_r.y; ++y_shift)
 			{
 				T sum = 0;
 				for (int y = 0; y < pic_size.y; ++y)
@@ -45,7 +53,7 @@ std::vector<T> cross_corr_serial(const T* pics, const T* refs, size2_t pic_size,
 					}
 				}
 
-				res[idx(res_size.x, x_shift + pic_size.x - 1, y_shift + pic_size.y - 1)] = sum;
+				res[idx(res_size.x, x_shift + res_r.x, y_shift + res_r.y)] = sum;
 			}
 		}
 
