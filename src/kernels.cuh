@@ -37,7 +37,6 @@ void run_cross_corr_opt(const T* pic_a,
 	RES* res,
 	size2_t size,
 	size2_t res_size,
-	size2_t block_size,
 	size_t ref_slices,
 	size_t batch_size);
 

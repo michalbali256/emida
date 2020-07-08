@@ -177,8 +177,6 @@ __device__ __inline__ void compute<2, double, double>(const double* __restrict__
 		{
 			++x_shifted;
 			cach[1] = pics[y_shifted * size.x + x_shifted];
-			//sum[0] += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
-			//sum[1] += pics[y_shifted * size.x + x_shifted + 1] * ref[y * size.x + x];
 			sum[0] += cach[0] * ref[y * size.x + x];
 			sum[1] += cach[1] * ref[y * size.x + x];
 			
@@ -507,7 +505,21 @@ template void run_cross_corr_nopt<float, float>(
 
 
 //*******************************************************************************************************************************************************
-constexpr int stripe_size = 1;
+constexpr int stripe_size = 8;
+
+template<typename T>
+__device__ __inline__ void copy_subregion_is(const T* __restrict__ src, int2_t src_size, T* __restrict__ dest, int2_t dest_size, int2_t region_pos)
+{
+	for (int y = threadIdx.y; y < dest_size.y; y += blockDim.y)
+		for (int x = threadIdx.x; x < dest_size.x; x += blockDim.x)
+		{
+			dest[y * (dest_size.x + warpSize) + x + y * (warpSize / stripe_size)] = x + region_pos.x < src_size.x&& y + region_pos.y < src_size.y
+				? src[(y + region_pos.y) * src_size.x + (x + region_pos.x)]
+				: 0;
+		}
+}
+
+
 
 template<typename T, typename RES>
 __global__ void cross_corr_opt(
@@ -528,6 +540,9 @@ __global__ void cross_corr_opt(
 
 	T* smem = shared_memory_proxy<T>();
 	T* res_line = smem;
+	T* ref_stripe = smem + res_size.x;
+	T* pic_stripe = smem + res_size.x + size.x * stripe_size + stripe_size * warpSize;
+
 	for (int i = threadIdx.x; i < res_size.x; i += blockDim.x)
 	{
 		res_line[i] = 0;
@@ -543,37 +558,46 @@ __global__ void cross_corr_opt(
 
 	int warp_idx = threadIdx.x / warpSize;
 	int lane_idx = threadIdx.x % warpSize;
+	int team_size = warpSize / stripe_size;
+	int team_idx = lane_idx / team_size;
+	int team_lane = lane_idx % team_size;
 
+	int stripe_sh_size_x = size.x + warpSize;
 	//T sums[30];
 	for (int s = 0; s < size.y - abs(y_shift); s += stripe_size)
 	{
-		int y = s + y_begin;
+		copy_subregion_is(ref, size, ref_stripe, { size.x, stripe_size }, { 0, s + y_begin });
+		copy_subregion_is(pics, size, pic_stripe, { size.x, stripe_size }, {0, s + y_begin + y_shift });
+		__syncthreads();
+		
 		for (int x_shift = -size.x + 1 + warp_idx; x_shift < size.x; x_shift += blockDim.x / warpSize)
 		{
 			T sum = 0;
 
 			int x_end = x_shift < 0 ? size.x : size.x - x_shift;
 			int x_begin = x_shift < 0 ? -x_shift : 0;
-			for (int x = x_begin + lane_idx; x < x_end; x += warpSize)
-			{
-				int x_shifted = x + x_shift;
-				int y_shifted = y + y_shift;
-				//if(blockIdx.x < 1)
-					//printf("%d %d %d %d %d [%d %d] [%d %d] [%d %d] %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, x, y, x_shifted, y_shifted, x_end);
-				sum += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
-			}
+			
+			int y = s + y_begin + team_idx;
+			int y_shifted = y + y_shift;
+			if(y < size.y && y_shifted < size.y)
+				for (int x = x_begin + team_lane; x < x_end; x += team_size)
+				{
+					int x_shifted = x + x_shift;
+					
+					//if(blockIdx.x < 1)
+						//printf("%d %d %d %d %d [%d %d] [%d %d] [%d %d] %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, x, y, x_shifted, y_shifted, x_end);
+					sum += pic_stripe[team_idx * stripe_sh_size_x + x_shifted + team_idx * team_size] * ref_stripe[team_idx * stripe_sh_size_x + x + team_idx * (team_size)];
+				}
 			//printf("%d %d %d %d %d [%d %d] %f %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, sum, x_shift + r.x);
 
 			for (int offset = warpSize / 2; offset > 0; offset /= 2)
 				sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
-			//return val;
-			//if(lane_idx == 0)
-			//	atomicAdd(res_line + x_shift + r.x, sum);
+
 			if(lane_idx == 0)
 				*(res_line + x_shift + r.x) += sum;
 
 		}
-		
+		__syncthreads();
 	}
 
 	__syncthreads();
@@ -591,13 +615,12 @@ void run_cross_corr_opt(
 	RES* res,
 	size2_t size,
 	size2_t res_size,
-	size2_t block_size,
 	size_t ref_slices,
 	size_t batch_size)
 {
 	size_t block_dim = 256;
 	size_t grid_size = res_size.y * ref_slices;
-	size_t shared_mem_size = res_size.x * sizeof(T) * 2;
+	size_t shared_mem_size = res_size.x * sizeof(T) + size.x * stripe_size * sizeof(T) * 2 + stripe_size * 32 * sizeof(T) * 2;
 	cross_corr_opt<T, RES> <<<grid_size, block_dim, shared_mem_size >>> (pics, ref, res, { (int)size.x, (int)size.y }, { (int)res_size.x, (int)res_size.y }, ref_slices, batch_size);
 }
 
@@ -607,7 +630,6 @@ template void run_cross_corr_opt<double, double>(
 	double* res,
 	size2_t size,
 	size2_t res_size,
-	size2_t block_size,
 	size_t,
 	size_t);
 
@@ -617,7 +639,6 @@ template void run_cross_corr_opt<float, float>(
 	float* res,
 	size2_t size,
 	size2_t res_size,
-	size2_t block_size,
 	size_t,
 	size_t);
 

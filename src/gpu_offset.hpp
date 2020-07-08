@@ -197,7 +197,7 @@ public:
 
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 		{
-			run_cross_corr_r(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
+			run_cross_corr_opt(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
 			//run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
 		}
 		else
