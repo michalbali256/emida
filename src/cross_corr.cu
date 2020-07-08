@@ -507,20 +507,6 @@ template void run_cross_corr_nopt<float, float>(
 //*******************************************************************************************************************************************************
 constexpr int stripe_size = 8;
 
-template<typename T>
-__device__ __inline__ void copy_subregion_is(const T* __restrict__ src, int2_t src_size, T* __restrict__ dest, int2_t dest_size, int2_t region_pos)
-{
-	for (int y = threadIdx.y; y < dest_size.y; y += blockDim.y)
-		for (int x = threadIdx.x; x < dest_size.x; x += blockDim.x)
-		{
-			dest[y * (dest_size.x + warpSize) + x + y * (warpSize / stripe_size)] = x + region_pos.x < src_size.x&& y + region_pos.y < src_size.y
-				? src[(y + region_pos.y) * src_size.x + (x + region_pos.x)]
-				: 0;
-		}
-}
-
-
-
 template<typename T, typename RES>
 __global__ void cross_corr_opt(
 	const T* __restrict__ pics,
@@ -540,8 +526,7 @@ __global__ void cross_corr_opt(
 
 	T* smem = shared_memory_proxy<T>();
 	T* res_line = smem;
-	T* ref_stripe = smem + res_size.x;
-	T* pic_stripe = smem + res_size.x + size.x * stripe_size + stripe_size * warpSize;
+
 
 	for (int i = threadIdx.x; i < res_size.x; i += blockDim.x)
 	{
@@ -562,13 +547,9 @@ __global__ void cross_corr_opt(
 	int team_idx = lane_idx / team_size;
 	int team_lane = lane_idx % team_size;
 
-	int stripe_sh_size_x = size.x + warpSize;
 	//T sums[30];
 	for (int s = 0; s < size.y - abs(y_shift); s += stripe_size)
 	{
-		copy_subregion_is(ref, size, ref_stripe, { size.x, stripe_size }, { 0, s + y_begin });
-		copy_subregion_is(pics, size, pic_stripe, { size.x, stripe_size }, {0, s + y_begin + y_shift });
-		__syncthreads();
 		
 		for (int x_shift = -size.x + 1 + warp_idx; x_shift < size.x; x_shift += blockDim.x / warpSize)
 		{
@@ -586,18 +567,18 @@ __global__ void cross_corr_opt(
 					
 					//if(blockIdx.x < 1)
 						//printf("%d %d %d %d %d [%d %d] [%d %d] [%d %d] %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, x, y, x_shifted, y_shifted, x_end);
-					sum += pic_stripe[team_idx * stripe_sh_size_x + x_shifted + team_idx * team_size] * ref_stripe[team_idx * stripe_sh_size_x + x + team_idx * (team_size)];
+					sum += pics[y_shifted * size.x + x_shifted] * ref[y * size.x + x];
 				}
 			//printf("%d %d %d %d %d [%d %d] %f %d\n", blockIdx.x, s, warp_idx, lane_idx, y_begin, x_shift, y_shift, sum, x_shift + r.x);
 
-			for (int offset = warpSize / 2; offset > 0; offset /= 2)
-				sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+			//for (int offset = warpSize / 2; offset > 0; offset /= 2)
+			//	sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
 
 			if(lane_idx == 0)
 				*(res_line + x_shift + r.x) += sum;
 
 		}
-		__syncthreads();
+		
 	}
 
 	__syncthreads();
@@ -620,7 +601,7 @@ void run_cross_corr_opt(
 {
 	size_t block_dim = 256;
 	size_t grid_size = res_size.y * ref_slices;
-	size_t shared_mem_size = res_size.x * sizeof(T) + size.x * stripe_size * sizeof(T) * 2 + stripe_size * 32 * sizeof(T) * 2;
+	size_t shared_mem_size = res_size.x * sizeof(T) * 2;
 	cross_corr_opt<T, RES> <<<grid_size, block_dim, shared_mem_size >>> (pics, ref, res, { (int)size.x, (int)size.y }, { (int)res_size.x, (int)res_size.y }, ref_slices, batch_size);
 }
 
