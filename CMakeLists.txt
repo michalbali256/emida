@@ -107,7 +107,7 @@ if(TIFF_FROM_SOURCE)
     add_dependencies(emida_lib tiff_project)
 endif()
 
-target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_60,code=compute_60>)
+target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_60,code=compute_60 --generate-line-info>)
 
 
 add_executable(emida

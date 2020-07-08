@@ -40,6 +40,15 @@ void run_cross_corr_opt(const T* pic_a,
 	size_t ref_slices,
 	size_t batch_size);
 
+template<typename T, typename RES>
+void run_cross_corr_opt_tr(const T* pic_a,
+	const T* pic_b,
+	RES* res,
+	size2_t size,
+	size2_t res_size,
+	size_t ref_slices,
+	size_t batch_size);
+
 template<typename T>
 void run_prepare_pics(T* pic, const T* hanning_x, const T* hanning_y, const T* sums, size2_t size, size_t batch_size);
 

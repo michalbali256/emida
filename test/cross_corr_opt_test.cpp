@@ -244,7 +244,7 @@ TEST_P(cross_corr_test, size_)
     cuda_memset(cu_res, 0, GetParam().res_size.area());
     
     auto b_s = GetParam().block_size;
-    run_cross_corr_opt(cu_a, cu_b, cu_res, GetParam().size, GetParam().res_size, GetParam().slices, 1);
+    run_cross_corr_opt_tr(cu_a, cu_b, cu_res, GetParam().size, GetParam().res_size, GetParam().slices, 1);
 
     CUCH(cudaGetLastError());
     CUCH(cudaDeviceSynchronize());
