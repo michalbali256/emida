@@ -8,72 +8,63 @@
 #include <string>
 
 #include "matrix.hpp"
+#include "common.hpp"
 
 namespace emida
 {
 
-template<typename T>
-inline T point_diff(T& a, T& b)
-{
-	return a*b;
-}
 
 inline size_t idx(size_t cols, size_t x, size_t y)
 {
 	return y * cols + x;
 }
 
-template<typename T, typename RES>
-void cross_corr_serial(const T* pic_a, const T* pic_b, RES * res, int cols, int rows)
+template<typename T>
+std::vector<T> cross_corr_serial(const T* pics, const T* refs, size2_t pic_size, size_t ref_slices)
+{
+	size2_t res_size = (pic_size * 2 - 1);
+	return cross_corr_serial(pics, refs, pic_size, res_size, ref_slices);
+}
+
+template<typename T>
+std::vector<T> cross_corr_serial(const T* pics, const T* refs, size2_t pic_size, size2_t res_size, size_t ref_slices)
 { 
-	int res_cols = cols * 2 - 1;
+	
+	size2_t res_r = (res_size - 1) / 2;
 
-	for (int x_shift = -cols + 1; x_shift < cols; ++x_shift)
+	std::vector<T> res_vector(res_size.area() * ref_slices);
+	T* res = res_vector.data();
+
+	for (size_t i = 0; i < ref_slices; ++i)
 	{
-		for (int y_shift = -rows + 1; y_shift < rows; ++y_shift)
+		for (int x_shift = -(int)res_r.x; x_shift <= (int)res_r.x; ++x_shift)
 		{
-			RES sum = 0;
-			for (int y = 0; y < rows; ++y)
+			for (int y_shift = -(int)res_r.y; y_shift <= (int)res_r.y; ++y_shift)
 			{
-				for (int x = 0; x < cols; ++x)
+				T sum = 0;
+				for (int y = 0; y < pic_size.y; ++y)
 				{
-					int x_shifted = x + x_shift;
-					int y_shifted = y + y_shift;
-					if(x_shifted >= 0 && x_shifted < cols && y_shifted >= 0 && y_shifted < rows)
-						sum += point_diff(pic_a[idx(cols, x, y)], pic_b[idx(cols, x_shifted, y_shifted)]);
+					for (int x = 0; x < pic_size.x; ++x)
+					{
+						int x_shifted = x + x_shift;
+						int y_shifted = y + y_shift;
+						if (x_shifted >= 0 && x_shifted < pic_size.x && y_shifted >= 0 && y_shifted < pic_size.y)
+							sum += pics[idx(pic_size.x, x_shifted, y_shifted)] * refs[idx(pic_size.x, x, y)];
+					}
 				}
+
+				res[idx(res_size.x, x_shift + res_r.x, y_shift + res_r.y)] = sum;
 			}
-
-			res[idx(res_cols, x_shift + cols - 1, y_shift + rows - 1)] = sum;
 		}
-	}
 
+		res += res_size.area();
+		pics += pic_size.area();
+		refs += pic_size.area();
+	}
+	return res_vector;
 }
 
 
-inline std::vector<int> do_serial(const matrix<int> & a, const matrix<int> & b)
-{
-	size_t res_n = 2 * a.n - 1;
-	std::vector<int> res;
-	res.resize(res_n * res_n);
-	std::chrono::high_resolution_clock c;
-	auto start = c.now();
-	emida::cross_corr_serial<int, int>(b.data.data(), a.data.data(), res.data(), a.n, a.n);
-	auto end = c.now();
-	std::chrono::duration<double> dur = end - start;
-	auto dur_milli = std::chrono::duration_cast<std::chrono::milliseconds>(dur);
-	std::cout << "Cross corr duration: " << std::to_string(dur_milli.count()) << " ms" << "\n";
 
-	/*for (size_t i = 0; i < res_n; ++i)
-{
-	for (size_t j = 0; j < res_n; ++j)
-	{
-		std::cout << res[i * res_n + j] << "\t";
-	}
-	std::cout << "\n";
-}*/
-
-	return res;
-}
 
 }

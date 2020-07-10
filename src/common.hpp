@@ -65,7 +65,7 @@ struct vec2
 	{
 		return { x * rhs.x, y * rhs.y };
 	}
-	
+
 	template<typename U>
 	friend __host__ __device__ vec2<T> operator*(const U& lhs, const vec2<T>& rhs)
 	{
@@ -77,7 +77,12 @@ struct vec2
 		return { x * rhs, y * rhs };
 	}
 
-	
+	__host__ __device__ vec2<T> operator*(const dim3& rhs) const
+	{
+		return { x * rhs.x, y * rhs.y };
+	}
+
+
 	__host__ __device__ vec2<T> operator/(const vec2<T>& rhs) const
 	{
 		return { x / rhs.x, y / rhs.y };
@@ -99,10 +104,13 @@ struct vec2
 	}
 
 
-	__host__ __device__ size_t pos(size_t cols) const { return y * cols + x; }
+	__host__ __device__ __inline__ size_t pos(size_t cols) const { return y * cols + x; }
+
+	static __host__ __device__ __inline__ vec2<T> from_id(T id, size_t width) { return { id % width, id / width }; }
 };
 
 using size2_t = vec2<size_t>;
+using int2_t = vec2<int>;
 
 struct range
 {

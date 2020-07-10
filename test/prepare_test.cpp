@@ -28,19 +28,20 @@ std::vector<double> do_prepare(std::vector<uint16_t> picture,
 	const std::vector<double>& window_y,
 	const std::vector<double>& sums,
 	size2_t pic_size,
-	size2_t slice_size)
+	size2_t slice_size,
+	size_t batch_size)
 {
 	double* cu_window_x = vector_to_device(window_x);
 	double* cu_window_y = vector_to_device(window_y);
 	uint16_t* cu_pic = vector_to_device(picture);
 	double* cu_sums = vector_to_device(sums);
 	size2_t* cu_begins = vector_to_device(begins);
-	double* cu_slices = cuda_malloc<double>(begins.size() * slice_size.area());
+	double* cu_slices = cuda_malloc<double>(begins.size() * slice_size.area() * batch_size);
 
-	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, pic_size, slice_size, slice_size, begins.size());
+	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, pic_size, slice_size, slice_size, begins.size(), batch_size);
 
 
-	return device_to_vector(cu_slices, begins.size() * slice_size.area());
+	return device_to_vector(cu_slices, begins.size() * slice_size.area() * batch_size);
 }
 
 TEST(prepare, no_window)
@@ -60,7 +61,7 @@ TEST(prepare, no_window)
 	std::vector<size2_t> begins = { {1,2}, {0, 1} };
 	std::vector<double> sums = sums_serial(picture, begins, src_size, slice_size);
 
-	auto slices = do_prepare(picture, begins, window_x, window_y, sums, src_size, slice_size);
+	auto slices = do_prepare(picture, begins, window_x, window_y, sums, src_size, slice_size, 1);
 
 	std::vector<double> expected =
 	{
@@ -75,6 +76,54 @@ TEST(prepare, no_window)
 
 	EXPECT_DOUBLE_VECTORS_EQ(slices, expected);
 }
+
+TEST(prepare, no_window_batch)
+{
+	std::vector<uint16_t> picture =
+	{
+		1, 2, 3, 4, 5, 6,
+		7, 8, 9, 10, 11, 12,
+		13, 14, 15, 16, 17, 18,
+		19, 20, 21, 22, 23, 24,
+		25, 26, 27, 28, 29, 30,
+
+		25, 26, 27, 28, 29, 30,
+		19, 20, 21, 22, 23, 24,
+		13, 14, 15, 16, 17, 18,
+		7, 8, 9, 10, 11, 12,
+		1, 2, 3, 4, 5, 6
+	};
+	size2_t src_size = { 6,5 };
+	std::vector<double> window_x(src_size.x, 1);
+	std::vector<double> window_y(src_size.y, 1);
+	size2_t slice_size = { 5, 3 };
+	std::vector<size2_t> begins = { {1,2}, {0, 1} };
+	std::vector<double> sums = { 330, 225, 0, 0 };
+
+	auto slices = do_prepare(picture, begins, window_x, window_y, sums, src_size, slice_size, 2);
+
+	std::vector<double> expected =
+	{
+		-8, -7, -6, -5, -4,
+		-2, -1, 0, 1, 2,
+		4, 5, 6, 7, 8,
+
+		-8, -7, -6, -5, -4,
+		-2, -1, 0, 1, 2,
+		4, 5, 6, 7, 8,
+
+		14, 15, 16, 17, 18,
+		8, 9, 10, 11, 12,
+		2, 3, 4, 5, 6,
+
+		19, 20, 21, 22, 23,
+		13, 14, 15, 16, 17,
+		7, 8, 9, 10, 11
+	};
+
+	EXPECT_DOUBLE_VECTORS_EQ(slices, expected);
+}
+
 
 TEST(prepare, window)
 {
@@ -95,7 +144,7 @@ TEST(prepare, window)
 	std::vector<size2_t> begins = { {1,2}, {0, 1} };
 	std::vector<double> sums = sums_serial(picture, begins, src_size, slice_size);
 
-	auto slices = do_prepare(picture, begins, window_x, window_y, sums, src_size, slice_size);
+	auto slices = do_prepare(picture, begins, window_x, window_y, sums, src_size, slice_size, 1);
 
 	std::vector<double> expected =
 	{
@@ -135,7 +184,7 @@ TEST(prepare, fft_no_window)
 	size2_t* cu_begins = vector_to_device(begins);
 	double* cu_slices = cuda_malloc<double>(begins.size() * slice_size.area() * 4);
 
-	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, src_size, slice_size, slice_size * 2, begins.size());
+	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, src_size, slice_size, slice_size * 2, begins.size(), 1);
 
 
 	auto slices = device_to_vector(cu_slices, begins.size() * slice_size.area() * 4);

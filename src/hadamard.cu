@@ -22,50 +22,74 @@ __device__ cuDoubleComplex complex_mul<cuDoubleComplex>(cuDoubleComplex A, cuDou
 constexpr double PI = 3.14159265358979323846;
 
 template<typename T>
-__global__ void hadamard(T * __restrict__ A, const T * __restrict__ B, const T* __restrict__ shx, const T* __restrict__ shy, size2_t one_size, size_t batch_size)
+__global__ void hadamard(
+	T * __restrict__ pics,
+	const T * __restrict__ ref,
+	const T* __restrict__ shx,
+	const T* __restrict__ shy,
+	size2_t one_size,
+	size_t ref_slices,
+	size_t batch_size)
 {
 	size_t i = blockIdx.x * blockDim.x + threadIdx.x;
 	
 	size_t slice_tid = i % one_size.area();
 	size_t slice_num = i / one_size.area();
 	size2_t slice_pos = { slice_tid % one_size.x, slice_tid / one_size.x };
+	size_t ref_i = i % (one_size.area() * ref_slices);
 
-	if (slice_num >= batch_size)
+	if (slice_num >= batch_size * ref_slices)
 		return;
 	
-	T mul = { (A[i].x * B[i].x + A[i].y * B[i].y),
-		(-A[i].x * B[i].y + A[i].y * B[i].x)};
-	//mul = complex_mul(mul, shx[slice_pos.x]);
-	//mul = complex_mul(mul, shy[slice_pos.y]);
-	//size_t num_elements = (one_size.x - 1) * 2 * one_size.y;
-	//mul = { mul.x / num_elements, mul.y / num_elements };
-	A[i] = mul;
+	T mul = { (pics[i].x * ref[ref_i].x + pics[i].y * ref[ref_i].y),
+		(-pics[i].x * ref[ref_i].y + pics[i].y * ref[ref_i].x)};
+	mul = complex_mul(mul, shx[slice_pos.x]);
+	mul = complex_mul(mul, shy[slice_pos.y]);
+	size_t num_elements = (one_size.x - 1) * 2 * one_size.y;
+	mul = { mul.x / num_elements, mul.y / num_elements };
+	pics[i] = mul;
 }
-
-/*template<typename T>
-__global__ void hadamard(T* __restrict__ A, const T* __restrict__ B, size2_t one_size, size_t batch_size)
-{
-	size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-
-	if (i >= one_size.area() * batch_size)
-		return;
-
-	
-	A[i] = { (A[i].x * B[i].x + A[i].y * B[i].y),
-		(A[i].y * B[i].x - A[i].x * B[i].y) };
-}*/
 
 template<typename T>
-void run_hadamard(T* A, const T* B, const T* shx, const T* shy, size2_t one_size, size_t batch_size)
+__global__ void hadamard(T* __restrict__ pics,
+	const T* __restrict__ ref,
+	size2_t one_size,
+	size_t ref_slices,
+	size_t batch_size)
 {
-	size_t block_size = 1024;
-	size_t grid_size(div_up(one_size.area() * batch_size, block_size));
-	hadamard <<<grid_size, block_size >>> (A, B, shx, shy, one_size, batch_size);
+	size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t ref_i = i % (one_size.area() * ref_slices);
+
+	if (i >= one_size.area() * ref_slices * batch_size)
+		return;
+
+	
+	pics[i] = { (pics[i].x * ref[ref_i].x + pics[i].y * ref[ref_i].y),
+		(-pics[i].x * ref[ref_i].y + pics[i].y * ref[ref_i].x) };
 }
 
+template<typename T>
+void run_hadamard(T* pics, const T* ref, const T* shx, const T* shy, size2_t one_size, size_t ref_slices, size_t batch_size)
+{
+	size_t block_size = 1024;
+	size_t grid_size(div_up(one_size.area() * ref_slices * batch_size, block_size));
+	hadamard <<<grid_size, block_size >>> (pics, ref, shx, shy, one_size, ref_slices, batch_size);
+}
 
-template void run_hadamard<cufftComplex>(cufftComplex* A, const cufftComplex* B, const cufftComplex* shx, const cufftComplex* shy, size2_t one_size, size_t batch_size);
-template void run_hadamard<cufftDoubleComplex>(cufftDoubleComplex* A, const cufftDoubleComplex* B, const cufftDoubleComplex* shx, const cufftDoubleComplex* shy, size2_t one_size, size_t batch_size);
+template void run_hadamard<cufftComplex>(cufftComplex* A, const cufftComplex* B, const cufftComplex* shx, const cufftComplex* shy, size2_t one_size, size_t ref_slices, size_t batch_size);
+template void run_hadamard<cufftDoubleComplex>(cufftDoubleComplex* A, const cufftDoubleComplex* B, const cufftDoubleComplex* shx, const cufftDoubleComplex* shy, size2_t one_size, size_t ref_slices, size_t batch_size);
+
+template<typename T>
+void run_hadamard(T* pics, const T* ref, size2_t one_size, size_t ref_slices, size_t batch_size)
+{
+	size_t block_size = 1024;
+	size_t grid_size(div_up(one_size.area() * ref_slices * batch_size, block_size));
+	hadamard << <grid_size, block_size >> > (pics, ref, one_size, ref_slices, batch_size);
+}
+
+template void run_hadamard<cufftComplex>(cufftComplex* A, const cufftComplex* B, size2_t one_size, size_t ref_slices, size_t batch_size);
+template void run_hadamard<cufftDoubleComplex>(cufftDoubleComplex* A, const cufftDoubleComplex* B, size2_t one_size, size_t ref_slices, size_t batch_size);
+
 
 template<typename T>
 __global__ void finalize_fft(const T* in, T* __restrict__ out, size2_t out_size, size_t batch_size)

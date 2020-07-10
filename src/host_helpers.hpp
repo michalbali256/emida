@@ -62,6 +62,12 @@ T* cuda_malloc(size_t num_elements)
 	CUCH(cudaMalloc(&cu_ptr, num_elements * sizeof(T)));
 	return cu_ptr;
 }
+template<typename T>
+void cuda_memset(T* cu_ptr, int value, size_t elems)
+{
+	CUCH(cudaMemset(cu_ptr, 0, elems * sizeof(T)));
+}
+
 
 template<typename T>
 inline T* vector_to_device(const T* data, size_t size)

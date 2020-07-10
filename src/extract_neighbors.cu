@@ -41,7 +41,7 @@ void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbor
 {
 	size_t block_size = 128;
 	size_t grid_size = div_up(batch_size, block_size);
-	extract_neighbors<T> << <grid_size, block_size >> > (data, max_i, neighbors, s, src_size, batch_size);
+	extract_neighbors<T> <<<grid_size, block_size >>> (data, max_i, neighbors, s, src_size, batch_size);
 }
 
 template void run_extract_neighbors<double>(const double* data, const vec2<size_t>* max_i, double* neighbors, int s, size2_t src_size, size_t batch_size);

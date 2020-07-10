@@ -22,19 +22,23 @@ std::vector<double> do_sums(const std::vector<double> & data, size_t size, size_
 	return device_to_vector(cu_sums, batch_size);
 }
 
-std::vector<double> do_sums_slice(const std::vector<double>& data, const std::vector<size2_t>& begins, size2_t src_size, size2_t slice_size)
+std::vector<double> do_sums_slice(const std::vector<double>& data,
+	const std::vector<size2_t>& begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size_t batch_size)
 {
-	size_t batch_size = begins.size();
+	size_t total_size = begins.size() * batch_size;
 	auto cu_data = vector_to_device(data);
 	auto cu_begins = vector_to_device(begins);
-	auto cu_sums = cuda_malloc<double>(batch_size);
+	auto cu_sums = cuda_malloc<double>(total_size);
 
-	run_sum(cu_data, cu_sums, cu_begins, src_size, slice_size, batch_size);
+	run_sum(cu_data, cu_sums, cu_begins, src_size, slice_size, begins.size(), batch_size);
 
 	CUCH(cudaGetLastError());
 	CUCH(cudaDeviceSynchronize());
 
-	return device_to_vector(cu_sums, batch_size);
+	return device_to_vector(cu_sums, total_size);
 }
 
 TEST(sum, size_8)
@@ -55,7 +59,7 @@ TEST(sum_slice, size_9)
 		3, 2, 5, 15
 	};
 
-	auto sums = do_sums_slice(v, { {0, 0}, {1, 1} }, { 4,3 }, { 2,2 });
+	auto sums = do_sums_slice(v, { {0, 0}, {1, 1} }, { 4,3 }, { 2,2 }, 1);
 
 	EXPECT_EQ(sums[0], 22);
 	EXPECT_EQ(sums[1], 21);
@@ -92,7 +96,7 @@ TEST(sums, size_1333x3)
 	EXPECT_EQ(sums[2], (2666 + 3998) * 1333 / 2);
 }
 
-class sums_slice_fixture : public ::testing::TestWithParam<std::tuple<size2_t, size2_t, std::vector<size2_t>>> {
+class sums_slice_fixture : public ::testing::TestWithParam<std::tuple<size2_t, size2_t, std::vector<size2_t>, size_t>> {
 
 };
 
@@ -100,8 +104,13 @@ INSTANTIATE_TEST_SUITE_P(
 	sum_slice,
 	sums_slice_fixture,
 	::testing::Values(
-		std::make_tuple < size2_t, size2_t, std::vector<size2_t>>({ 31,43 }, { 29,40 }, { { 0, 0 }, { 1, 1 } }),
-		std::make_tuple < size2_t, size2_t, std::vector<size2_t>>({ 64,64 }, { 32,32 }, { { 0, 0 }, { 0, 16 }, { 16, 16 }, { 32, 32 } })
+		std::make_tuple <size2_t, size2_t, std::vector<size2_t>, size_t>({ 31,43 }, { 29,40 }, { { 0, 0 }, { 1, 1 } }, 1),
+		std::make_tuple <size2_t, size2_t, std::vector<size2_t>, size_t>({ 64,64 }, { 32,32 },
+			{ { 0, 0 }, { 0, 16 }, { 16, 16 }, { 32, 32 } }, 1),
+		std::make_tuple <size2_t, size2_t, std::vector<size2_t>, size_t>({ 64,64 }, { 32,32 },
+			{ { 0, 0 }, { 0, 16 }, { 16, 16 }, { 32, 32 } }, 97),
+		std::make_tuple <size2_t, size2_t, std::vector<size2_t>, size_t>({ 23,43 }, { 21,41 },
+			{ { 0, 0 }, { 1, 1 } }, 8)
 	)
 );
 
@@ -109,20 +118,19 @@ TEST_P(sums_slice_fixture, size_)
 {
 	size2_t src_size = std::get<0>(GetParam());
 	size2_t slice_size = std::get<1>(GetParam());
-	std::vector<double> data;
-	data.resize(src_size.area());
+	size_t batch_size = std::get<3>(GetParam());
+	std::vector<double> data(src_size.area() * batch_size);
 	double mom = 0;
 	for (size_t i = 0; i < data.size(); ++i)
 		data[i] = (double)i;
 
 	std::vector<size2_t> begins = std::get<2>(GetParam());
 
-	auto sums = do_sums_slice(data, begins, src_size, slice_size);
+	auto sums = do_sums_slice(data, begins, src_size, slice_size, batch_size);
 
-	std::vector<double> expected_sums = sums_serial(data, begins, src_size, slice_size);
+	std::vector<double> expected_sums = sums_serial(data, begins, src_size, slice_size, batch_size);
 
-	ASSERT_EQ(sums.size(), begins.size());
-	
+	EXPECT_DOUBLE_VECTORS_EQ(sums, expected_sums)
 }
 
 TEST(sums, size_4096x2)

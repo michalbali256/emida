@@ -127,6 +127,7 @@ bool params::parse(int argc, char** argv)
 		("precision", "Specifies the floating type to be used. Allowed values: double, float", value_type<std::string>(), "double|float")
 		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum. Allowed values: 3, 5, 7, 9", value_type<int>(), "SIZE")
 		("crosspolicy", "Specified whether to use FFT to compute cross correlation. Allowed values: brute, fft.", value_type<std::string>(), "brute|fft")
+		("batchsize", "Specifies how many files are processed in one batch", value_type<int>(), "NUMBER")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 	
 	auto parsed = cmd.parse(argc, argv);
@@ -155,12 +156,6 @@ bool params::parse(int argc, char** argv)
 		if (parsed["slicepos"])
 			std::cerr << "Warning: --slicesize will be overriden by the first line of --slicepos file.";
 	}
-	
-	if (parsed["crosssize"])
-		cross_size = parsed["crosssize"]->get_value<size2_t>();
-	else
-		cross_size = slice_size * 2 - 1;
-
 
 	if (parsed["slicepos"])
 	{
@@ -169,10 +164,10 @@ bool params::parse(int argc, char** argv)
 			std::cerr << "Error: cannot use slicestep when slicepos specified\n";
 			return false;
 		}
-		
+
 		auto [size, loaded] = load_slice_begins(parsed["slicepos"]->get_value<std::string>());
 		slice_mids = loaded;
-		slice_size = { size*2, size*2 };
+		slice_size = { size * 2, size * 2 };
 
 		for (auto m : slice_mids)
 		{
@@ -185,6 +180,14 @@ bool params::parse(int argc, char** argv)
 			size2_t end = m + slice_size / 2;
 		}
 	}
+	
+	if (parsed["crosssize"])
+		cross_size = parsed["crosssize"]->get_value<size2_t>();
+	else
+		cross_size = slice_size * 2 - 1;
+
+
+
 	/*else
 	{
 		size2_t step = { 32, 32 };
@@ -249,6 +252,19 @@ bool params::parse(int argc, char** argv)
 		}
 		
 	}
+
+	if (parsed["batchsize"])
+	{
+		int val = parsed["batchsize"]->get_value<int>();
+		if (val > 0)
+			batch_size = val;
+		else
+		{
+			std::cerr << "Error: batchsize must be greater than 0.";
+			return 1;
+		}
+	}
+
 
 	analysis = parsed["analysis"] ? true : false;
 	write_coefs = parsed["writecoefs"] ? true : false;
