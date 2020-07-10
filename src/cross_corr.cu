@@ -535,9 +535,9 @@ __global__ void cross_corr_opt(
 	__syncthreads();
 
 
-	int2_t r = size - 1;
+	int2_t res_r = (res_size - 1) / 2;
 	
-	int y_shift = res_y - (int)r.y;
+	int y_shift = res_y - (int)res_r.y;
 	int y_begin = y_shift >= 0 ? 0 : -y_shift;
 
 
@@ -551,7 +551,7 @@ __global__ void cross_corr_opt(
 	for (int s = 0; s < size.y - abs(y_shift); s += stripe_size)
 	{
 		
-		for (int x_shift = -size.x + 1 + warp_idx; x_shift < size.x; x_shift += blockDim.x / warpSize)
+		for (int x_shift = -res_r.x + warp_idx; x_shift <= res_r.x; x_shift += blockDim.x / warpSize)
 		{
 			T sum = 0;
 
@@ -575,7 +575,7 @@ __global__ void cross_corr_opt(
 				sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
 
 			if(lane_idx == 0)
-				*(res_line + x_shift + r.x) += sum;
+				*(res_line + x_shift + res_r.x) += sum;
 
 		}
 		
