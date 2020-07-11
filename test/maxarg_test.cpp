@@ -62,29 +62,38 @@ TEST(extract_neighbors, size_5x5x2)
 
 TEST(maxarg, size_8)
 {
-	std::vector<double> v = {1,3, 5, 8, 10, 4, 3, 2};
+	std::vector<double> v =
+	{
+		1,3, 5, 8,
+		10, 4, 3, 2
+	};
 	algorithm_maxarg<double> a;
-	a.prepare(v, 8, 1);
+	a.prepare(v, { 4, 2 }, 1);
 	a.run();
 	a.finalize();
-
-	EXPECT_EQ(a.result()[0], 4U);
+	
+	auto expected = size2_t{ 0, 1 };
+	EXPECT_EQ(a.result()[0], expected);
 }
 
 TEST(maxarg, size_8x2)
 {
 	std::vector<double> v =
 	{
-		1,  3,  5,  8, 10, 4, 3, 2,
-		1, 12, 15, 18, 10, 4, 3, 2
+		1,  3,  5,  8,
+		10, 4, 3, 2,
+
+		1, 12, 15, 18,
+		10, 4, 3, 2
 	};
 	algorithm_maxarg<double> a;
-	a.prepare(v, 8, 2);
+	a.prepare(v, { 4, 2 }, 2);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result()[0], 4U);
-	EXPECT_EQ(a.result()[1], 11U);
+	std::vector<size2_t> expected = { {0, 1}, {3, 0} };
+
+	EXPECT_EQ(a.result(), expected);
 }
 
 TEST(maxarg, size_1333)
@@ -102,11 +111,12 @@ TEST(maxarg, size_1333)
 	data[1001] = 3;
 
 	algorithm_maxarg<double> a;
-	a.prepare(data, 1333, 1);
+	a.prepare(data, {31,43}, 1);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result()[0], 1001);
+	size2_t expected{ 9, 32 };
+	EXPECT_EQ(a.result()[0], expected);
 }
 
 TEST(maxarg, size_1333x3)
@@ -126,14 +136,18 @@ TEST(maxarg, size_1333x3)
 	data[1333] = 4;
 	data[3000] = 4;
 	algorithm_maxarg<double> a;
-	a.prepare(data, 1333, 3);
+	a.prepare(data, { 31, 43 }, 3);
 	a.run();
 	a.finalize();
 
-	ASSERT_EQ(a.result().size(), 3);
-	EXPECT_EQ(a.result()[0], 1024);
-	EXPECT_EQ(a.result()[1], 1333);
-	EXPECT_EQ(a.result()[2], 3000);
+	std::vector<size2_t> expected =
+	{
+		{1,33},
+		{0,0},
+		{24,10}
+	};
+
+	EXPECT_EQ(a.result(), expected);
 }
 
 TEST(maxarg, size_4096)
@@ -151,13 +165,18 @@ TEST(maxarg, size_4096)
 	data[1024] = 3;
 
 	algorithm_maxarg<double> a;
-	a.prepare(data, 4096, 1);
+	a.prepare(data, { 31, 43 }, 1);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result()[0], 1024);
-}
+	std::vector<size2_t> expected =
+	{
+		{1,33}
+	};
 
+	EXPECT_EQ(a.result(), expected);
+}
+/*
 TEST(maxarg, size_100100)
 {
 	std::vector<double> data;
@@ -173,34 +192,14 @@ TEST(maxarg, size_100100)
 	data[100000] = 3;
 
 	algorithm_maxarg<double> a;
-	a.prepare(data, 100100, 1);
+	a.prepare(data, {700, 143}, 1);
 	a.run();
 	a.finalize();
 
-	EXPECT_EQ(a.result()[0], 100000);
-}
-
-
-TEST(maxarg, size_4x3x2)
-{
-	std::vector<double> v =
+	std::vector<size2_t> expected =
 	{
-		1,  3,  5,  8,
-		10, 4, 3, 2,
-		1, 2, 3, 4,
-
-		1, 12, 15, 18,
-		10, 4, 3, 2,
-		1, 2, 3, 4
+		{1,33}
 	};
 
-	double* cu_data = vector_to_device(v);
-
-	auto res = get_maxarg(cu_data, { 4, 3 }, 2);
-
-	EXPECT_EQ(res[0].x, 0U);
-	EXPECT_EQ(res[0].y, 1U);
-	EXPECT_EQ(res[1].x, 3U);
-	EXPECT_EQ(res[1].y, 0U);
-
-}
+	EXPECT_EQ(a.result(), expected);
+}*/

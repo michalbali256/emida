@@ -109,6 +109,12 @@ struct vec2
 	static __host__ __device__ __inline__ vec2<T> from_id(T id, size_t width) { return { id % width, id / width }; }
 };
 
+template<typename T>
+inline bool operator==(const vec2<T> & lhs, const vec2<T> & rhs)
+{
+	return lhs.x == rhs.x && lhs.y == rhs.y;
+}
+
 using size2_t = vec2<size_t>;
 using int2_t = vec2<int>;
 

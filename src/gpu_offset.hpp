@@ -197,7 +197,7 @@ public:
 
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 		{
-			run_cross_corr_opt_tr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
+			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
 			//run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
 		}
 		else
@@ -216,14 +216,17 @@ public:
 		}
 		else
 		{
-			maxes_i = get_maxarg(cu_cross_res_); sw.tick("Get maxarg: ");
+			run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
 
-			copy_to_device(maxes_i, cu_maxes_i_); sw.tick("Maxes transfer: ");
+			CUCH(cudaGetLastError());
+			CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
 
 			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
 
 			CUCH(cudaGetLastError());
 			CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");
+
+			maxes_i = device_to_vector(cu_maxes_i_, total_slices_); sw.tick("Maxes transfer: ");
 		}
 
 		std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size_); sw.tick("Transfer neighbors: ");
@@ -251,39 +254,11 @@ public:
 		return { res, coefs };
 	}
 
-	inline std::vector<vec2<size_t>> get_maxarg(const T* cu_data) const
-	{
-		run_maxarg_reduce(cu_data, cu_maxes_, cross_size_.area(), maxarg_block_size_, total_slices_);
-
-		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize());
-
-		std::vector<data_index<T>> maxes = device_to_vector(cu_maxes_, maxarg_maxes_size_);
-
-		std::vector<vec2<size_t>> res(total_slices_);
-
-		for (size_t b = 0; b < total_slices_; ++b)
-		{
-			size_t max_res_i = b * maxarg_one_pic_blocks_;
-			for (size_t i = max_res_i + 1; i < (b + 1) * maxarg_one_pic_blocks_; ++i)
-			{
-				if (maxes[i].data > maxes[max_res_i].data)
-					max_res_i = i;
-			}
-			size_t max_i = maxes[max_res_i].index - b * cross_size_.area();
-			res[b].x = max_i % cross_size_.x;
-			res[b].y = max_i / cross_size_.x;
-			++stopwatch::global_stats.total_pics;
-		}
-
-		return res;
-	}
-
 	inline void cross_corr_fft() const
 	{
 
 		//auto vec = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
-		CUCH(cudaDeviceSynchronize());
+		//CUCH(cudaDeviceSynchronize());
 
 		
 

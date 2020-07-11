@@ -67,7 +67,7 @@ void run_prepare_pics(
 	size_t batch_size);
 
 template<typename T>
-void run_maxarg_reduce(const T* data, data_index<T>* maxes, size_t size, size_t block_size, size_t batch_size);
+void run_maxarg_reduce(const T* data, data_index<T>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
 
 template<typename T>
 void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, int s, size2_t src_size, size_t batch_size);
