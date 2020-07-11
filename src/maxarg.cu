@@ -15,24 +15,25 @@ namespace emida
 //blockDim2  2 2  2 2  2  2  2  2  
 //block: 1  2  3  4  5  6 7  8  9
 template<typename T>
-__global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __restrict__ maxes, size_t size)
+__global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __restrict__ maxes, size2_t slice_size)
 {
 	data_index<T> * sdata = shared_memory_proxy<data_index<T>>();
 
 	size_t tid = threadIdx.x;
 	
 	//number of blocks we need to process one picture
-	size_t one_pic_blocks = div_up(size, blockDim.x);
+	size_t one_pic_blocks = div_up(slice_size.area(), blockDim.x);
 	size_t pic_num = blockIdx.x / one_pic_blocks;
 	size_t pic_block = blockIdx.x % one_pic_blocks;
 
 	//if this is the last block that processes one picture(chunk)
 	//and this thread would process sth out of the picture
 
-	size_t i = pic_num * size + pic_block * blockDim.x + threadIdx.x;
-	if (blockIdx.x % one_pic_blocks == one_pic_blocks - 1
-		&& size % blockDim.x != 0
-		&& threadIdx.x >= size % blockDim.x)
+	size_t slice_tid = pic_block * blockDim.x + threadIdx.x;
+	size2_t slice_pos = { slice_tid % slice_size.x, slice_tid / slice_size.x };
+
+	size_t i = pic_num * slice_size.area() + slice_pos.pos(slice_size.x);
+	if (slice_pos.x >= slice_size.x || slice_pos.y >= slice_size.y)
 	{
 		sdata[tid].data = 0;
 		sdata[tid].index = i;
@@ -105,7 +106,7 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, size2_t * maxarg
 {	
 	size_t one_pic_blocks = div_up(size.area(), block_size);
 	size_t grid_size = one_pic_blocks * batch_size;
-	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxes_red, size.area());
+	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxes_red, size);
 	maxarg_reduce2<T> <<<batch_size, 1024, 1024 * sizeof(data_index<T>)>>> (maxes_red, maxarg, one_pic_blocks, size);
 }
 
