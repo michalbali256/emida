@@ -241,12 +241,6 @@ public:
 
 	inline void cross_corr_fft() const
 	{
-
-		//auto vec = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
-		//CUCH(cudaDeviceSynchronize());
-
-		
-
 		fft_real_to_complex(plan_, cu_pic_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("R2C: ");
 
