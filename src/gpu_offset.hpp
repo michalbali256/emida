@@ -209,47 +209,32 @@ public:
 		
 
 		T* cu_neighbors = cu_neighbors_;
-		std::vector<vec2<size_t>> maxes_i;
-		if (cross_size_.x == s && cross_size_.y == s)
-		{
-			cu_neighbors = cu_cross_res_;
-		}
-		else
-		{
-			run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
+		
+		run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
 
-			CUCH(cudaGetLastError());
-			CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
+		CUCH(cudaGetLastError());
+		CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
 
-			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
+		run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
 
-			CUCH(cudaGetLastError());
-			CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");
+		CUCH(cudaGetLastError());
+		CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");
 
-			maxes_i = device_to_vector(cu_maxes_i_, total_slices_); sw.tick("Maxes transfer: ");
-		}
+		std::vector<vec2<size_t>> maxes_i = device_to_vector(cu_maxes_i_, total_slices_); sw.tick("Maxes transfer: ");
+		
 
 		std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size_); sw.tick("Transfer neighbors: ");
 
 		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors.data(), s, total_slices_); sw.tick("Subpixel max: ");
 
 		std::vector<vec2<double>> res(total_slices_);
-		if (cross_size_.x == s && cross_size_.y == s)
-		{
-			for (size_t i = 0; i < total_slices_; ++i)
-			{
-				res[i] = -(subp_offset[i] - r);
-			}
-		}
-		else
-		{
-			for (size_t i = 0; i < total_slices_; ++i)
-			{
 
-				res[i].x =-((int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
-				res[i].y =-((int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
-			}
-		}sw.tick("Offsets finalisation: ");
+		for (size_t i = 0; i < total_slices_; ++i)
+		{
+			res[i].x =-((int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
+			res[i].y =-((int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
+		}
+		sw.tick("Offsets finalisation: ");
 		sw.total();
 		return { res, coefs };
 	}
