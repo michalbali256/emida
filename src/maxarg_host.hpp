@@ -11,7 +11,7 @@
 namespace emida
 {
 
-template<typename T>
+template<typename T, class pos_policy = cross_res_pos_policy_id>
 class algorithm_maxarg
 {
 	size_t batch_size_, grid_size_, one_pic_blocks_;
@@ -41,7 +41,7 @@ public:
 
 	void run()
 	{
-		run_maxarg_reduce<T>(cu_data_, cu_maxes_, cu_res_, size_, block_size_, batch_size_);
+		run_maxarg_reduce<T, pos_policy>(cu_data_, cu_maxes_, cu_res_, size_, block_size_, batch_size_);
 		
 		CUCH(cudaDeviceSynchronize());
 		CUCH(cudaGetLastError());

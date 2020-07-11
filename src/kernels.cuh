@@ -13,6 +13,25 @@ void __syncthreads() {};
 namespace emida
 {
 
+struct cross_res_pos_policy_id
+{
+	static __device__ __inline__ size_t pos(size_t i, size_t pic_num, size2_t slice_pos, size2_t slice_size)
+	{
+		return i;
+	}
+};
+
+struct cross_res_pos_policy_fft
+{
+	static __device__ __inline__ size_t pos(size_t i, size_t pic_num, size2_t slice_pos, size2_t slice_size)
+	{
+		size2_t in_size{ slice_size.x + 3, slice_size.y + 1 };
+		size2_t in_pos = (slice_pos + ((slice_size + 1) / 2 + 1)) % (slice_size + 1);
+		return pic_num * in_size.area() + in_pos.pos(in_size.x);
+	}
+};
+
+
 template<typename T, typename RES>
 void run_cross_corr(const T* pics,
 	const T* ref,
@@ -66,10 +85,10 @@ void run_prepare_pics(
 	size_t begins_size,
 	size_t batch_size);
 
-template<typename T>
+template<typename T, class pos_policy = cross_res_pos_policy_id>
 void run_maxarg_reduce(const T* data, data_index<T>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
 
-template<typename T>
+template<typename T, class pos_policy = cross_res_pos_policy_id>
 void run_extract_neighbors(const T* data, const vec2<size_t>* max_i, T* neighbors, int s, size2_t src_size, size_t batch_size);
 
 //computes sums of slices of the same size packed in one array

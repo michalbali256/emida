@@ -210,12 +210,18 @@ public:
 
 		T* cu_neighbors = cu_neighbors_;
 		
-		run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
+		if(cross_policy_ == CROSS_POLICY_BRUTE)
+			run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
+		else
+			run_maxarg_reduce<T, cross_res_pos_policy_fft>(cu_pic_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
 
-		run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
+		if (cross_policy_ == CROSS_POLICY_BRUTE)
+			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
+		else
+			run_extract_neighbors<T, cross_res_pos_policy_fft>(cu_pic_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");
@@ -260,8 +266,8 @@ public:
 		fft_complex_to_real(inv_plan_, cu_pic_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("C2R: ");
 
-		run_finalize_fft(cu_pic_, cu_cross_res_, cross_size_, total_slices_);
-		CUCH(cudaDeviceSynchronize()); sw.tick("finalize: ");
+		//run_finalize_fft(cu_pic_, cu_cross_res_, cross_size_, total_slices_);
+		//CUCH(cudaDeviceSynchronize()); sw.tick("finalize: ");
 
 		//auto vec3 = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
 		//auto vec4 = device_to_vector(cu_cross_res_, cross_size_.area() * total_slices_);

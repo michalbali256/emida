@@ -76,6 +76,59 @@ TEST(maxarg, size_8)
 	EXPECT_EQ(a.result()[0], expected);
 }
 
+TEST(maxarg, size_8_fftpos)
+{
+
+	std::vector<double> v =
+	{
+		1,3, 301, 8, 302, 303,
+		10, 4, 304, 3, 305, 306,
+		307, 308, 309, 310, 311, 312,
+		1, 1, 313, 1, 314, 315
+	};
+	// v is fft-shifted version of following matrix:
+	// 1, 1, 1, 
+	// 8, 1, 3,
+	// 3, 10, 4
+	algorithm_maxarg<double, cross_res_pos_policy_fft> a;
+	a.prepare(v, { 3, 3 }, 1);
+	a.run();
+	a.finalize();
+
+	auto expected = size2_t{ 1, 2 };
+	EXPECT_EQ(a.result()[0], expected);
+}
+
+TEST(maxarg, size_8x2_fftpos)
+{
+
+	std::vector<double> v =
+	{
+		1, 3, 301, 8, 302, 303,
+		10, 4, 304, 3, 305, 306,
+		307, 308, 309, 310, 311, 312,
+		1, 1, 313, 1, 314, 315,
+
+		1, 3, 301, 8, 302, 303,
+		10, 4, 304, 3, 305, 306,
+		307, 308, 309, 310, 311, 312,
+		1, 1, 313, 1, 314, 315
+
+	};
+	// v is fft-shifted version of following matrix:
+	// 1, 1, 1, 
+	// 8, 1, 3,
+	// 3, 10, 4
+	algorithm_maxarg<double, cross_res_pos_policy_fft> a;
+	a.prepare(v, { 3, 3 }, 2);
+	a.run();
+	a.finalize();
+
+	std::vector<size2_t> expected = { {1, 2}, {1, 2} };
+
+	EXPECT_EQ(a.result(), expected);
+}
+
 TEST(maxarg, size_8x2)
 {
 	std::vector<double> v =

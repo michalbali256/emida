@@ -14,7 +14,7 @@ namespace emida
 //              +--+--+--+
 //blockDim2  2 2  2 2  2  2  2  2  
 //block: 1  2  3  4  5  6 7  8  9
-template<typename T>
+template<typename T, class pos_policy>
 __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __restrict__ maxes, size2_t slice_size)
 {
 	data_index<T> * sdata = shared_memory_proxy<data_index<T>>();
@@ -42,23 +42,25 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 	}
 	else
 	{
-		sdata[tid].data = data[i];
+		sdata[tid].data = data[pos_policy::pos(i, pic_num, slice_pos, slice_size)];
 		sdata[tid].index = i;
-	}
 
-	slice_tid += one_pic_blocks * blockDim.x;
-	slice_pos = { slice_tid % slice_size.x, slice_tid / slice_size.x };
+		slice_tid += one_pic_blocks * blockDim.x;
+		slice_pos = { slice_tid % slice_size.x, slice_tid / slice_size.x };
+		i = pic_num * slice_size.area() + slice_pos.pos(slice_size.x);
 
-	i = pic_num * slice_size.area() + slice_pos.pos(slice_size.x);
-
-	if (slice_pos.x < slice_size.x & slice_pos.y < slice_size.y)
-	{
-		if (data[i] > sdata[tid].data)
+		if (slice_pos.x < slice_size.x && slice_pos.y < slice_size.y)
 		{
-			sdata[tid].data = data[i];
-			sdata[tid].index = i;
+			size_t sh_i = pos_policy::pos(i, pic_num, slice_pos, slice_size);
+			if (data[sh_i] > sdata[tid].data)
+			{
+				sdata[tid].data = data[sh_i];
+				sdata[tid].index = i;
+			}
 		}
 	}
+
+
 	
 	__syncthreads();
 
@@ -117,17 +119,19 @@ __global__ void maxarg_reduce2(const data_index<T>* __restrict__ maxes_in, size2
 	}
 }
 
-template<typename T>
+template<typename T, class pos_policy>
 void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, size2_t * maxarg, size2_t size, size_t block_size, size_t batch_size)
 {	
 	size_t one_pic_blocks = div_up(size.area(), block_size);
 
 	size_t grid_size = div_up(one_pic_blocks, 2) * batch_size;
-	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxes_red, size);
+	maxarg_reduce<T, pos_policy> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxes_red, size);
 	maxarg_reduce2<T> <<<batch_size, 1024, 1024 * sizeof(data_index<T>)>>> (maxes_red, maxarg, div_up(one_pic_blocks,2), size);
 }
 
-template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
-template void run_maxarg_reduce<float>(const float* data, data_index<float>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
+template void run_maxarg_reduce<double, cross_res_pos_policy_id>(const double* data, data_index<double>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
+template void run_maxarg_reduce<double, cross_res_pos_policy_fft>(const double* data, data_index<double>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
+template void run_maxarg_reduce<float, cross_res_pos_policy_id>(const float* data, data_index<float>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
+template void run_maxarg_reduce<float, cross_res_pos_policy_fft>(const float* data, data_index<float>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
 
 }
