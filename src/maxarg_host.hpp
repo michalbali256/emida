@@ -51,6 +51,7 @@ public:
 	void finalize()
 	{
 		max_i_ = device_to_vector(cu_res_, batch_size_);
+		res_ = device_to_vector(cu_maxes_, grid_size_);
 		/*for (size_t b = 0; b < batch_size_; ++b)
 		{
 			size_t max_res_i = b * one_pic_blocks_;

@@ -23,6 +23,8 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 	
 	//number of blocks we need to process one picture
 	size_t one_pic_blocks = div_up(slice_size.area(), blockDim.x);
+	one_pic_blocks = div_up(one_pic_blocks, 2);
+
 	size_t pic_num = blockIdx.x / one_pic_blocks;
 	size_t pic_block = blockIdx.x % one_pic_blocks;
 
@@ -42,6 +44,20 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 	{
 		sdata[tid].data = data[i];
 		sdata[tid].index = i;
+	}
+
+	slice_tid += one_pic_blocks * blockDim.x;
+	slice_pos = { slice_tid % slice_size.x, slice_tid / slice_size.x };
+
+	i = pic_num * slice_size.area() + slice_pos.pos(slice_size.x);
+
+	if (slice_pos.x < slice_size.x & slice_pos.y < slice_size.y)
+	{
+		if (data[i] > sdata[tid].data)
+		{
+			sdata[tid].data = data[i];
+			sdata[tid].index = i;
+		}
 	}
 	
 	__syncthreads();
@@ -105,9 +121,10 @@ template<typename T>
 void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, size2_t * maxarg, size2_t size, size_t block_size, size_t batch_size)
 {	
 	size_t one_pic_blocks = div_up(size.area(), block_size);
-	size_t grid_size = one_pic_blocks * batch_size;
+
+	size_t grid_size = div_up(one_pic_blocks, 2) * batch_size;
 	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxes_red, size);
-	maxarg_reduce2<T> <<<batch_size, 1024, 1024 * sizeof(data_index<T>)>>> (maxes_red, maxarg, one_pic_blocks, size);
+	maxarg_reduce2<T> <<<batch_size, 1024, 1024 * sizeof(data_index<T>)>>> (maxes_red, maxarg, div_up(one_pic_blocks,2), size);
 }
 
 template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, size2_t* maxarg, size2_t size, size_t block_size, size_t batch_size);
