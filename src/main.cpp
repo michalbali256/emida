@@ -15,18 +15,16 @@ int main(int argc, char ** argv)
 
 	try
 	{
-		switch (a.precision)
+		if (a.precision == precision_type::DOUBLE)
 		{
-		case precision_type::DOUBLE:
-			emida::process_files<double>(a);
-			break;
-		case precision_type::FLOAT:
-			emida::process_files<float>(a);
-			break;
-		default:
-			break;
+			emida::file_processor<double> p(a);
+			p.process_files();
 		}
-		
+		else if ((a.precision == precision_type::FLOAT))
+		{
+			emida::file_processor<float> p(a);
+			p.process_files();
+		}
 	}
 	catch (std::runtime_error & e)
 	{

@@ -68,6 +68,7 @@ private:
 
 	mutable stopwatch sw;
 public:
+	gpu_offset() {}
 	gpu_offset(size2_t src_size,
 		const std::vector<size2_t>* begins,
 		size2_t slice_size,
@@ -85,7 +86,7 @@ public:
 		, neigh_size_(s * s * total_slices_)
 		, maxarg_one_pic_blocks_(div_up(cross_size_.area(), maxarg_block_size_))
 		, maxarg_maxes_size_(maxarg_one_pic_blocks_* total_slices_)
-		, sw(true, 2, 2)
+		, sw(false, 2, 2)
 		, s(s)
 		, r((s - 1) / 2)
 		, fft_size_{ (int)slice_size.x * 2, (int)slice_size.y * 2 }
@@ -175,14 +176,24 @@ public:
 		}
 	}
 
-	//gets two pictures with size cols x rows and returns subpixel offset between them
+	void transfer_pic_to_device_async(IN* pic) const
+	{
+		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
+		sw.tick("Pic to device: ");
+	}
+
 	offsets_t<double> get_offset(IN* pic) const
 	{
 		sw.zero();
-		
 		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
 		sw.tick("Pic to device: ");
+		return get_offset_core(pic);
+	}
 
+	//gets two pictures with size cols x rows and returns subpixel offset between them
+	offsets_t<double> get_offset_core(IN* pic) const
+	{
+		
 		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, begins_->size(), batch_size_);
 
 		CUCH(cudaGetLastError());
@@ -227,8 +238,6 @@ public:
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");
 
 		std::vector<vec2<size_t>> maxes_i = device_to_vector(cu_maxes_i_, total_slices_); sw.tick("Maxes transfer: ");
-		
-
 		std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size_); sw.tick("Transfer neighbors: ");
 
 		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors.data(), s, total_slices_); sw.tick("Subpixel max: ");
@@ -243,6 +252,11 @@ public:
 		sw.tick("Offsets finalisation: ");
 		sw.total();
 		return { res, coefs };
+	}
+
+	void finalize()
+	{
+
 	}
 
 	inline void cross_corr_fft() const
