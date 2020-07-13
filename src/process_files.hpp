@@ -31,6 +31,16 @@ struct offs_job
 };
 
 template<typename T>
+struct fin_job
+{
+	std::vector<vec2<size_t>> maxes_i;
+	std::vector<T> neighbors;
+	std::atomic<bool> ready = false;
+	size_t batch_files;
+	size_t c;
+};
+
+template<typename T>
 class file_processor
 {
 	std::vector<file> load_work(std::string fname)
@@ -61,15 +71,21 @@ class file_processor
 	gpu_offset<T, uint16_t> offs;
 	std::vector<file> work;
 	stopwatch sw;
-	std::mutex mtx;
+	std::mutex mtx_offs;
 	std::condition_variable cond_compute_offs;
 	
 	offs_job job1;
 	offs_job job2;
 
-
+	fin_job<T> fin_job1;
+	fin_job<T> fin_job2;
 	std::atomic<bool> offs_done = true;
 	std::atomic<bool> end_comp_offs = false;
+	std::atomic<bool> end_comp_fin = false;
+
+	
+	std::mutex mtx_fin;
+	std::condition_variable cond_fin;
 
 public:
 	file_processor(params par) : a(std::move(par)), sw(true, 3)
@@ -101,9 +117,18 @@ public:
 		offs_job* job = &job1;
 		offs_job* job_next = &job2;
 
+		size_t total_slices = a.slice_mids.size() * a.batch_size;
+
+		fin_job1.maxes_i.resize(total_slices);
+		fin_job2.maxes_i.resize(total_slices);
+
+		fin_job1.neighbors.resize(total_slices * a.fitting_size * a.fitting_size);
+		fin_job2.neighbors.resize(total_slices * a.fitting_size * a.fitting_size);
+
 		work = load_work(a.deformed_list_file_name);
 	
-		std::thread comp_offs(&file_processor::compute_offsets_thread, this);
+		std::thread comp_offs_thr(&file_processor::compute_offsets_thread, this);
+		std::thread finalize_thr(&file_processor::finalize_thread, this);
 		sw.zero();
 		for (size_t c = 0; c < work.size(); c += a.batch_size)
 		{
@@ -119,7 +144,9 @@ public:
 			if (!OK)
 				continue;
 
-			std::unique_lock lck(mtx);
+			offs.transfer_pic_to_device_async(job->deformed_raster.data());
+
+			std::unique_lock lck(mtx_offs);
 			job->batch_files = batch_files;
 			job->c = c;
 			job->loaded = true;
@@ -132,7 +159,8 @@ public:
 			sw.tick("ONE: ", 1);
 		}
 		end_comp_offs = true;
-		comp_offs.join();
+		comp_offs_thr.join();
+		finalize_thr.join();
 
 		sw.total();
 		if (a.analysis)
@@ -147,35 +175,57 @@ public:
 		offs_job* job = &job1;
 		offs_job* job_next = &job2;
 
+		fin_job<T>* fjob = &fin_job1;
+		fin_job<T>* fjob_next = &fin_job2;
 		for (;;)
 		{
 			while (!job->loaded && !end_comp_offs);
 			if (end_comp_offs)
+			{
+				end_comp_fin = true;
 				return;
-
+			}
 			cudaStreamSynchronize(offs.in_stream);
-			compute_offsets(*job);
+			offs.get_offset_core(fjob->maxes_i.data(), fjob->neighbors.data());
+
+			fjob->c = job->c;
+			fjob->batch_files = job->batch_files;
+			fjob->ready = true;
+			cond_fin.notify_one();
+
 			offs_done = true;
 			job->loaded = false;
 			cond_compute_offs.notify_one();
 			std::swap(job, job_next);
+			std::swap(fjob, fjob_next);
 		}
 	}
 
-	void compute_offsets(offs_job& job)
+	void finalize_thread()
 	{
-		offs.get_offset_core();
-		auto [offsets, coefs] = offs.finalize();
-		
-		
+		fin_job<T>* fjob = &fin_job1;
+		fin_job<T>* fjob_next = &fin_job2;
+		while(!end_comp_fin)
+		{
+			std::unique_lock lck(mtx_fin);
+			cond_fin.wait(lck, [&]() {return fjob->ready.load(); });
+			fjob->ready = false;
+			finalize_offsets(*fjob);
+			std::swap(fjob, fjob_next);
+		}
+	}
+
+	void finalize_offsets(fin_job<T>& fjob)
+	{
+		auto [offsets, coefs] = offs.finalize(fjob.maxes_i.data(), fjob.neighbors.data());
 		//sw.tick("Get offset: ", 2);
 
 		if (a.analysis)
 			stopwatch::global_stats.inc_histogram(offsets);
-		for (size_t j = job.c; j < job.c + job.batch_files; ++j)
+		for (size_t j = fjob.c; j < fjob.c + fjob.batch_files; ++j)
 		{
 			printf("%f %f %llu %s\n", work[j].x, work[j].y, a.slice_mids.size(), work[j].fname.c_str());
-			size_t it = j - job.c;
+			size_t it = j - fjob.c;
 			for (size_t i = it * a.slice_mids.size(); i < (it + 1) * a.slice_mids.size(); ++i)
 			{
 				size_t begin_i = i % a.slice_mids.size();
@@ -194,14 +244,6 @@ public:
 			}
 
 		}
-
-		//sw.tick("Write offsets: ", 2);
-		
-	}
-
-	void finalize_offsets()
-	{
-
 	}
 
 };

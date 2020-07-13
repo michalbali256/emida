@@ -66,9 +66,6 @@ private:
 
 	cross_policy cross_policy_;
 
-	std::vector<vec2<size_t>> maxes_i_;
-	std::vector<T> neighbors_;
-
 	mutable stopwatch sw;
 public:
 
@@ -98,8 +95,6 @@ public:
 		, r((s - 1) / 2)
 		, fft_size_{ (int)slice_size.x * 2, (int)slice_size.y * 2 }
 		, cross_policy_(policy)
-		, maxes_i_(total_slices_)
-		, neighbors_(neigh_size_)
 	{}
 
 	void allocate_memory(IN* temp)
@@ -199,12 +194,16 @@ public:
 		sw.zero();
 		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
 		sw.tick("Pic to device: ");
-		get_offset_core();
-		return finalize();
+
+		std::vector<vec2<size_t>> maxes_i(total_slices_);
+		std::vector<T> neighbors(neigh_size_);
+		get_offset_core(maxes_i.data(), neighbors.data());
+
+		return finalize(maxes_i.data(), neighbors.data());
 	}
 
 	//gets two pictures with size cols x rows and returns subpixel offset between them
-	void get_offset_core()
+	void get_offset_core(size2_t * maxes_i, T * neighbors)
 	{	
 		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, begins_->size(), batch_size_);
 
@@ -241,7 +240,7 @@ public:
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
 
-		copy_from_device_async<size2_t>(cu_maxes_i_, maxes_i_.data(), total_slices_, out_stream); sw.tick("Maxes transfer: ");
+		copy_from_device_async<size2_t>(cu_maxes_i_, maxes_i, total_slices_, out_stream); sw.tick("Maxes transfer: ");
 
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
@@ -252,23 +251,23 @@ public:
 		CUCH(cudaStreamSynchronize(out_stream)); sw.tick("Run extract neigh: ");
 
 		
-		copy_from_device_async(cu_neighbors, neighbors_.data(), neigh_size_, out_stream); sw.tick("Transfer neighbors: ");
+		copy_from_device_async(cu_neighbors, neighbors, neigh_size_, out_stream); sw.tick("Transfer neighbors: ");
 
 
 	}
 
-	offsets_t<double> finalize()
+	offsets_t<double> finalize(size2_t * maxes_i, T* neighbors)
 	{
 		CUCH(cudaStreamSynchronize(out_stream));
 
-		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors_.data(), s, total_slices_); sw.tick("Subpixel max: ");
+		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors, s, total_slices_); sw.tick("Subpixel max: ");
 
 		std::vector<vec2<double>> res(total_slices_);
 
 		for (size_t i = 0; i < total_slices_; ++i)
 		{
-			res[i].x = -((int)maxes_i_[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
-			res[i].y = -((int)maxes_i_[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
+			res[i].x = -((int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
+			res[i].y = -((int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
 		}
 		sw.tick("Offsets finalisation: ");
 		sw.total();
