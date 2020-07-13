@@ -1,11 +1,39 @@
-\chapter{Implementation}
+\chapter{Analysis}
 
-\begin{itemize}
-	\item Division into 6 kernels
-	\item reduction optimization
-	\item Cross correlation
-	\subitem Fourier transform
-	\subitem my impl
-	\item Least squares --- pre-computed matrix; experimentation showed that cpu only is fine
-	\item Tiff loading optimization?
-\end{itemize}
+In this chapter we analyze the algorithm used to process EBSD data and explain how to implement it effectively for GPUs. We use the CUDA platform, which is currently the most popular technology for general purpose computing on graphics cards.
+
+\todo{CUDA summary?}
+
+The input for the algorithm consists of one reference and many deformed backscatter patterns which are captured in greyscale images. There may be up to tens of thousands of them. In general, the format of the pictures is not important, as long as it is possible to load them from disk quickly. For example, our testing data consists of 15000 images saved in TIFF format without any compression. Each picture has resolution of approximately $900 \times 900$ pixels and uses 16 bits for each pixel.
+
+The result of the algorithm is a list of two--dimensional vectors that we write to the standard output.
+
+From a high--level point of view, the algorithm first loads reference pattern from disk. Then it goes through a list of file names of deformed images and does 3 steps with each:
+\begin{enumerate}
+	\item Load a deformed pattern from disk.
+	\item Compare the deformed and reference patterns.
+	\item Write the resulting offsets to standard output.
+\end{enumerate}
+While the steps 1 and 3 have to be done by the CPU, the second step is suitable for execution on a GPU.
+
+As explained in previous chapter, the comparison of two patterns is done by cross--correlating several subregions of the images and then finding the offset for which the correlation is maximal. Location, size and number of the subregions is a parameter for the algorithm, but we expect that there will be tens of subregions with size in the order of $100 \times 100$ pixels. All the subregions in all the images are processed independently from each other, providing a great opportunity to utilize data parallelism.
+
+The processing of each subregion is done in several steps:
+\begin{enumerate}
+	\item Compute sum of pixels
+	\item Normalize the pixels of subregion --- compute mean from the sum and subtract it from each pixel
+	\item Cross--correlate deformed region with the reference one
+	\item Find the position of the maximum (argmax) in the cross--correlation
+	\item Use the neighborhood of the maximum to ``interpolate'' and find the most probable offset of the subregion with subpixel accuracy
+\end{enumerate}
+
+
+
+
+
+
+
+\section{Sum computation}
+\section{Cross correlation}
+\subsection{Fourier transform}
+\section{Least squares implementation}
