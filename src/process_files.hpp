@@ -119,6 +119,8 @@ public:
 			if (!OK)
 				continue;
 
+			offs.transfer_pic_to_device_async(job->deformed_raster.data());
+
 			std::unique_lock lck(mtx);
 			job->batch_files = batch_files;
 			job->c = c;
@@ -164,7 +166,7 @@ public:
 
 	void compute_offsets(offs_job& job)
 	{
-		auto [offsets, coefs] = offs.get_offset(job.deformed_raster.data());
+		auto [offsets, coefs] = offs.get_offset_core();
 		//sw.tick("Get offset: ", 2);
 
 		if (a.analysis)
