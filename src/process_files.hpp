@@ -164,7 +164,10 @@ public:
 
 	void compute_offsets(offs_job& job)
 	{
-		auto [offsets, coefs] = offs.get_offset(job.deformed_raster.data());
+		offs.get_offset_core();
+		auto [offsets, coefs] = offs.finalize();
+		
+		
 		//sw.tick("Get offset: ", 2);
 
 		if (a.analysis)
@@ -194,6 +197,11 @@ public:
 
 		//sw.tick("Write offsets: ", 2);
 		
+	}
+
+	void finalize_offsets()
+	{
+
 	}
 
 };

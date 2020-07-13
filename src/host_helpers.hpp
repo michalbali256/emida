@@ -93,6 +93,21 @@ inline std::vector<T> device_to_vector(const T* cu_data, size_t size)
 }
 
 template<typename T>
+inline std::vector<T> device_to_vector_async(const T* cu_data, size_t size, cudaStream_t stream)
+{
+	std::vector<T> res(size);
+	CUCH(cudaMemcpyAsync(res.data(), cu_data, size * sizeof(T), cudaMemcpyDeviceToHost, stream));
+	return res;
+}
+
+template<typename T>
+inline void copy_from_device_async(const T* cu_data, T* dst, size_t size, cudaStream_t stream)
+{
+	CUCH(cudaMemcpyAsync(dst, cu_data, size * sizeof(T), cudaMemcpyDeviceToHost, stream));
+}
+
+
+template<typename T>
 inline std::vector<T> repeat_vector(const std::vector<T>& vec, size_t repeat)
 {
 	std::vector<T> res(vec.size() * repeat);

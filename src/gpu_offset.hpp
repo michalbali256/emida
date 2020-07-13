@@ -66,12 +66,14 @@ private:
 
 	cross_policy cross_policy_;
 
-	
+	std::vector<vec2<size_t>> maxes_i_;
+	std::vector<T> neighbors_;
 
 	mutable stopwatch sw;
 public:
 
 	cudaStream_t in_stream;
+	cudaStream_t out_stream;
 
 	gpu_offset() {}
 	gpu_offset(size2_t src_size,
@@ -96,11 +98,14 @@ public:
 		, r((s - 1) / 2)
 		, fft_size_{ (int)slice_size.x * 2, (int)slice_size.y * 2 }
 		, cross_policy_(policy)
+		, maxes_i_(total_slices_)
+		, neighbors_(neigh_size_)
 	{}
 
 	void allocate_memory(IN* temp)
 	{
 		CUCH(cudaStreamCreate(&in_stream));
+		CUCH(cudaStreamCreate(&out_stream));
 
 		cu_pic_in_ = cuda_malloc<IN>(src_size_.area() * batch_size_);
 		cu_temp_in_ = cuda_malloc<IN>(src_size_.area());
@@ -183,22 +188,23 @@ public:
 		}
 	}
 
-	void transfer_pic_to_device_async(IN* pic) const
+	void transfer_pic_to_device_async(IN* pic)
 	{
 		copy_to_device_async(pic, src_size_.area() * batch_size_, cu_pic_in_, in_stream);
 		sw.tick("Pic to device: ");
 	}
 
-	offsets_t<double> get_offset(IN* pic) const
+	offsets_t<double> get_offset(IN* pic)
 	{
 		sw.zero();
 		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
 		sw.tick("Pic to device: ");
-		return get_offset_core();
+		get_offset_core();
+		return finalize();
 	}
 
 	//gets two pictures with size cols x rows and returns subpixel offset between them
-	offsets_t<double> get_offset_core() const
+	void get_offset_core()
 	{	
 		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, begins_->size(), batch_size_);
 
@@ -235,34 +241,38 @@ public:
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
 
+		copy_from_device_async<size2_t>(cu_maxes_i_, maxes_i_.data(), total_slices_, out_stream); sw.tick("Maxes transfer: ");
+
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
 		else
 			run_extract_neighbors<T, cross_res_pos_policy_fft>(cu_pic_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
 
 		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run extract neigh: ");
+		CUCH(cudaStreamSynchronize(out_stream)); sw.tick("Run extract neigh: ");
 
-		std::vector<vec2<size_t>> maxes_i = device_to_vector(cu_maxes_i_, total_slices_); sw.tick("Maxes transfer: ");
-		std::vector<T> neighbors = device_to_vector(cu_neighbors, neigh_size_); sw.tick("Transfer neighbors: ");
+		
+		copy_from_device_async(cu_neighbors, neighbors_.data(), neigh_size_, out_stream); sw.tick("Transfer neighbors: ");
 
-		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors.data(), s, total_slices_); sw.tick("Subpixel max: ");
+
+	}
+
+	offsets_t<double> finalize()
+	{
+		CUCH(cudaStreamSynchronize(out_stream));
+
+		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors_.data(), s, total_slices_); sw.tick("Subpixel max: ");
 
 		std::vector<vec2<double>> res(total_slices_);
 
 		for (size_t i = 0; i < total_slices_; ++i)
 		{
-			res[i].x =-((int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
-			res[i].y =-((int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
+			res[i].x = -((int)maxes_i_[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
+			res[i].y = -((int)maxes_i_[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
 		}
 		sw.tick("Offsets finalisation: ");
 		sw.total();
 		return { res, coefs };
-	}
-
-	void finalize()
-	{
-
 	}
 
 	inline void cross_corr_fft() const
