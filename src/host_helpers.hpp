@@ -56,6 +56,12 @@ void copy_to_device(T* data, size_t size, T* cu_ptr)
 }
 
 template<typename T>
+void copy_to_device_async(T* data, size_t size, T* cu_ptr, cudaStream_t stream)
+{
+	CUCH(cudaMemcpyAsync(cu_ptr, data, size * sizeof(T), cudaMemcpyHostToDevice, stream));
+}
+
+template<typename T>
 T* cuda_malloc(size_t num_elements)
 {
 	T* cu_ptr;

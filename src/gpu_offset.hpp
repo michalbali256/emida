@@ -66,8 +66,13 @@ private:
 
 	cross_policy cross_policy_;
 
+	
+
 	mutable stopwatch sw;
 public:
+
+	cudaStream_t in_stream;
+
 	gpu_offset() {}
 	gpu_offset(size2_t src_size,
 		const std::vector<size2_t>* begins,
@@ -95,6 +100,8 @@ public:
 
 	void allocate_memory(IN* temp)
 	{
+		CUCH(cudaStreamCreate(&in_stream));
+
 		cu_pic_in_ = cuda_malloc<IN>(src_size_.area() * batch_size_);
 		cu_temp_in_ = cuda_malloc<IN>(src_size_.area());
 		
@@ -178,7 +185,7 @@ public:
 
 	void transfer_pic_to_device_async(IN* pic) const
 	{
-		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
+		copy_to_device_async(pic, src_size_.area() * batch_size_, cu_pic_in_, in_stream);
 		sw.tick("Pic to device: ");
 	}
 
@@ -187,13 +194,12 @@ public:
 		sw.zero();
 		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
 		sw.tick("Pic to device: ");
-		return get_offset_core(pic);
+		return get_offset_core();
 	}
 
 	//gets two pictures with size cols x rows and returns subpixel offset between them
-	offsets_t<double> get_offset_core(IN* pic) const
-	{
-		
+	offsets_t<double> get_offset_core() const
+	{	
 		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, begins_->size(), batch_size_);
 
 		CUCH(cudaGetLastError());

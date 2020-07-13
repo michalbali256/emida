@@ -153,6 +153,7 @@ public:
 			if (end_comp_offs)
 				return;
 
+			cudaStreamSynchronize(offs.in_stream);
 			compute_offsets(*job);
 			offs_done = true;
 			job->loaded = false;
