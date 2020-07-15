@@ -24,18 +24,20 @@ std::vector<typename complex_trait<T>::type> get_fft_shift(esize_t N, esize_t sh
 	return res;
 }
 
+
 template<typename T, typename IN>
 class gpu_offset
 {
 private:
 	using complex_t = typename complex_trait<T>::type;
+	using sums_t = typename sums_trait<IN>::type;
 
 	IN* cu_pic_in_;
 	IN* cu_temp_in_;
 	T* cu_pic_;
 	T* cu_temp_;
-	T* cu_sums_pic_;
-	T* cu_sums_temp_;
+	sums_t* cu_sums_pic_;
+	sums_t* cu_sums_temp_;
 	T* cu_hann_x_;
 	T* cu_hann_y_;
 	T* cu_cross_res_;
@@ -110,8 +112,8 @@ public:
 		cu_pic_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * total_slices_);
 		cu_temp_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * begins_->size());
 
-		cu_sums_pic_ = cuda_malloc<T>(total_slices_);
-		cu_sums_temp_ = cuda_malloc<T>(begins_->size());
+		cu_sums_pic_ = cuda_malloc<sums_t>(total_slices_);
+		cu_sums_temp_ = cuda_malloc<sums_t>(begins_->size());
 
 		cu_begins_ = vector_to_device(*begins_);
 

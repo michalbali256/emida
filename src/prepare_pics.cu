@@ -39,13 +39,13 @@ template void run_prepare_pics<double>(double * pic, const double * hanning_x,
 
 
 
-template<typename IN, typename OUT>
+template<typename IN, typename OUT, typename S = OUT>
 __global__ void prepare_pics(
 	const IN* __restrict__ pic,
 	OUT* __restrict__ slices,
 	const OUT* __restrict__ hanning_x,
 	const OUT* __restrict__ hanning_y,
-	const OUT* __restrict__ sums,
+	const S* __restrict__ sums,
 	const size2_t* __restrict__ begins,
 	size2_t src_size,
 	size2_t slice_size,
@@ -72,7 +72,7 @@ __global__ void prepare_pics(
 
 	OUT pixel = pic[pic_num * src_size.area() + pic_pos.pos(src_size.x)];
 	//subtract mean of the picture
-	pixel -= sums[slice_num] / slice_size.area();
+	pixel -= (OUT)sums[slice_num] / slice_size.area();
 	//apply hanning filter and convert to OUT (float or double)
 	pixel = (OUT)pixel * hanning_x[slice_pos.x] * hanning_y[slice_pos.y];
 	slices[tid] = pixel;
@@ -80,13 +80,13 @@ __global__ void prepare_pics(
 
 
 
-template<typename IN, typename OUT>
+template<typename IN, typename OUT, typename S>
 void run_prepare_pics(
 	const IN* pic,
 	OUT* slices,
 	const OUT* hanning_x,
 	const OUT* hanning_y,
-	const OUT* sums,
+	const S* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
@@ -112,12 +112,38 @@ template void run_prepare_pics<uint16_t, double>(
 	esize_t begins_size,
 	esize_t batch_size);
 
+template void run_prepare_pics<uint16_t, double, uint32_t>(
+	const uint16_t* pic,
+	double* slices,
+	const double* hanning_x,
+	const double* hanning_y,
+	const uint32_t* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size2_t out_size,
+	esize_t begins_size,
+	esize_t batch_size);
+
 template void run_prepare_pics<uint16_t, float>(
 	const uint16_t* pic,
 	float* slices,
 	const float* hanning_x,
 	const float* hanning_y,
 	const float* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size2_t out_size,
+	esize_t begins_size,
+	esize_t batch_size);
+
+template void run_prepare_pics<uint16_t, float, uint32_t>(
+	const uint16_t* pic,
+	float* slices,
+	const float* hanning_x,
+	const float* hanning_y,
+	const uint32_t* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
@@ -132,6 +158,19 @@ template void run_prepare_pics<double, double>(
 	const double* hanning_x,
 	const double* hanning_y,
 	const double* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	size2_t out_size,
+	esize_t begins_size,
+	esize_t batch_size);
+
+template void run_prepare_pics<double, double, uint32_t>(
+	const double* pic,
+	double* slices,
+	const double* hanning_x,
+	const double* hanning_y,
+	const uint32_t* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,

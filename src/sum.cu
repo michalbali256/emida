@@ -136,6 +136,13 @@ template void run_sum<double, double>(const double* data,
 	size2_t slice_size,
 	esize_t begins_size,
 	esize_t batch_size);
+template void run_sum<double, uint32_t>(const double* data,
+	uint32_t* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	esize_t begins_size,
+	esize_t batch_size);
 //template void run_sum<uint16_t, uint32_t>(const uint16_t* data, uint32_t* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, esize_t batch_size);
 template void run_sum<uint16_t, double>(const uint16_t* data,
 	double* sums,
@@ -146,6 +153,14 @@ template void run_sum<uint16_t, double>(const uint16_t* data,
 	esize_t batch_size);
 template void run_sum<uint16_t, float>(const uint16_t* data,
 	float* sums,
+	const size2_t* begins,
+	size2_t src_size,
+	size2_t slice_size,
+	esize_t begins_size,
+	esize_t batch_size);
+
+template void run_sum<uint16_t, uint32_t>(const uint16_t* data,
+	uint32_t* sums,
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,

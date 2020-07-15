@@ -152,6 +152,28 @@ inline void fft_complex_to_real<double>(cufftHandle plan, double* in_out)
     FFTCH(cufftExecZ2D(plan, (cufftDoubleComplex*)in_out, in_out));
 }
 
+template<typename T>
+struct sums_trait
+{
+    using type = double;
+};
+
+template<>
+struct sums_trait<uint16_t>
+{
+    using type = uint32_t;
+};
+template<>
+struct sums_trait<float>
+{
+    using type = float;
+};
+
+template<>
+struct sums_trait<double>
+{
+    using type = double;
+};
 
 
 }
