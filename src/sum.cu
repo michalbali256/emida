@@ -69,8 +69,8 @@ template void run_sum<double>(const double* data, double * sums, esize_t size, e
 constexpr int warp_size = 32;
 
 template<typename T>
-__inline__ __device__ T warpReduceSum(T val) {
-	
+__inline__ __device__ T warpReduceSum(T val)
+{	
 	#pragma unroll
 	for (int offset = warp_size / 2; offset > 0; offset /= 2)
 		val += __shfl_down_sync(0xFFFFFFFF, val, offset);
@@ -79,8 +79,8 @@ __inline__ __device__ T warpReduceSum(T val) {
 
 
 template<typename T>
-__inline__ __device__ T blockReduceSum(T val) {
-
+__inline__ __device__ T blockReduceSum(T val)
+{
 	T* shared = shared_memory_proxy<T>();
 	int lane = threadIdx.x % warpSize;
 	int warp_id = threadIdx.x / warpSize;
@@ -91,9 +91,12 @@ __inline__ __device__ T blockReduceSum(T val) {
 
 	__syncthreads();              // Wait for all partial reductions
 
-	val = shared[lane];
+	if (warp_id == 0)
+	{
+		val = shared[lane];
 
-	if (warp_id == 0) val = warpReduceSum(val); //Final reduce within first warp
+		val = warpReduceSum(val);
+	} //Final reduce within first warp
 
 	return val;
 }
