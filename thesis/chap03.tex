@@ -50,13 +50,51 @@ The last part of the algorithm fits a continuous quadratic function to the neigh
 
 The decomposition into kernels is mostly determined by the need of global barriers. Both finding of sum and argmax use parallel reduction, which has to fully finish before any of its results are complete. The kernel that extracts the subregions from the pattern is necessary, to simplify the cross--correlation and allow usage of third party libraries (see \cref{fft}, where the implementation of cross--correlation is explained).
 
-\Cref{overview} also shows which parts are done on CPU and which on GPU. It is desirable that we parallelize those tasks, so that GPU is fully utilized and does not wait on CPU work.
+To illustrate the data flow better and reason about it, \cref{buftypes} shows all buffers used on GPU.
 
- Parallelization of CPU and GPU parts
+
+% Please add the following required packages to your document preamble:
+% \usepackage{booktabs}
+\begin{table}[]
+	\centering
+	\begin{tabular}{@{}lll@{}} \toprule
+		Buffer                          & Type & Number of elements \\ \midrule
+		Input picture                   &      &                    \\
+		Sums of subregions              &      &                    \\
+		Specification of subregions     &      &                    \\
+		Normalized deformed subregions  &      &                    \\
+		Normalized reference subregions &      &                    \\
+		Cross--correlated subregions    &      &                    \\
+		Positions of maxima             &      &                    \\
+		Neighborhoods of maxima         &      &                    \\ \bottomrule
+	\end{tabular}
+	\caption{Summary of GPU buffers with their data types and size.}
+	\label{buftypes}
+\end{table}
+
+\subsection{Task parallelization}
+
+\Cref{overview} also shows which parts are done on CPU and which on GPU. There are 3 parts separated by data transfer between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and does not wait for the CPU.
+
+\begin{figure}[b]
+	\centering
+	\includegraphics[width=\textwidth]{img/CPUGPUparal}
+	\caption{Parallelization of GPU and CPU work.}
+	\label{pipeline}
+\end{figure}
+
+\Cref{pipeline} shows how the work can be can be parallelized using a pipeline-based design. We use 2 additional CPU threads. While the GPU processes $i$-th pattern, one CPU thread already loads pattern $i+1$ and the second thread finalizes pattern $i-1$. The CPU work still takes much less time, so it is enough to start the load of pattern $i$ once processing of pattern $i-2$ finishes (and processing $i-1$ starts). That way, we do not need queues to pass work, we just need 2 buffers: one for writing the processed/prepared data and one for reading data to process. In the next iteration, we just swap the buffers.
+
+We also partially take advantage of the fact that GPUs are able to run a kernel, copy data from and to memory at the same time. Actually, all transfers run in parallel with kernel execution. The host--device copy of input takes place right after the CPU loads the pattern from disk. Similarly, once the maxima and neighborhoods are prepared on the GPU, we start asynchronous transfer of the results and GPU starts computing the next pattern immediately. Unfortunately, this optimization does not affect performance much, since the copying between GPU and CPU memory takes only a small fraction of overall time.
+
+In the following sections, we describe the implementation details of each individual kernel.
+
 
 
 
 \section{Sum computation}
+
+
 \section{Cross--correlation}
 \subsection{Fourier transform}
 \label{fft}
