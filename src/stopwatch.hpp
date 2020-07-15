@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <array>
+#include <unordered_map>
 
 #include "common.hpp"
 
@@ -87,11 +88,21 @@ public:
 	inline static stats global_stats;
 	inline static bool global_activate;
 
+	static void write_durations()
+	{
+		for (auto& t: times_)
+		{
+			std::cerr << t.first << ": " << t.second.first / t.second.second << "ms\n";
+		}
+	}
+
 private:
 	inline static const std::string total_ = "TOTAL: ";
 	
 	std::vector<std::chrono::high_resolution_clock::time_point> start_;
 	
+	inline static std::unordered_map<std::string, std::pair<double, size_t>> times_;
+
 	std::chrono::high_resolution_clock c;
 	bool active_;
 	int bonus_indent_;
@@ -109,7 +120,10 @@ private:
 	void write_duration(const std::string & label, time_point start, time_point end, int level)
 	{
 		auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-		std::cerr << indentation_[level < 0 ? 0 : level + bonus_indent_] << label << std::to_string(dur.count() / 1000.0) << " ms" << "\n";
+		//std::cerr << indentation_[level < 0 ? 0 : level + bonus_indent_] << label << std::to_string(dur.count() / 1000.0) << " ms" << "\n";
+		times_[label].first += dur.count() / 1000.0;
+		++times_[label].second;
+
 	}
 };
 

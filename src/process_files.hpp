@@ -139,7 +139,7 @@ public:
 			{
 				OK &= load_tiff(work[i].fname, next, pic_size);
 				next += pic_size.area();
-			}sw.tick("Load tiff: ", 2);
+			}//sw.tick("Load tiff: ", 2);
 
 			if (!OK)
 				continue;
@@ -156,18 +156,18 @@ public:
 			std::swap(job, job_next);
 			offs_done = false;
 
-			sw.tick("ONE: ", 1);
+			//sw.tick("ONE: ", 1);
 		}
 		end_comp_offs = true;
 		comp_offs_thr.join();
 		finalize_thr.join();
 
 		sw.total();
-		if (a.analysis)
+		/*if (a.analysis)
 		{
 			std::cerr << "Total pics: " << stopwatch::global_stats.total_pics << "\n";
 			stopwatch::global_stats.write_histogram();
-		}
+		}*/
 	}
 
 	void compute_offsets_thread()

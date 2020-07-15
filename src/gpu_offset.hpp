@@ -90,7 +90,7 @@ public:
 		, neigh_size_(s * s * total_slices_)
 		, maxarg_one_pic_blocks_(div_up(cross_size_.area(), maxarg_block_size_))
 		, maxarg_maxes_size_(maxarg_one_pic_blocks_* total_slices_)
-		, sw(false, 2, 2)
+		, sw(true, 2, 2)
 		, s(s)
 		, r((s - 1) / 2)
 		, fft_size_{ (int)slice_size.x * 2, (int)slice_size.y * 2 }
@@ -185,6 +185,7 @@ public:
 
 	void transfer_pic_to_device_async(IN* pic)
 	{
+		sw.zero();
 		copy_to_device_async(pic, src_size_.area() * batch_size_, cu_pic_in_, in_stream);
 		sw.tick("Pic to device: ");
 	}
@@ -205,6 +206,7 @@ public:
 	//gets two pictures with size cols x rows and returns subpixel offset between them
 	void get_offset_core(size2_t * maxes_i, T * neighbors)
 	{	
+		sw.zero();
 		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, begins_->size(), batch_size_);
 
 		CUCH(cudaGetLastError());

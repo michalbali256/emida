@@ -4,6 +4,7 @@
 
 #include "process_files.hpp"
 #include "args_parser.hpp"
+#include "stopwatch.hpp"
 
 int main(int argc, char ** argv)
 {
@@ -32,5 +33,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
+	stopwatch::write_durations();
+	
 	return 0;
 }
