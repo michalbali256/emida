@@ -15,7 +15,7 @@ TEST(extract_neighbors, size_5x5)
 	double* cu_neigh;
 	cudaMalloc(&cu_neigh, 9 * sizeof(double));
 
-	std::vector<vec2<size_t>> max_i = { {3,3} };
+	std::vector<size2_t> max_i = { {3,3} };
 	auto cu_max_i = vector_to_device(max_i);
 
 	run_extract_neighbors<double>(cu_data, cu_max_i, cu_neigh, 3, { 5, 5 }, 1);
@@ -39,7 +39,7 @@ TEST(extract_neighbors, size_5x5x2)
 	size_t neigh_size = 3 * 3 * 2;
 	cudaMalloc(&cu_neigh, neigh_size * sizeof(double));
 
-	std::vector<vec2<size_t>> max_i = { {3,3}, {1,1} };
+	std::vector<size2_t> max_i = { {3,3}, {1,1} };
 	auto cu_max_i = vector_to_device(max_i);
 
 	run_extract_neighbors<double>(cu_data, cu_max_i, cu_neigh, 3, { 5, 5 }, 2);

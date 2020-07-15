@@ -11,16 +11,16 @@
 
 namespace mbas {
 template<std::size_t max>
-bool get_ints(const std::string& value, std::array<size_t, max>& result)
+bool get_ints(const std::string& value, std::array<uint32_t, max>& result)
 {
 	std::string token;
 	std::istringstream tokenStream(value);
-	size_t i = 0;
+	uint32_t i = 0;
 	while (i < max && std::getline(tokenStream, token, ','))
 	{
 		try
 		{
-			result[i] = std::stoull(token);
+			result[i] = std::stoul(token);
 		}
 		catch (...)
 		{
@@ -38,10 +38,10 @@ struct value_type<emida::range>
 {
 	static bool parse(std::string value, emida::range& result)
 	{
-		std::array<size_t, 4> ints;
+		std::array<uint32_t, 4> ints;
 		if (!get_ints(value, ints))
 			return false;
-		result = { {ints[0], ints[1]}, {ints[2], ints[3]} };
+		result = { {(emida::esize_t)ints[0], (emida::esize_t)ints[1]}, {(emida::esize_t)ints[2], (emida::esize_t)ints[3]} };
 		return true;
 	}
 };
@@ -51,10 +51,10 @@ struct value_type<emida::size2_t>
 {
 	static bool parse(std::string value, emida::size2_t& result)
 	{
-		std::array<size_t, 2> ints;
+		std::array<uint32_t, 2> ints;
 		if (!get_ints(value, ints))
 			return false;
-		result = { ints[0], ints[1] };
+		result = { (emida::esize_t)ints[0], (emida::esize_t)ints[1] };
 		return true;
 	}
 };
@@ -94,8 +94,8 @@ std::pair<size_t, std::vector<size2_t>> load_slice_begins(const std::string& fil
 		try
 		{
 			size2_t begin;
-			begin.x = std::stoull(s_x);
-			begin.y = std::stoull(s_y);
+			begin.x = std::stoul(s_x);
+			begin.y = std::stoul(s_y);
 			res.push_back(begin);
 		}
 		catch (const std::exception& e)
@@ -167,7 +167,7 @@ bool params::parse(int argc, char** argv)
 
 		auto [size, loaded] = load_slice_begins(parsed["slicepos"]->get_value<std::string>());
 		slice_mids = loaded;
-		slice_size = { size * 2, size * 2 };
+		slice_size = { (esize_t) size * 2U, (esize_t)size * 2U };
 
 		for (auto m : slice_mids)
 		{

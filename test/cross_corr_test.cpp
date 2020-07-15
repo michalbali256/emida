@@ -208,7 +208,7 @@ TEST(cross_corr, matrix_64x64)
     matrix<int> a, b, res;
     cross_corr_data_load("64", a, b, res);
 
-    vec2<size_t> size = { a.n, a.n };
+    size2_t size = { a.n, a.n };
 
     alg.prepare(a.data.data(), b.data.data(), size , (size*2) - 1, 1);
     alg.run();

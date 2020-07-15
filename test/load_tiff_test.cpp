@@ -7,7 +7,7 @@ using namespace emida;
 TEST(load_tiff, load)
 {
 	//TIFF* tif = TIFFOpen("test/res/text_5x5.tif", "r");
-	vec2<size_t> size { 873, 873 };
+	size2_t size { 873, 873 };
 	std::vector<uint16_t> raster(size.area());
 	std::string file_name = "test/res/INITIAL_x0y0.tif";
 	load_tiff(file_name, raster.data(), size);

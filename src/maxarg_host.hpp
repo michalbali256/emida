@@ -14,17 +14,17 @@ namespace emida
 template<typename T, class pos_policy = cross_res_pos_policy_id>
 class algorithm_maxarg
 {
-	size_t batch_size_, grid_size_, one_pic_blocks_;
+	esize_t batch_size_, grid_size_, one_pic_blocks_;
 	size2_t size_;
 	T* cu_data_;
 	data_index<T>* cu_maxes_;
 	size2_t* cu_res_;
 	std::vector<data_index<T>> res_;
-	constexpr static size_t block_size_ = 1024;
+	constexpr static esize_t block_size_ = 1024;
 	std::vector<size2_t> max_i_;
 public:
 	
-	void prepare(const std::vector<T>& data, size2_t size, size_t batch_size)
+	void prepare(const std::vector<T>& data, size2_t size, esize_t batch_size)
 	{
 		size_ = size;
 		batch_size_ = batch_size;

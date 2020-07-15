@@ -12,12 +12,12 @@ namespace emida
 {
 
 template<typename T>
-std::vector<typename complex_trait<T>::type> get_fft_shift(size_t N, size_t shift)
+std::vector<typename complex_trait<T>::type> get_fft_shift(esize_t N, esize_t shift)
 {
 	std::vector<typename complex_trait<T>::type> res;
 	res.resize(N);
 
-	for(size_t i = 0; i < N; ++i)
+	for(esize_t i = 0; i < N; ++i)
 		res[i] = { (T)1, (T)0 };
 	//res[i] = { (T)cos(2 * PI / N * i * shift), (T)sin(2 * PI / N * i * shift) };
 
@@ -49,12 +49,12 @@ private:
 	size2_t slice_size_;
 	size2_t cross_in_size_;
 	size2_t cross_size_;
-	size_t total_slices_;
-	size_t batch_size_;
-	size_t neigh_size_;
-	size_t maxarg_block_size_ = 1024;
-	size_t maxarg_one_pic_blocks_;
-	size_t maxarg_maxes_size_;
+	esize_t total_slices_;
+	esize_t batch_size_;
+	esize_t neigh_size_;
+	esize_t maxarg_block_size_ = 1024;
+	esize_t maxarg_one_pic_blocks_;
+	esize_t maxarg_maxes_size_;
 	int s;
 	int r;
 
@@ -77,7 +77,7 @@ public:
 		const std::vector<size2_t>* begins,
 		size2_t slice_size,
 		size2_t cross_size,
-		size_t batch_size,
+		esize_t batch_size,
 		cross_policy policy = CROSS_POLICY_BRUTE,
 		int s = 3)
 		: src_size_(src_size)
@@ -85,7 +85,7 @@ public:
 		, slice_size_(slice_size)
 		, cross_in_size_(policy == CROSS_POLICY_BRUTE ? slice_size : size2_t{slice_size.x * 2 + 2, slice_size.y * 2})
 		, cross_size_(policy == CROSS_POLICY_BRUTE ? cross_size : slice_size * 2 - 1)
-		, total_slices_(begins->size() * batch_size)
+		, total_slices_((esize_t)begins->size() * batch_size)
 		, batch_size_(batch_size)
 		, neigh_size_(s * s * total_slices_)
 		, maxarg_one_pic_blocks_(div_up(cross_size_.area(), maxarg_block_size_))
@@ -161,12 +161,12 @@ public:
 			return;
 		copy_to_device(temp, src_size_.area(), cu_temp_in_);
 
-		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, begins_->size(), 1);
+		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, (esize_t)begins_->size(), 1);
 		CUCH(cudaDeviceSynchronize());
 		
 		run_prepare_pics(cu_temp_in_, cu_temp_,
 			cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_,
-			src_size_, slice_size_, cross_in_size_, begins_->size(), 1);
+			src_size_, slice_size_, cross_in_size_, (esize_t)begins_->size(), 1);
 		CUCH(cudaDeviceSynchronize());
 
 		if (cross_policy_ == CROSS_POLICY_FFT)
@@ -196,7 +196,7 @@ public:
 		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
 		sw.tick("Pic to device: ");
 
-		std::vector<vec2<size_t>> maxes_i(total_slices_);
+		std::vector<size2_t> maxes_i(total_slices_);
 		std::vector<T> neighbors(neigh_size_);
 		get_offset_core(maxes_i.data(), neighbors.data());
 
@@ -207,21 +207,21 @@ public:
 	void get_offset_core(size2_t * maxes_i, T * neighbors)
 	{	
 		sw.zero();
-		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, begins_->size(), batch_size_);
+		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, (esize_t)begins_->size(), batch_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
 
 		run_prepare_pics(cu_pic_in_, cu_pic_,
 			cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_,
-			src_size_, slice_size_, cross_in_size_, begins_->size(), batch_size_);
+			src_size_, slice_size_, cross_in_size_, (esize_t)begins_->size(), batch_size_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
 
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 		{
-			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
+			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, (esize_t)begins_->size(), batch_size_);
 			//run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
 		}
 		else
@@ -266,7 +266,7 @@ public:
 
 		std::vector<vec2<double>> res(total_slices_);
 
-		for (size_t i = 0; i < total_slices_; ++i)
+		for (esize_t i = 0; i < total_slices_; ++i)
 		{
 			res[i].x = -((int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
 			res[i].y = -((int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
@@ -286,7 +286,7 @@ public:
 
 		run_hadamard((complex_t*)cu_pic_, (complex_t*)cu_temp_,
 			{ cross_in_size_.x / 2, cross_in_size_.y },
-			begins_->size(), batch_size_);
+			(esize_t)begins_->size(), batch_size_);
 		CUCH(cudaDeviceSynchronize()); sw.tick("Multiply: ");
 
 		

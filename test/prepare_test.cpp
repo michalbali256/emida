@@ -29,7 +29,7 @@ std::vector<double> do_prepare(std::vector<uint16_t> picture,
 	const std::vector<double>& sums,
 	size2_t pic_size,
 	size2_t slice_size,
-	size_t batch_size)
+	esize_t batch_size)
 {
 	double* cu_window_x = vector_to_device(window_x);
 	double* cu_window_y = vector_to_device(window_y);
@@ -38,7 +38,7 @@ std::vector<double> do_prepare(std::vector<uint16_t> picture,
 	size2_t* cu_begins = vector_to_device(begins);
 	double* cu_slices = cuda_malloc<double>(begins.size() * slice_size.area() * batch_size);
 
-	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, pic_size, slice_size, slice_size, begins.size(), batch_size);
+	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, pic_size, slice_size, slice_size, (esize_t)begins.size(), batch_size);
 
 
 	return device_to_vector(cu_slices, begins.size() * slice_size.area() * batch_size);
@@ -184,7 +184,7 @@ TEST(prepare, fft_no_window)
 	size2_t* cu_begins = vector_to_device(begins);
 	double* cu_slices = cuda_malloc<double>(begins.size() * slice_size.area() * 4);
 
-	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, src_size, slice_size, slice_size * 2, begins.size(), 1);
+	run_prepare_pics(cu_pic, cu_slices, cu_window_x, cu_window_y, cu_sums, cu_begins, src_size, slice_size, slice_size * 2, (esize_t)begins.size(), 1);
 
 
 	auto slices = device_to_vector(cu_slices, begins.size() * slice_size.area() * 4);
@@ -277,7 +277,7 @@ TEST(hanning, hanning_window_128x128x5)
 
 	
 
-	size_t repeat = 5;
+	esize_t repeat = 5;
 	auto pics = repeat_vector(a.data, repeat);
 	auto expected_pics = repeat_vector(expected.data, repeat);
 

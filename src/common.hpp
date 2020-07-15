@@ -18,11 +18,13 @@ inline __host__ __device__ T div_up(T a, U b)
 	return (a + b - 1) / b;
 }
 
+using esize_t = uint32_t;
+
 template <typename T>
 struct data_index
 {
 	T data;
-	size_t index;
+	esize_t index;
 };
 
 template<typename T>
@@ -104,9 +106,9 @@ struct vec2
 	}
 
 
-	__host__ __device__ __inline__ size_t pos(size_t cols) const { return y * cols + x; }
+	__host__ __device__ __inline__ esize_t pos(esize_t cols) const { return y * cols + x; }
 
-	static __host__ __device__ __inline__ vec2<T> from_id(T id, size_t width) { return { id % width, id / width }; }
+	static __host__ __device__ __inline__ vec2<T> from_id(T id, esize_t width) { return { id % width, id / width }; }
 };
 
 template<typename T>
@@ -115,7 +117,8 @@ inline bool operator==(const vec2<T> & lhs, const vec2<T> & rhs)
 	return lhs.x == rhs.x && lhs.y == rhs.y;
 }
 
-using size2_t = vec2<size_t>;
+
+using size2_t = vec2<esize_t>;
 using int2_t = vec2<int>;
 
 struct range

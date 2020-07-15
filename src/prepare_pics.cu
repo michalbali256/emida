@@ -7,12 +7,12 @@ namespace emida
 {
 
 template<typename T>
-__global__ void prepare_pics(T* __restrict pic, const T* hanning_x, const T* hanning_y, const T* sums, size2_t size, size_t batch_size)
+__global__ void prepare_pics(T* __restrict pic, const T* hanning_x, const T* hanning_y, const T* sums, size2_t size, esize_t batch_size)
 {
-	size_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
-	size_t pic_x = whole_x % size.x;
-	size_t pic_num = whole_x / size.x;
-	size_t y = blockIdx.y * blockDim.y + threadIdx.y;
+	esize_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
+	esize_t pic_x = whole_x % size.x;
+	esize_t pic_num = whole_x / size.x;
+	esize_t y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	//Problem? many threads may end up nothing if number of rows and block_size.y are in poor combination
 	if (pic_num >= batch_size || y >= size.y)
@@ -26,7 +26,7 @@ __global__ void prepare_pics(T* __restrict pic, const T* hanning_x, const T* han
 }
 
 template<typename T>
-void run_prepare_pics(T* pic, const T* hanning_x, const T* hanning_y, const T * sums, size2_t size, size_t batch_size)
+void run_prepare_pics(T* pic, const T* hanning_x, const T* hanning_y, const T * sums, size2_t size, esize_t batch_size)
 {	
 	dim3 block_size(16, 16);
 	dim3 grid_size(div_up(size.x * batch_size, block_size.x), div_up(size.y, block_size.y));
@@ -35,7 +35,7 @@ void run_prepare_pics(T* pic, const T* hanning_x, const T* hanning_y, const T * 
 
 
 template void run_prepare_pics<double>(double * pic, const double * hanning_x,
-	const double* hanning_y, const double * sums, size2_t size, size_t batch_size);
+	const double* hanning_y, const double * sums, size2_t size, esize_t batch_size);
 
 
 
@@ -50,15 +50,15 @@ __global__ void prepare_pics(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
-	size_t begins_size,
-	size_t batch_size)
+	esize_t begins_size,
+	esize_t batch_size)
 {
-	size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-	size_t slice_tid = tid % out_size.area();
-	size_t slice_num = tid / out_size.area();
+	esize_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+	esize_t slice_tid = tid % out_size.area();
+	esize_t slice_num = tid / out_size.area();
 	size2_t slice_pos = { slice_tid % out_size.x, slice_tid / out_size.x };
-	size_t begins_num = slice_num % begins_size;
-	size_t pic_num = slice_num / begins_size;
+	esize_t begins_num = slice_num % begins_size;
+	esize_t pic_num = slice_num / begins_size;
 	if (slice_num >= begins_size * batch_size)
 		return;
 
@@ -91,11 +91,11 @@ void run_prepare_pics(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
-	size_t begins_size,
-	size_t batch_size)
+	esize_t begins_size,
+	esize_t batch_size)
 {
-	size_t block_size = 1024;
-	size_t grid_size(div_up(out_size.area() * batch_size * begins_size, block_size));
+	esize_t block_size = 1024;
+	esize_t grid_size(div_up(out_size.area() * batch_size * begins_size, block_size));
 	prepare_pics<<<grid_size, block_size >>> (pic, slices, hanning_x, hanning_y, sums, begins, src_size, slice_size, out_size, begins_size, batch_size);
 }
 
@@ -109,8 +109,8 @@ template void run_prepare_pics<uint16_t, double>(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
-	size_t begins_size,
-	size_t batch_size);
+	esize_t begins_size,
+	esize_t batch_size);
 
 template void run_prepare_pics<uint16_t, float>(
 	const uint16_t* pic,
@@ -122,8 +122,8 @@ template void run_prepare_pics<uint16_t, float>(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
-	size_t begins_size,
-	size_t batch_size);
+	esize_t begins_size,
+	esize_t batch_size);
 
 
 template void run_prepare_pics<double, double>(
@@ -136,7 +136,7 @@ template void run_prepare_pics<double, double>(
 	size2_t src_size,
 	size2_t slice_size,
 	size2_t out_size,
-	size_t begins_size,
-	size_t batch_size);
+	esize_t begins_size,
+	esize_t batch_size);
 
 }

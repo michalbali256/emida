@@ -15,20 +15,20 @@ template<typename T>
 class algorithm_cross_corr
 {
 	T* cu_a_, * cu_b_, * cu_res_;
-	vec2<size_t> size_;
-	vec2<size_t> res_size_;
-	size_t  batch_size_;
+	size2_t size_;
+	size2_t res_size_;
+	esize_t  batch_size_;
 	
 	std::vector<T> res_;
 public:
 	
-	void prepare(const T * a, const T * b, vec2<size_t> size, vec2<size_t> res_size, size_t batch_size)
+	void prepare(const T * a, const T * b, size2_t size, size2_t res_size, esize_t batch_size)
 	{
 		size_ = size;
 		res_size_ = res_size;
 		batch_size_ = batch_size;
 		
-		size_t pic_size = size_.area() * batch_size;
+		esize_t pic_size = size_.area() * batch_size;
 
 
 		CUCH(cudaMalloc(&cu_a_, pic_size * sizeof(T)));

@@ -32,20 +32,20 @@ __global__ void cross_corr(
 	RES* __restrict__ res,
 	size2_t size,
 	size2_t res_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
-	size_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
-	size_t cuda_y = blockIdx.y * blockDim.y + threadIdx.y;
+	esize_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
+	esize_t cuda_y = blockIdx.y * blockDim.y + threadIdx.y;
 	
 	//number of picture that this thread computes
-	size_t slice_num = whole_x / res_size.x;
+	esize_t slice_num = whole_x / res_size.x;
 
 	if (slice_num >= ref_slices || cuda_y >= res_size.y)
 		return;
 
 	size2_t slice_pos = { whole_x % res_size.x, cuda_y };
-	size_t ref_num = slice_num % ref_slices;
+	esize_t ref_num = slice_num % ref_slices;
 	
 
 	size2_t r = (res_size - 1) / 2;
@@ -57,16 +57,16 @@ __global__ void cross_corr(
 	res += slice_num * res_size.area();
 
 	
-	for (size_t i = 0; i < batch_size; ++i)
+	for (esize_t i = 0; i < batch_size; ++i)
 	{
-		size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
-		size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+		esize_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+		esize_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
 
 		//control flow divergency in following fors??
 		RES sum = 0;
-		for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+		for (esize_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
 		{
-			for (size_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
+			for (esize_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
 			{
 				int x_shifted = x + shift.x;
 				int y_shifted = y + shift.y;
@@ -84,7 +84,7 @@ __global__ void cross_corr(
 }
 
 template<typename T, typename RES>
-void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t ref_slices, size_t batch_size)
+void run_cross_corr(const T* pic_a, const T* pic_b, RES* res, size2_t size, size2_t res_size, esize_t ref_slices, esize_t batch_size)
 {	
 	dim3 block_size(16, 16);
 	dim3 grid_size(div_up(res_size.x * ref_slices, block_size.x), div_up(res_size.y, block_size.y));
@@ -96,67 +96,67 @@ template void run_cross_corr<int, int>(
 	const int*,
 	const int*,
 	int* res,
-	vec2<size_t> size,
-	vec2<size_t> res_size,
-	size_t,
-	size_t);
+	size2_t size,
+	size2_t res_size,
+	esize_t,
+	esize_t);
 
 template void run_cross_corr<double, double>(
 	const double*,
 	const double*,
 	double* res,
-	vec2<size_t> size,
-	vec2<size_t> res_size,
-	size_t,
-	size_t);
+	size2_t size,
+	size2_t res_size,
+	esize_t,
+	esize_t);
 
 template void run_cross_corr<float, float>(
 	const float*,
 	const float*,
 	float* res,
-	vec2<size_t> size,
-	vec2<size_t> res_size,
-	size_t,
-	size_t);
+	size2_t size,
+	size2_t res_size,
+	esize_t,
+	esize_t);
 
 //*******************************************************************************************************************************************************
 
 template<int k, typename T, typename RES>
 __device__ __inline__ void compute(const T* __restrict__ pics, const T* __restrict__ ref, RES* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift)
 {
-	size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
-	size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+	esize_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+	esize_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
 
 	//control flow divergency in following fors??
 	RES sum[k];
 
 	#pragma unroll
-	for (size_t i = 0; i < k; ++i)
+	for (esize_t i = 0; i < k; ++i)
 		sum[i] = 0;
-	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+	for (esize_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
 	{
-		for (size_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
+		for (esize_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
 		{
 			int x_shifted = x + shift.x;
 			int y_shifted = y + shift.y;
 			
 			
-			for (size_t i = 0; i < k; ++i)
+			for (esize_t i = 0; i < k; ++i)
 				sum[i] += pics[y_shifted * size.x + x_shifted + i] * ref[y * size.x + x];
 		}
 	}
 
 	#pragma unroll
-	for (size_t i = 0; i < k; ++i)
+	for (esize_t i = 0; i < k; ++i)
 		res[slice_pos.y * res_size.x + slice_pos.x + i] = sum[i];
 }
 
 template<>
 __device__ __inline__ void compute<2, double, double>(const double* __restrict__ pics, const double* __restrict__ ref, double* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift)
 {
-	size_t x_start = shift.x < 0 ? -shift.x : 0;
-	size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
-	size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+	esize_t x_start = shift.x < 0 ? -shift.x : 0;
+	esize_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+	esize_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
 
 	//control flow divergency in following fors??
 	double sum[2];
@@ -167,13 +167,13 @@ __device__ __inline__ void compute<2, double, double>(const double* __restrict__
 
 	
 
-	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+	for (esize_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
 	{
 		int y_shifted = y + shift.y;
 		double cach[2];
 		cach[0] = pics[y_shifted * size.x + x_start + shift.x];
 		int x_shifted = x_start + shift.x;
-		for (size_t x = x_start; x < x_end; x+=2)
+		for (esize_t x = x_start; x < x_end; x+=2)
 		{
 			++x_shifted;
 			cach[1] = pics[y_shifted * size.x + x_shifted];
@@ -195,8 +195,8 @@ __device__ __inline__ void compute<2, double, double>(const double* __restrict__
 template<>
 __device__ __inline__ void compute<3, double, double>(const double* __restrict__ pics, const double* __restrict__ ref, double* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift)
 {
-	size_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
-	size_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+	esize_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
+	esize_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
 
 	//control flow divergency in following fors??
 	double sum[3];
@@ -206,16 +206,16 @@ __device__ __inline__ void compute<3, double, double>(const double* __restrict__
 	sum[3] = 0;
 
 
-	size_t x_start = shift.x >= 0 ? 0 : -shift.x;
+	esize_t x_start = shift.x >= 0 ? 0 : -shift.x;
 
-	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+	for (esize_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
 	{
 		int y_shifted = y + shift.y;
 		double cach[3];
 		cach[0] = pics[y_shifted * size.x + x_start + shift.x];
 		cach[1] = pics[y_shifted * size.x + x_start + shift.x + 1];
 		int x_shifted = x_start + shift.x;
-		for (size_t x = x_start; x < x_end; x += 3)
+		for (esize_t x = x_start; x < x_end; x += 3)
 		{
 			++x_shifted;
 			cach[2] = pics[y_shifted * size.x + x_shifted];
@@ -282,20 +282,20 @@ __global__ void cross_corr_r(
 	RES* __restrict__ res,
 	size2_t size,
 	size2_t res_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
-	size_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
-	size_t cuda_y = blockIdx.y * blockDim.y + threadIdx.y;
+	esize_t whole_x = blockIdx.x * blockDim.x + threadIdx.x;
+	esize_t cuda_y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	//number of picture that this thread computes
-	size_t slice_num = whole_x / res_size.x;
+	esize_t slice_num = whole_x / res_size.x;
 
 	if (slice_num >= ref_slices || cuda_y >= res_size.y)
 		return;
 
 	size2_t slice_pos = { (whole_x % div_up(res_size.x, k))*k, cuda_y };
-	size_t ref_num = slice_num % ref_slices;
+	esize_t ref_num = slice_num % ref_slices;
 
 	
 
@@ -309,7 +309,7 @@ __global__ void cross_corr_r(
 
 	
 
-	for (size_t i = 0; i < batch_size; ++i)
+	for (esize_t i = 0; i < batch_size; ++i)
 	{
 		//printf("[%d %d] %d %d\n", (int)slice_pos.x, (int)slice_pos.y, k, (int)res_size.x);
 		if ((int)slice_pos.x + k > (int)res_size.x)
@@ -323,7 +323,7 @@ __global__ void cross_corr_r(
 }
 
 template<typename T, typename RES>
-void run_cross_corr_r(const T* pic_a, const T* pic_b, RES* res, vec2<size_t> size, vec2<size_t> res_size, size_t ref_slices, size_t batch_size)
+void run_cross_corr_r(const T* pic_a, const T* pic_b, RES* res, size2_t size, size2_t res_size, esize_t ref_slices, esize_t batch_size)
 {
 	constexpr int k = 2;
 	dim3 block_size(16, 16);
@@ -335,27 +335,27 @@ template void run_cross_corr_r<double, double>(
 	const double*,
 	const double*,
 	double* res,
-	vec2<size_t> size,
-	vec2<size_t> res_size,
-	size_t,
-	size_t);
+	size2_t size,
+	size2_t res_size,
+	esize_t,
+	esize_t);
 
 template void run_cross_corr_r<float, float>(
 	const float*,
 	const float*,
 	float* res,
-	vec2<size_t> size,
-	vec2<size_t> res_size,
-	size_t,
-	size_t);
+	size2_t size,
+	size2_t res_size,
+	esize_t,
+	esize_t);
 
 
 //*******************************************************************************************************************************************************
 template<typename T>
 __device__ __inline__ void copy_subregion(const T * __restrict__ src, size2_t src_size, T* __restrict__ dest, size2_t dest_size, size2_t region_pos)
 {
-	for (size_t y = threadIdx.y; y < dest_size.y; y += blockDim.y)
-		for (size_t x = threadIdx.x; x < dest_size.x; x += blockDim.x)
+	for (esize_t y = threadIdx.y; y < dest_size.y; y += blockDim.y)
+		for (esize_t x = threadIdx.x; x < dest_size.x; x += blockDim.x)
 		{
 			dest[y * dest_size.x + x] = x + region_pos.x < src_size.x && y + region_pos.y < src_size.y
 				? src[(y + region_pos.y) * src_size.x + (x + region_pos.x)]
@@ -370,16 +370,16 @@ __global__ void cross_corr_nopt(
 	RES* __restrict__ res,
 	size2_t size,
 	size2_t res_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
 	size2_t reg_size = { (blockDim.x + 1) / 2, (blockDim.y + 1) / 2 };
 
-	size_t block_grid_width = div_up(size.x, reg_size.x);
+	esize_t block_grid_width = div_up(size.x, reg_size.x);
 	
-	size_t one_slice_blocks = gridDim.x / ref_slices;
-	size_t slice_num = blockIdx.x / one_slice_blocks;
-	size_t block_idx_x = blockIdx.x % one_slice_blocks;
+	esize_t one_slice_blocks = gridDim.x / ref_slices;
+	esize_t slice_num = blockIdx.x / one_slice_blocks;
+	esize_t block_idx_x = blockIdx.x % one_slice_blocks;
 
 	size2_t pic_block_pos = size2_t::from_id(block_idx_x, block_grid_width) * reg_size;
 	size2_t ref_block_pos = size2_t::from_id(blockIdx.y, block_grid_width) * reg_size;
@@ -406,17 +406,17 @@ __global__ void cross_corr_nopt(
 	/*if (threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 2 && blockIdx.y == 0)
 	{
 		printf("bb %d %d\n", (int)pic_block_pos.x, (int)pic_block_pos.y);
-		for (size_t i = 0; i < reg_size.y; ++i)
+		for (esize_t i = 0; i < reg_size.y; ++i)
 		{
-			for (size_t j = 0; j < reg_size.x; j++)
+			for (esize_t j = 0; j < reg_size.x; j++)
 			{
 				printf("%f ", pic_reg[i * reg_size.x + j]);
 			}
 			printf("\n");
 		}
-		for (size_t i = 0; i < reg_size.y; ++i)
+		for (esize_t i = 0; i < reg_size.y; ++i)
 		{
-			for (size_t j = 0; j < reg_size.x; j++)
+			for (esize_t j = 0; j < reg_size.x; j++)
 			{
 				printf("%f ", ref_reg[i * reg_size.x + j]);
 			}
@@ -436,14 +436,14 @@ __global__ void cross_corr_nopt(
 	RES* res_ptr = res + (res_pos).pos(res_size.x);
 
 
-	size_t x_end = shift.x < 0 ? reg_size.x : reg_size.x - shift.x;
-	size_t y_end = shift.y < 0 ? reg_size.y : reg_size.y - shift.y;
+	esize_t x_end = shift.x < 0 ? reg_size.x : reg_size.x - shift.x;
+	esize_t y_end = shift.y < 0 ? reg_size.y : reg_size.y - shift.y;
 
 	//control flow divergency in following fors??
 	RES sum = 0;
-	for (size_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+	for (esize_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
 	{
-		for (size_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
+		for (esize_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
 		{
 			int x_shifted = x + shift.x;
 			int y_shifted = y + shift.y;
@@ -473,12 +473,12 @@ void run_cross_corr_nopt(
 	size2_t size,
 	size2_t res_size,
 	size2_t block_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
 	dim3 block_dim(block_size.x, block_size.y);
 	size2_t in_block_size = (block_size + 1) / 2;
-	size_t blocks = div_up(size.x, in_block_size.x) * div_up(size.y, in_block_size.y);
+	esize_t blocks = div_up(size.x, in_block_size.x) * div_up(size.y, in_block_size.y);
 	dim3 grid_size(blocks * ref_slices, blocks);
 	cross_corr_nopt<T, RES> <<<grid_size, block_dim, 2 * in_block_size.area() * sizeof(T) >>> (pics, ref, res, size, res_size, ref_slices, batch_size);
 }
@@ -490,8 +490,8 @@ template void run_cross_corr_nopt<double, double>(
 	size2_t size,
 	size2_t res_size,
 	size2_t block_size,
-	size_t,
-	size_t);
+	esize_t,
+	esize_t);
 
 template void run_cross_corr_nopt<float, float>(
 	const float*,
@@ -500,8 +500,8 @@ template void run_cross_corr_nopt<float, float>(
 	size2_t size,
 	size2_t res_size,
 	size2_t block_size,
-	size_t,
-	size_t);
+	esize_t,
+	esize_t);
 
 
 //*******************************************************************************************************************************************************
@@ -514,11 +514,11 @@ __global__ void cross_corr_opt(
 	RES* __restrict__ res,
 	int2_t size,
 	int2_t res_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
-	size_t slice_num = blockIdx.x / res_size.y;
-	size_t res_y = blockIdx.x % res_size.y;
+	esize_t slice_num = blockIdx.x / res_size.y;
+	esize_t res_y = blockIdx.x % res_size.y;
 
 	ref += slice_num * size.area();
 	pics += slice_num * size.area();
@@ -596,12 +596,12 @@ void run_cross_corr_opt(
 	RES* res,
 	size2_t size,
 	size2_t res_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
-	size_t block_dim = 256;
-	size_t grid_size = res_size.y * ref_slices;
-	size_t shared_mem_size = res_size.x * sizeof(T) * 2;
+	esize_t block_dim = 256;
+	esize_t grid_size = res_size.y * ref_slices;
+	esize_t shared_mem_size = res_size.x * sizeof(T) * 2;
 	cross_corr_opt<T, RES> <<<grid_size, block_dim, shared_mem_size >>> (pics, ref, res, { (int)size.x, (int)size.y }, { (int)res_size.x, (int)res_size.y }, ref_slices, batch_size);
 }
 
@@ -611,8 +611,8 @@ template void run_cross_corr_opt<double, double>(
 	double* res,
 	size2_t size,
 	size2_t res_size,
-	size_t,
-	size_t);
+	esize_t,
+	esize_t);
 
 template void run_cross_corr_opt<float, float>(
 	const float*,
@@ -620,15 +620,15 @@ template void run_cross_corr_opt<float, float>(
 	float* res,
 	size2_t size,
 	size2_t res_size,
-	size_t,
-	size_t);
+	esize_t,
+	esize_t);
 
 
 
 
 
 //*******************************************************************************************************************************************************
-constexpr int stripe_size_tr = 32;
+constexpr int stripe_esize_tr = 32;
 
 template<typename T, typename RES>
 __global__ void cross_corr_opt_tr(
@@ -637,11 +637,11 @@ __global__ void cross_corr_opt_tr(
 	RES* __restrict__ res,
 	int2_t size,
 	int2_t res_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
-	size_t slice_num = blockIdx.x / res_size.x;
-	size_t res_x = blockIdx.x % res_size.x;
+	esize_t slice_num = blockIdx.x / res_size.x;
+	esize_t res_x = blockIdx.x % res_size.x;
 
 	ref += slice_num * size.area();
 	pics += slice_num * size.area();
@@ -666,20 +666,20 @@ __global__ void cross_corr_opt_tr(
 
 	int warp_idx = threadIdx.x / warpSize;
 	int lane_idx = threadIdx.x % warpSize;
-	int team_size = warpSize / stripe_size_tr;
+	int team_size = warpSize / stripe_esize_tr;
 	int team_idx = lane_idx / team_size;
-	int team_lane = lane_idx % team_size;
+	//int team_lane = lane_idx % team_size;
 
 	constexpr int k = 1;
 	//T sums[30];
-	for (int s = 0; s < size.x - abs(x_shift); s += stripe_size_tr)
+	for (int s = 0; s < size.x - abs(x_shift); s += stripe_esize_tr)
 	{
 
 		for (int y_shift = -res_r.y + warp_idx*k; y_shift <= res_r.y; y_shift += blockDim.x / warpSize * k)
 		{
 			
 			T sum[k];
-			T cach[k];
+			//T cach[k];
 			#pragma unroll
 			for (int i = 0; i < k; ++i)
 				sum[i] = 0;
@@ -756,12 +756,12 @@ void run_cross_corr_opt_tr(
 	RES* res,
 	size2_t size,
 	size2_t res_size,
-	size_t ref_slices,
-	size_t batch_size)
+	esize_t ref_slices,
+	esize_t batch_size)
 {
-	size_t block_dim = 256;
-	size_t grid_size = res_size.y * ref_slices;
-	size_t shared_mem_size = res_size.x * sizeof(T) * 2;
+	esize_t block_dim = 256;
+	esize_t grid_size = res_size.y * ref_slices;
+	esize_t shared_mem_size = res_size.x * sizeof(T) * 2;
 	cross_corr_opt_tr<T, RES> << <grid_size, block_dim, shared_mem_size >> > (pics, ref, res, { (int)size.x, (int)size.y }, { (int)res_size.x, (int)res_size.y }, ref_slices, batch_size);
 }
 
@@ -771,8 +771,8 @@ template void run_cross_corr_opt_tr<double, double>(
 	double* res,
 	size2_t size,
 	size2_t res_size,
-	size_t,
-	size_t);
+	esize_t,
+	esize_t);
 
 template void run_cross_corr_opt_tr<float, float>(
 	const float*,
@@ -780,7 +780,7 @@ template void run_cross_corr_opt_tr<float, float>(
 	float* res,
 	size2_t size,
 	size2_t res_size,
-	size_t,
-	size_t);
+	esize_t,
+	esize_t);
 
 }

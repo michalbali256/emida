@@ -12,8 +12,8 @@ TEST(get_offset, bigger)
 	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
 	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
 
-	vec2<size_t> src_size{ pic.n, pic.n };
-	vec2<size_t> size{ 64, 64 };
+	size2_t src_size{ pic.n, pic.n };
+	size2_t size{ 64, 64 };
 
 	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
 	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
@@ -39,8 +39,8 @@ TEST_P(get_offset_fixture, size_)
 	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
 	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
 
-	vec2<size_t> src_size{ pic.n, pic.n };
-	vec2<size_t> size{ 64, 64 };
+	size2_t src_size{ pic.n, pic.n };
+	size2_t size{ 64, 64 };
 
 	auto a = get_submatrix<double, double>(pic.data.data(), src_size, { 0, 0 }, size);
 	auto b = get_submatrix<double, double>(temp.data.data(), src_size, { 0, 0 }, size);
@@ -90,7 +90,7 @@ struct stringer
 struct get_offset_batched_param
 {
 	cross_policy policy;
-	size_t batch_size;
+	esize_t batch_size;
 };
 
 class get_offset_batched : public ::testing::TestWithParam<get_offset_batched_param> {
@@ -123,13 +123,13 @@ TEST_P(get_offset_batched, batched)
 
 	matrix<double> pic_file = matrix<double>::from_file("test/res/data_pic.txt");
 	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt");
-	vec2<size_t> src_size{ pic_file.n, pic_file.n };
+	size2_t src_size{ pic_file.n, pic_file.n };
 
 	std::vector<double> pic = repeat_vector(pic_file.data, param.batch_size);
 	
-	vec2<size_t> size{ 64, 64 };
-	vec2<size_t> step{ 32, 32 };
-	size_t batch_size = get_sliced_batch_size(src_size, size, step);
+	size2_t size{ 64, 64 };
+	size2_t step{ 32, 32 };
+	esize_t batch_size = get_sliced_batch_size(src_size, size, step);
 
 	auto begins = get_slice_begins(src_size, size, step);
 
@@ -263,10 +263,10 @@ void bbb(int repeat)
 	matrix<double> pic = matrix<double>::from_file("test/res/data_pic.txt");
 	matrix<double> temp = matrix<double>::from_file("test/res/data_temp.txt"); //TICK("From file: ");
 
-	vec2<size_t> src_size{ pic.n, pic.n };
-	vec2<size_t> size{ 64, 64 };
-	vec2<size_t> step{ 32, 32 };
-	size_t batch_size = get_sliced_batch_size(src_size, size, step);
+	size2_t src_size{ pic.n, pic.n };
+	size2_t size{ 64, 64 };
+	size2_t step{ 32, 32 };
+	esize_t batch_size = get_sliced_batch_size(src_size, size, step);
 
 	auto a = slice_picture(pic.data.data(), src_size, size, step);
 	auto b = slice_picture(temp.data.data(), src_size, size, step); //TICK("Slice: ");

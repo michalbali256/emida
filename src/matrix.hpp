@@ -4,13 +4,15 @@
 #include <vector>
 #include <stdexcept>
 
+#include "common.hpp"
+
 namespace emida
 {
 template<typename T>
 class matrix
 {
 public:
-	size_t n;
+	esize_t n;
 	std::vector<T> data;
 
 	static matrix<T> from_file(std::string file_name)

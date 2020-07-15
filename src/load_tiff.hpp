@@ -10,7 +10,7 @@
 namespace emida
 {
 
-inline bool load_tiff(const std::string & file_name, uint16_t * raster, vec2<size_t> size)
+inline bool load_tiff(const std::string & file_name, uint16_t * raster, size2_t size)
 {
 	TIFF* tif = TIFFOpen(file_name.c_str(), "r");
 	if (!tif)

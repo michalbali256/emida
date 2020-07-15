@@ -42,13 +42,13 @@ std::vector<T> cross_corr_serial(const T* pics, const T* refs, size2_t pic_size,
 			for (int y_shift = -(int)res_r.y; y_shift <= (int)res_r.y; ++y_shift)
 			{
 				T sum = 0;
-				for (int y = 0; y < pic_size.y; ++y)
+				for (int y = 0; y < (int)pic_size.y; ++y)
 				{
-					for (int x = 0; x < pic_size.x; ++x)
+					for (int x = 0; x < (int)pic_size.x; ++x)
 					{
 						int x_shifted = x + x_shift;
 						int y_shifted = y + y_shift;
-						if (x_shifted >= 0 && x_shifted < pic_size.x && y_shifted >= 0 && y_shifted < pic_size.y)
+						if (x_shifted >= 0 && x_shifted < (int)pic_size.x && y_shifted >= 0 && y_shifted < (int)pic_size.y)
 							sum += pics[idx(pic_size.x, x_shifted, y_shifted)] * refs[idx(pic_size.x, x, y)];
 					}
 				}

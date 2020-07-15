@@ -223,7 +223,7 @@ struct corr_param
     size2_t size;
     size2_t res_size;
     size2_t block_size;
-    size_t slices;
+    esize_t slices;
     std::string name;
 };
 
@@ -268,11 +268,11 @@ TEST_P(cross_corr_test, size_)
 {
     double val = 1;
     std::vector<double> a(GetParam().size.area() * GetParam().slices);
-    for (size_t i = 0; i < a.size(); ++i)
+    for (esize_t i = 0; i < a.size(); ++i)
         a[i] = val++;
     
     std::vector<double> b(GetParam().size.area() * GetParam().slices);
-    for (size_t i = 0; i < b.size(); ++i)
+    for (esize_t i = 0; i < b.size(); ++i)
         b[i] = val++;
 
     std::vector<double> expected = cross_corr_serial(a.data(), b.data(), GetParam().size, GetParam().res_size, GetParam().slices);
