@@ -40,7 +40,11 @@
 \usepackage{todonotes}
 \usepackage{cleveref}
 \usepackage{subcaption}
+\usepackage{multirow}
 \usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage[style=numeric,backend=bibtex8]{biblatex}
+\addbibresource{bibliography.bib}
+\usepackage{mathtools}
 %%% Basic information on the thesis
 
 
@@ -114,7 +118,8 @@ Abstract.
 \include{epilog}
 
 %%% Bibliography
-\include{bibliography}
+%\include{bibliography}
+\printbibliography
 
 %%% Figures used in the thesis (consider if this is needed)
 \listoffigures

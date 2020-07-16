@@ -357,3 +357,4 @@ MigrationBackup/
 .vscode
 *.bbl
 *.blg
+thesis/thesis-blx.bib

@@ -50,33 +50,48 @@ The last part of the algorithm fits a continuous quadratic function to the neigh
 
 The decomposition into kernels is mostly determined by the need of global barriers. Both finding of sum and argmax use parallel reduction, which has to fully finish before any of its results are complete. The kernel that extracts the subregions from the pattern is necessary, to simplify the cross--correlation and allow usage of third party libraries (see \cref{fft}, where the implementation of cross--correlation is explained).
 
-To illustrate the data flow better and reason about it, \cref{buftypes} shows all buffers used on GPU.
-
+To illustrate the data flow better and reason about it, \cref{params} summarizes parameters of the algorithm and \cref{buftypes} shows all buffers used on GPU with their sizes. The kernels that compute sums and normalize the subregions both work with $W_r \cdot H_r \cdot S$ items (i.e. all subregions). The cross--correlation has nearly four times as big output, which is then processed by the arg max kernel. After the maximum reduction, the buffers that are transferred to the CPU memory are quite small.
 
 % Please add the following required packages to your document preamble:
 % \usepackage{booktabs}
 \begin{table}[]
 	\centering
-	\begin{tabular}{@{}lll@{}} \toprule
-		Buffer                          & Type & Number of elements \\ \midrule
-		Input picture                   &      &                    \\
-		Sums of subregions              &      &                    \\
-		Specification of subregions     &      &                    \\
-		Normalized deformed subregions  &      &                    \\
-		Normalized reference subregions &      &                    \\
-		Cross--correlated subregions    &      &                    \\
-		Positions of maxima             &      &                    \\
-		Neighborhoods of maxima         &      &                    \\ \bottomrule
+	\begin{tabular}{@{}llr@{}}
+		\toprule
+		Parameter                  & Label            &    Typical value \\ \midrule
+		Size of input pattern      & $W_p \times H_h$ & $900 \times 900$ \\
+		Number of subregions       & $S$              &               50 \\
+		Size of a subregion        & $W_r \times H_r$ & $100 \times 100$ \\
+		Diameter of a neighborhood & $F$              &                5 \\ \bottomrule
+	\end{tabular}
+	\caption{Summary of algorithm parameters with example values that show their order of magnitude.}
+	\label{params}
+\end{table}
+
+\begin{table}[]
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		Buffer                          & Type         & Number of elements             \\ \midrule
+		Input picture                   & uint16       & $W_p \cdot H_p$                \\
+		Sums of subregions              & uint32       & $S$                            \\
+		Specification of subregions     & uint32 pair  & $S$                            \\
+		Normalized deformed subregions  & float/double & $W_r \cdot H_r \cdot S$        \\
+		Normalized reference subregions & float/double & $W_r \cdot H_r \cdot S$        \\
+		Cross--correlated subregions    & float/double & $(2W_r-1)\cdot(2H_r-1)\cdot S$ \\
+		Positions of maxima             & uint32 pair  & $S$                            \\
+		Neighborhoods of maxima         & float/double & $F^2 \cdot S $                 \\ \bottomrule
 	\end{tabular}
 	\caption{Summary of GPU buffers with their data types and size.}
 	\label{buftypes}
 \end{table}
 
+buffer data types
+
 \subsection{Task parallelization}
 
-\Cref{overview} also shows which parts are done on CPU and which on GPU. There are 3 parts separated by data transfer between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and does not wait for the CPU.
+Since some parts of the algorithm are done on CPU and some on GPU (see color distinction in \cref{overview}), it is possible to parallelize them. There are 3 parts separated by data transfer between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and never waits for the CPU.
 
-\begin{figure}[b]
+\begin{figure}
 	\centering
 	\includegraphics[width=\textwidth]{img/CPUGPUparal}
 	\caption{Parallelization of GPU and CPU work.}
@@ -93,6 +108,24 @@ In the following sections, we describe the implementation details of each indivi
 
 
 \section{Sum computation}
+
+Computation of sum is a textbook example of parallel reduction. \cite{parallelReduction} explains how to implement it on modern GPUs. Since it is very expensive to communicate between arbitrary threads during computation, the reduction is separated into two steps: first, we reduce the data within each block individually and only then we synchronize single value for each block.
+
+The major difference for our case is that we compute a sum for each subregion, instead of computing a sum for the whole input data. The problem is that we cannot load values of two different subregions into one block. We solve this by assigning whole blocks to the subregions rather than just assigning threads to pixels. Let $B$ and $P$ denote one block size and total number of pixels in one subregion, respectively. Then we use a group of $S_1~=~\ceil{\frac{P}{B}}$ blocks for reduction of each subregion. Inside each block, we assign one thread per pixel in row-major order, so adjacent threads access adjacent data. It also means that the last block in each group is not fully utilized, because there is no more pixels in the subregion.
+
+Once each thread loads its data, it is possible to reduce them fast within each block. We use warp--level shuffle instructions, which allows the threads in one warp to exchange data in registers. \Cref{warp_reduce} shows how it is possible to get sum of values in 8 threads. It can be expanded to size of warp, i.e. 32 threads. To reduce the whole block, we use the warp reduction in two steps. First, we perform the reduction within each warp and save the values into shared memory. Maximum number of threads in one block is 1024 in CUDA and warp size is 32 so we get at most $1024/32 = 32$ values. That means one warp is enough to reduce them into one resulting value.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\textwidth]{img/warp_reduce}
+	\caption{An example of warp--level reduction for 8 threads \cite{parallelReduction}. \emph{warpId} is a number of thread within its warp.}
+	\label{warp_reduce}
+\end{figure}
+
+After reduction within each block, we need to update the resulting values in global memory, which requires more blocks working with the same value, possibly in parallel. On modern hardware, we solve such situations with atomic operations --- in our case of computing the sums it is \emph{atomic add}. The solution is feasible for us, since it is safe to assume that not many blocks access the same value. The typical size of one subregion is $100 \times 100$ which is the total of 10000 pixels. If we set the block size to 1024 (there is no reason not to use the maximal possible value --- no register or shared memory pressure), then only 10 blocks compute the sum of one subregion.
+
+It is possible to further optimize the described technique by increasing the number of values each thread loads before the reduction begins. The problem is that half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread which does the actual sum. So instead of loading only one value, each thread loads $N$ values and all the threads are utilized in the first part of the algorithm. It also means that we need $N$ times less blocks which may cause that for too high $N$, there will not be enough blocks to utilize the GPU. We measure the impact of the parameter in section ??.
+
 
 
 \section{Cross--correlation}
