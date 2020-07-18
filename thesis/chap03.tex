@@ -25,6 +25,7 @@ The processing of each subregion is done in several steps:
 	\item Find the position of the maximum (argmax) in the cross--correlation
 	\item Use the neighborhood of the maximum to ``interpolate'' and find the most probable offset of the subregion with subpixel accuracy
 \end{enumerate}
+That summarizes the algorithm and in the next section we describe its implementation.
 
 
 \section{Implementation overview}
@@ -129,6 +130,90 @@ It is possible to further optimize the described technique by increasing the num
 
 
 \section{Cross--correlation}
+Cross--correlation is the core of the algorithm implemented in this thesis and it is also the most computationally expensive part. We first describe a naive algorithm designed directly from the definition. Then we explain another implementation that uses discrete Fourier transform. The reason why we implement two versions is, that although the Fourier transform based implementation has better asymptotic complexity, the subregions may not be big enough to reflect it.
+
+The input for cross--correlation are two images, in our case it is a deformed and a reference subregion. More precisely, there are several pairs of subregions, but since they are completely independent, we explain the algorithm for one pair only. With respect to the definition in \cref{cross-corr-def}, we cross--correlate the reference with deformed subregion, i.e. $reference \star deformed$, not the other way around. Also, both subregions are of the same size, which simplifies some aspects of the algorithm.
+
+A serial algorithm for cross--correlation is shown in algorithm \ref{crossAlgo}. It is directly based on the definition. It iterates over all possible shifts between the images (subregions), i.e. $\forall [shiftX, shiftY] \in (-W_s, W_s) \times (-H_s, H_s)$. Shifts that are further from zero than width (height) of the picture are always zero, since the second subregion is shifted so far that they do not overlap at all. For each of the shifts $[shiftX, shiftY]$, we sum over the products of pixels that overlap when we shift the deformed subregion by shiftX pixels horizontally and by shiftY vertically.
+
+
+
+\begin{algorithm}
+	\caption{Serial algorithm that computes cross--correlation.}
+	\label{crossAlgo}
+	\KwIn{reference: an array of pixels of a reference subregion \newline
+		  deformed: an array of pixels of a deformed subregion \newline
+	      $W_s, H_s$: size of both subregions}
+	\KwOut{result: cross--correlation between reference and deformed subregions}
+	\vspace{5px}
+	
+	\For{$\text{shiftX} \in (-W_s, W_s)$}{
+		\For{$\text{shiftY} \in (-H_s, H_s)$}{
+			sum = 0\;
+			\For{$x \in [0, W_s)$}{
+				\For{$y \in [0, H_s)$}{
+					shiftedX = x + shiftX\;
+					shiftedY = y + shiftY\;
+					\If{$\text{shiftedX} \in [0,W_s]$ \textbf{and} $\text{shiftedY} \in [0,H_s]$}{
+						sum += reference[x,y] * \newline deformed[shiftedX, shiftedY]\;
+					}
+				}
+			}
+			result[shiftX, shiftY] = sum\;
+		}
+	}
+\end{algorithm}
+
+\begin{algorithm}
+	\caption{Pseudocode of CUDA kernel that computes cross--correlation.}
+	\label{crossKernel}
+	
+	shiftX = threadId.x\;
+	shiftY = threadId.y\;
+	intervalX = $\text{shiftX} < 0$ ? $[-\text{shiftX}, W_s]$ : $[0, W_s - \text{shiftX}]$\;
+	intervalY = $\text{shiftY} < 0$ ? $[-\text{shiftY}, H_s]$ : $[0, H_s - \text{shiftY}]$\;
+		
+	sum = 0\;
+	\For{$x \in [0, \text{intervalX})$}{
+		\For{$y \in [0, \text{intervalY})$}{
+			shiftedX = x + shiftX\;
+			shiftedY = y + shiftY\;
+			sum += reference[x,y] * deformed[shiftedX, shiftedY]\;
+		}
+	}
+	result[shiftX, shiftY] = sum\;
+
+\end{algorithm}
+
+The inner two loops of the algorithm iterate through all pixels of the reference image. However that is not necessary for all shifts, since for most of them only smaller parts of the images overlap (the only shift that requires iteration through all points is $[0,0]$). The if statement then filters out the pixels that do not overlap for specific shift. For performance reasons, we can get rid of the if statement, if we rewrite the two inner loops to always stay within the boundaries of the images.
+
+We will reason only about $shiftX$, since the same argumentation applies to $shiftY$. So we are asking the following question: for which $x \in [0, W_s)$, it holds that $(x + shiftX) \in [0, W_s)$, if $shiftX \in (-W_s, W_s)$? We divide $shiftX$ into negative and nonnegative values:
+\begin{itemize}
+	\item $\forall shiftX \in (-W_s, 0): (x + shiftX) \in [0, W_s) \iff x \in [-shiftX, W_s]$
+	\item $\forall shiftX \in [0, W_s): (x + shiftX) \in [0, W_s) \iff x \in [0, W_s - shiftX]$
+\end{itemize}
+This gives us an interval through which we iterate $x$ in the inner loops for each \IT{shiftX}. Similar modification applies for the y loop based on \IT{shiftY} as well.
+
+The modified algorithm written as a CUDA kernel is listed in algorithm~\ref{crossKernel}. We implemented the algorithm for CUDA by parallelizing over the outer two loops. That means each thread computes one shift and thus one value of the result. It uses two--dimensional blocks, so we can just use the two indices as \IT{shiftX} and \IT{shiftY}. For computing more subregions at a time, we simply use more threads.
+
+The described algorithm has asymptotic time complexity $\mathcal{O}(W_s^2H_s^2)$. In the following section, we describe a way to compute two--dimensional cross--correlation in $\mathcal{O}(W_sH_s\log_2(W_sH_s))$ using Fourier transform.
+
 \subsection{Fourier transform}
 \label{fft}
+definition of discrete fourier transform
+
+The discrete Fourier transform \cite{proakis2004digital}
+\[
+X_k = \sum_{n=0}^{N-1} x_n \cdot e^{-\frac{i2\pi}{N}kn}
+\]
+
+
+cross correlation can be computed using FT
+
+FFT - fast way to compute FT
+
+FFT computes cyclic FT - considers the points a part of periodic fuanciton
+\section{Arg max}
+
+
 \section{Least squares implementation}
