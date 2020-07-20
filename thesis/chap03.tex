@@ -130,7 +130,7 @@ It is possible to further optimize the described technique by increasing the num
 
 
 \section{Cross--correlation}
-Cross--correlation is the core of the algorithm implemented in this thesis and it is also the most computationally expensive part. We first describe a naive algorithm designed directly from the definition. Then we explain another implementation that uses discrete Fourier transform. The reason why we implement two versions is, that although the Fourier transform based implementation has better asymptotic complexity, the subregions may not be big enough to reflect it.
+Cross--correlation is the core of the algorithm implemented in this thesis and it is also the most computationally expensive part. We first describe a naive algorithm designed directly from the definition. Then we explain another implementation that uses discrete Fourier transform. The reason why we implement two versions is that although the Fourier transform based implementation has better asymptotic complexity, the subregions may not be big enough to reflect it.
 
 The input for cross--correlation are two images, in our case it is a deformed and a reference subregion. More precisely, there are several pairs of subregions, but since they are completely independent, we explain the algorithm for one pair only. With respect to the definition in \cref{cross-corr-def}, we cross--correlate the reference with deformed subregion, i.e. $reference \star deformed$, not the other way around. Also, both subregions are of the same size, which simplifies some aspects of the algorithm.
 
@@ -198,21 +198,40 @@ The modified algorithm written as a CUDA kernel is listed in algorithm~\ref{cros
 
 The described algorithm has asymptotic time complexity $\mathcal{O}(W_s^2H_s^2)$. In the following section, we describe a way to compute two--dimensional cross--correlation in $\mathcal{O}(W_sH_s\log_2(W_sH_s))$ using Fourier transform.
 
-\subsection{Fourier transform}
+\subsection{Discrete Fourier transform}
 \label{fft}
-definition of discrete fourier transform
 
-The discrete Fourier transform \cite{proakis2004digital}
+We first define \emph{circular cross--correlation}, which is a way to cross--correlate periodic functions. Then, we define \emph{discrete Fourier transform} and show how it is used to compute circular cross-correlation. Finally we show how to get the cross--correlation we need in the implementation. All is described for one--dimensional case only, since two--dimensional would be analogous.
+
+Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$ and $\{y_n\} = y_0, y_1, \dots , y_{N-1}$ be series of complex numbers. Then their circular cross--correlation is another series of $N$ numbers defined by the formula
 \[
-X_k = \sum_{n=0}^{N-1} x_n \cdot e^{-\frac{i2\pi}{N}kn}
+\{\mathbf{x} \star \mathbf{y}\}_n = \sum_{l=0}^{N-1}x^\star_ly_{(n+l)\bmod N}
 \]
 
+%We can see that the definition is very similar to cross--correlation of two functions (see \cref{cross-corr-def}), except here we do.
 
-cross correlation can be computed using FT
+Circular cross--correlation can be interpreted as a cross--correlation of two periodic functions. For any periodic function with period $N$, we only need $N$ consecutive values to represent, since the rest of the function repeats the same values. At the same time, given two periodic discrete functions $f, g : \mathbb{Z} \rightarrow \mathbb{C}$ with period $N$, their cross--correlation $f \star g$ is also periodic with the same period. So if we interpret the series in the definition of circular cross--correlation of as periodic functions, then the resulting series represents (non-circular) cross--correlation of the functions.
 
-FFT - fast way to compute FT
+The circular cross--correlation can be quickly computed by using the discrete Fourier transform.
 
-FFT computes cyclic FT - considers the points a part of periodic fuanciton
+The discrete \emph{Fourier transform} is a function $\mathcal{F}: \mathbb{C}^N \times \mathbb{C}^N$ that transforms a series of $N \in \mathbb{N}$ complex numbers $\{x_n\} = x_0, x_1, \dots , x_{N-1}$ into another $N$ complex numbers $\{X_n\} = X_0, X_1, \dots , X_{N-1}$, which are defined as follows:
+\[
+X_k = \sum_{n=0}^{N-1} x_n \cdot e^{-\frac{i2\pi}{N}kn}.
+\]
+The Fourier transform is invertible, so if $\mathcal{F}(\mathbf{x}) = \mathbf{X}$, then $\mathcal{F}^{-1}(\mathbf{X}) = \mathbf{x}$.
+
+Fourier transform has a broad range of practical applications --- it is used for example in digital signal processing, solving partial differential equations or big numbers multiplication. It can be used to quickly compute the circular cross--correlation using the following theorem \cite{proakis2004digital}.
+
+Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$, $\{y_n\} = y_0, y_1, \dots , y_{N-1}$ be series of complex numbers and let $\{X_n\}$, $\{Y_n\}$ be their Fourier transforms. Then, we can compute \emph{circular cross--correlation} like so: 
+\[
+\mathcal{F}^{-1}\{X^\star \cdot Y\}_n = \sum_{l=0}^{N-1}x^\star_ly_{(n+l)\mod N},
+\]
+where $\cdot^\star$ denotes the complex conjugate and $\cdot$ denotes element by element multiplication.
+
+In other words, in order to compute circular cross--correlation of two series $\{x_n\}$ and $\{y_n\}$, we first compute their Fourier transformations $\{X_n\}$ and $\{Y_n\}$, then multiply corresponding elements of the transformed series and finally we do an inverse Fourier transform. We do all of this, because we are able to compute both the discrete Fourier transform and its inverse in time $\mathcal{O}(N \log N)$, which gives us the overall asymptotic time $\mathcal{O}(N \log N)$ compared to $\mathcal{O}(N^2)$ when computing the circular cross--correlation from definition.
+
+
+
 \section{Arg max}
 
 
