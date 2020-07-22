@@ -24,7 +24,7 @@ struct file
 
 struct offs_job
 {
-	std::vector<uint16_t> deformed_raster;
+	uint16_t * deformed_raster;
 	std::atomic<bool> loaded = false;
 	esize_t batch_files;
 	esize_t c;
@@ -33,8 +33,8 @@ struct offs_job
 template<typename T>
 struct fin_job
 {
-	std::vector<size2_t> maxes_i;
-	std::vector<T> neighbors;
+	size2_t * maxes_i;
+	T * neighbors;
 	std::atomic<bool> ready = false;
 	esize_t batch_files;
 	esize_t c;
@@ -112,18 +112,22 @@ public:
 		offs.allocate_memory(initial_raster.data());
 
 		
-		job1.deformed_raster.resize(pic_size.area() * a.batch_size);
-		job2.deformed_raster.resize(pic_size.area() * a.batch_size);
+		//job1.deformed_raster.resize(pic_size.area() * a.batch_size);
+		//job2.deformed_raster.resize(pic_size.area() * a.batch_size);
+
+		job1.deformed_raster = cuda_malloc_host<uint16_t>(pic_size.area() * a.batch_size);
+		job2.deformed_raster = cuda_malloc_host<uint16_t>(pic_size.area() * a.batch_size);
+
 		offs_job* job = &job1;
 		offs_job* job_next = &job2;
 
 		esize_t total_slices = (esize_t)a.slice_mids.size() * a.batch_size;
 
-		fin_job1.maxes_i.resize(total_slices);
-		fin_job2.maxes_i.resize(total_slices);
+		fin_job1.maxes_i = cuda_malloc_host<size2_t>(total_slices);
+		fin_job2.maxes_i = cuda_malloc_host<size2_t>(total_slices);
 
-		fin_job1.neighbors.resize(total_slices * a.fitting_size * a.fitting_size);
-		fin_job2.neighbors.resize(total_slices * a.fitting_size * a.fitting_size);
+		fin_job1.neighbors = cuda_malloc_host<T>(total_slices * a.fitting_size * a.fitting_size);
+		fin_job2.neighbors = cuda_malloc_host<T>(total_slices * a.fitting_size * a.fitting_size);
 
 		work = load_work(a.deformed_list_file_name);
 	
@@ -134,7 +138,7 @@ public:
 		{
 			esize_t batch_files = c + a.batch_size > (esize_t)work.size() ? (esize_t)work.size() - c : a.batch_size;
 			bool OK = true;
-			uint16_t * next = job->deformed_raster.data();
+			uint16_t * next = job->deformed_raster;
 			for (esize_t i = c; i < c + batch_files; ++i)
 			{
 				OK &= load_tiff(work[i].fname, next, pic_size);
@@ -144,7 +148,7 @@ public:
 			if (!OK)
 				continue;
 
-			offs.transfer_pic_to_device_async(job->deformed_raster.data());
+			offs.transfer_pic_to_device_async(job->deformed_raster);
 
 			std::unique_lock lck(mtx_offs);
 			job->batch_files = batch_files;
@@ -186,7 +190,7 @@ public:
 				return;
 			}
 			cudaStreamSynchronize(offs.in_stream);
-			offs.get_offset_core(fjob->maxes_i.data(), fjob->neighbors.data());
+			offs.get_offset_core(fjob->maxes_i, fjob->neighbors);
 
 			fjob->c = job->c;
 			fjob->batch_files = job->batch_files;
@@ -217,7 +221,7 @@ public:
 
 	void finalize_offsets(fin_job<T>& fjob)
 	{
-		auto [offsets, coefs] = offs.finalize(fjob.maxes_i.data(), fjob.neighbors.data());
+		auto [offsets, coefs] = offs.finalize(fjob.maxes_i, fjob.neighbors);
 		//sw.tick("Get offset: ", 2);
 
 		if (a.analysis)
