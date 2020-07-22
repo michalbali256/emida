@@ -101,7 +101,7 @@ __inline__ __device__ T blockReduceSum(T val)
 	return val;
 }
 
-constexpr int N = 3;
+constexpr int N = 10;
 
 template<typename T, typename RES>
 __global__ void sum(
@@ -145,7 +145,14 @@ __global__ void sum(
 	RES res = blockReduceSum(val);
 
 	if (threadIdx.x == 0)
-		atomicAdd(&sums[slice_num], res);
+	{
+		if (one_slice_blocks == 1)
+		{
+			sums[slice_num] = res;
+		}
+		else
+			atomicAdd(&sums[slice_num], res);
+	}
 }
 
 template<typename T, typename RES>
