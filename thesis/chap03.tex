@@ -215,6 +215,8 @@ where $\cdot \star_N \cdot$ denotes the circular cross--correlation of two serie
 
 Circular cross--correlation can be interpreted as a cross--correlation of two periodic functions. For any periodic function with period $N$, we only need $N$ consecutive values to represent, since the rest of the function repeats the same values. At the same time, given two periodic discrete functions $f, g : \mathbb{Z} \rightarrow \mathbb{C}$ with period $N$, their cross--correlation $f \star g$ is also periodic with the same period. So if we interpret the series in the definition of circular cross--correlation of as periodic functions, then the resulting series represents (non--circular) cross--correlation of the functions.
 
+%The $\mod$ operation causes that whenever the $n+l$ is greater or equal than $N$, we ``circulate'' and take 
+
 The circular cross--correlation can be quickly computed by using the discrete Fourier transform.
 
 The \emph{discrete Fourier transform} is a function $\mathcal{F}: \mathbb{C}^N \times \mathbb{C}^N$ that transforms a series of $N \in \mathbb{N}$ complex numbers $\{x_n\} = x_0, x_1, \dots , x_{N-1}$ into another $N$ complex numbers $\{X_n\} = X_0, X_1, \dots , X_{N-1}$, which are defined as follows:
@@ -231,7 +233,7 @@ Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$, $\{y_n\} = y_0, y
 \]
 where $\cdot^\star$ denotes the complex conjugate and $\cdot$ denotes element by element multiplication.
 
-In other words, in order to compute the circular cross--correlation of two series $\{x_n\}$ and $\{y_n\}$, we first compute their Fourier transformations $\{X_n\}$ and $\{Y_n\}$, then multiply corresponding elements of $\{X_n\}$ and the complex conjugate of $\{X_n\}$. Finally, we do an inverse Fourier transform. We do all of this, because we are able to compute both the discrete Fourier transform and its inverse in time $\mathcal{O}(N \log N)$, which gives us the overall asymptotic time $\mathcal{O}(N \log N)$ compared to $\mathcal{O}(N^2)$ when computing the circular cross--correlation from definition.
+In other words, in order to compute the circular cross--correlation of two series $\{x_n\}$ and $\{y_n\}$, we first compute their Fourier transforms $\{X_n\}$ and $\{Y_n\}$, then multiply corresponding elements of $\{X_n\}$ and the complex conjugate of $\{X_n\}$. Finally, we do an inverse Fourier transform. We do all of this, because we are able to compute both the discrete Fourier transform and its inverse in time $\mathcal{O}(N \log N)$, which gives us the overall asymptotic time $\mathcal{O}(N \log N)$ compared to $\mathcal{O}(N^2)$ when computing the circular cross--correlation from definition.
 
 %To compute non--circular cross--correlation using this method, we use a trick with zero padding. Let $N \in \mathbb{N}$, $f$ and $g$ be two discrete functions, that are non--zero only in the first 
 
