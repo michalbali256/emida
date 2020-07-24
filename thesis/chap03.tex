@@ -114,7 +114,7 @@ Computation of sum is a textbook example of parallel reduction. \cite{parallelRe
 
 The major difference for our case is that we compute a sum for each subregion, instead of computing a sum for the whole input data. The problem is that we cannot load values of two different subregions into one block. We solve this by assigning whole blocks to the subregions rather than just assigning threads to pixels. Let $B$ and $P$ denote one block size and total number of pixels in one subregion, respectively. Then we use a group of $S_1~=~\ceil{\frac{P}{B}}$ blocks for reduction of each subregion. Inside each block, we assign one thread per pixel in row-major order, so adjacent threads access adjacent data. It also means that the last block in each group is not fully utilized, because there is no more pixels in the subregion.
 
-Once each thread loads its data, it is possible to reduce them fast within each block. We use warp--level shuffle instructions, which allows the threads in one warp to exchange data in registers. \Cref{warp_reduce} shows how it is possible to get sum of values in 8 threads. It can be expanded to size of warp, i.e. 32 threads. To reduce the whole block, we use the warp reduction in two steps. First, we perform the reduction within each warp and save the values into shared memory. Maximum number of threads in one block is 1024 in CUDA and warp size is 32 so we get at most $1024/32 = 32$ values. That means one warp is enough to reduce them into one resulting value.
+Once each thread loads its data, it is possible to reduce them fast within each block. We use warp--level shuffle instructions, which allows the threads in one warp to exchange data in registers. \Cref{warp_reduce} shows how it is possible to get sum of values in 8 threads. It can be expanded to size of warp, i.e. 32 threads. To reduce the whole block, we use the warp reduction in two steps. First, we perform the reduction within each warp and save the values into shared memory. In the second step, one warp loads the values from the shared memory and reduces them using warp--level reduction again. Maximum number of threads in one block is 1024 in CUDA and warp size is 32 so we get at most $1024/32 = 32$ values in the first step. That means the one warp is enough to reduce them into one resulting value in the second step.
 
 \begin{figure}
 	\centering
@@ -125,7 +125,7 @@ Once each thread loads its data, it is possible to reduce them fast within each 
 
 After reduction within each block, we need to update the resulting values in global memory, which requires more blocks working with the same value, possibly in parallel. On modern hardware, we solve such situations with atomic operations --- in our case of computing the sums it is \emph{atomic add}. The solution is feasible for us, since it is safe to assume that not many blocks access the same value. The typical size of one subregion is $100 \times 100$ which is the total of 10000 pixels. If we set the block size to 1024 (there is no reason not to use the maximal possible value --- no register or shared memory pressure), then only 10 blocks compute the sum of one subregion.
 
-It is possible to further optimize the described technique by increasing the number of values each thread loads before the reduction begins. The problem is that half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread which does the actual sum. So instead of loading only one value, each thread loads $N$ values and all the threads are utilized in the first part of the algorithm. It also means that we need $N$ times less blocks which may cause that for too high $N$, there will not be enough blocks to utilize the GPU. We measure the impact of the parameter in section ??.
+It is possible to further optimize the described technique by increasing the number of values each thread loads before the reduction begins. The problem is that half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread (using shuffle instruction) which does the actual sum. So instead of loading only one value, each thread loads $N$ values and all the threads are utilized in the first part of the algorithm. It also means that we need $N$ times less blocks which may cause that for too high $N$, there will not be enough blocks to utilize the GPU. We measure the impact of the parameter in section ??.
 
 \section{Prepare kernel}
 The kernel just loads data from 1 buffer, subtracts mean and saves it into another buffer, not sure what to write here.
@@ -201,7 +201,7 @@ The modified algorithm written as a CUDA kernel is listed in algorithm~\ref{cros
 
 The described algorithm has asymptotic time complexity $\mathcal{O}(W_s^2H_s^2)$. In the following section, we describe a way to compute two--dimensional cross--correlation in $\mathcal{O}(W_sH_s\log_2(W_sH_s))$ using Fourier transform.
 
-\subsection{Computing cross--correlation using discrete Fourier transform}
+\subsection{Computing cross--correlation using discrete \\ Fourier transform}
 \label{fft}
 
 We first define \emph{circular cross--correlation}, which is a way to cross--correlate periodic functions. Then, we define \emph{discrete Fourier transform} and show how it is used to compute circular cross-correlation. Finally we show how to get the cross--correlation we need in the implementation. All is described for one--dimensional case only, since two--dimensional is analogous.
@@ -240,7 +240,7 @@ In other words, in order to compute the circular cross--correlation of two serie
 \begin{figure}
 	\centering
 	\includegraphics[width=\textwidth]{img/circ-cross-example}
-	\caption{Illustration of the relationship between circular and non--circular cross--correlation. The left side shows a cross--correlation of two series $a$ and $b$. Right side shows circular cross--correlation of $x$ and $y$, which are zero--padded versions of series $a$ and $b$. Corresponding values of both correlations are shown side by side.}
+	\caption{Illustration of the relationship between circular and non--circular cross--correlation. The left side shows a cross--correlation of two series $a$ and $b$. The right side shows the circular cross--correlation of $x$ and $y$, which are zero--padded versions of the series $a$ and $b$. Corresponding values of both correlations are shown side by side.}
 	\label{circ-cross-example}
 \end{figure}
 
@@ -265,17 +265,23 @@ where $\cdot^\star$ denotes the complex conjugate and $\cdot$ denotes element by
 
 The trick with zero--padding the inputs applies to the two--dimensional case as well. So when we want to compute the cross--correlation of two images $x$ and $y$ (represented by matrices in the theorem) with resolution $W \times H$, we do the following steps:
 \begin{enumerate}
-	\item Zero--pad the images --- we enlarge the image to the size $2W \times 2H$ by adding zeros
-	\item Compute the Fourier transforms of the images, which gives us two matrices $X = \mathcal{F}(x)$ and $Y =\mathcal{F}(y)$ of complex numbers with sizes $2W \times 2H$
-	\item Compute the complex conjugate of the matrix $X$
+	\item Zero--pad the images --- we enlarge the image to the size $2W \times 2H$ by adding zeros.
+	\item Compute the Fourier transforms of the images, which gives us two matrices $X = \mathcal{F}(x)$ and $Y =\mathcal{F}(y)$ of complex numbers with sizes $2W \times 2H$.
+	\item Compute the complex conjugate of the matrix $X$.
 	\item Multiply $X^\star$ with $Y$ element by element. The operation is also called \emph{Hadamard product}.
 	\item Do the inverse discrete Fourier transform on the product.
 \end{enumerate}
-The result is a matrix $R$ of real numbers with the size $2W \times 2H$. It contains the cross--correlation of the input images, but it is circularly shifted. Similar to the one--dimensional case, where the item $N$ of the series was always zero, now the column $R_{*,N}$ and row $R_{N,*}$ are both zero. They separate the matrix into 4 quadrants that are diagonally shifted compared to the cross--correlation. 
+The result is a matrix $R$ of real numbers with the size $2W \times 2H$. It contains the cross--correlation of the input images, but it is circularly shifted. Similar to the one--dimensional case, where the item $N$ of the series was always zero, now the column $R_{*,N}$ and row $R_{N,*}$ are both zero. They separate the matrix into 4 quadrants that are shifted compared to the cross--correlation. Thus, the last step needed to get the resulting cross--correlation is to swap the quadrants diagonally.
 
 \subsubsection{Using cuFFT to compute cross--correlation}
-We now move on to explain our implementation of the cross--correlation computation. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations, which is very important for our implementation, since we do many transformations of rather small images at once.  
+We now move on to explain our implementation of the cross--correlation computation. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. 
 
+There are two functions in the cuFFT library that are essential for us \texttt{R2C} and \texttt{C2R}, which compute the discrete Fourier transform and its inverse, respectively. \texttt{R2C} takes an array of real numbers and computes their discrete Fourier transform, outputting an array of complex numbers. A complex number is represented as a pair of floats/doubles. The \texttt{C2R} function takes an array of complex numbers, computes their inverse Fourier transform and outputs an array of real numbers.
+
+Both of the functions use an important property of Fourier transform: A series $x$ of $N \in \mathbb{N}$ numbers is real-valued if and only if the Fourier transform of $x$ denoted as $X$ satisfies the Hermitian symmetry, e.g. $X_k = X_{N-k}^\star$. So it is enough to store just half of the transformed array, since the second half can be trivially computed. cuFFT does just that. Analogous theorem applies to two--dimensional Fourier transform as well, so cuFFT operates on roughly half of the elements, namely on the elements with index from the following set: $\{0, 1, \cdots, H\} \times \{0,1,\cdots, \floor{W/2} + 1\}$, where $H$ is number of rows and $W$ is number of columns of the input matrix.
+
+It also makes it possible to store the Fourier transform in roughly the same array as the input and thus perform in--place transforms. The output consists of complex numbers, which are represented by two real numbers, i.e., one element takes twice as much bytes. But at the same time, we only need $W/2 + 1$ columns (we can remove the floor operator, because $W$ is always even in our context as we double the size of a subregion with zero padding). The result is that we save the input in a real matrix with size $(W+2) \times H$, with the two extra columns unused. That is the same amount of space that we need for the transformed complex matrix with size $W/2 + 1 \times H$.
+ 
 R2C, C2R functions. Hermitian symmetry - only need to save N/2+1 columns to represent whole transformed data
 
 Multiplication kernel does complex conjugation and multiplies data, saves into the same buffer
