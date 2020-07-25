@@ -214,6 +214,7 @@ public:
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
 
+		cuda_memset(cu_pic_, 0, cross_in_size_.area() * total_slices_);
 		run_prepare_pics(cu_pic_in_, cu_pic_,
 			cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_,
 			src_size_, slice_size_, cross_in_size_, (esize_t)begins_->size(), batch_size_);

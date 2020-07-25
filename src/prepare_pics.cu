@@ -54,9 +54,9 @@ __global__ void prepare_pics(
 	esize_t batch_size)
 {
 	esize_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-	esize_t slice_tid = tid % out_size.area();
-	esize_t slice_num = tid / out_size.area();
-	size2_t slice_pos = { slice_tid % out_size.x, slice_tid / out_size.x };
+	esize_t slice_tid = tid % slice_size.area();
+	esize_t slice_num = tid / slice_size.area();
+	size2_t slice_pos = { slice_tid % slice_size.x, slice_tid / slice_size.x };
 	esize_t begins_num = slice_num % begins_size;
 	esize_t pic_num = slice_num / begins_size;
 	if (slice_num >= begins_size * batch_size)
@@ -64,18 +64,12 @@ __global__ void prepare_pics(
 
 	size2_t pic_pos = begins[begins_num] + slice_pos;
 
-	if (slice_pos.x >= slice_size.x || slice_pos.y >= slice_size.y)
-	{
-		slices[tid] = 0;
-		return;
-	}
-
 	OUT pixel = pic[pic_num * src_size.area() + pic_pos.pos(src_size.x)];
 	//subtract mean of the picture
 	pixel -= (OUT)sums[slice_num] / slice_size.area();
 	//apply hanning filter and convert to OUT (float or double)
 	pixel = (OUT)pixel * hanning_x[slice_pos.x] * hanning_y[slice_pos.y];
-	slices[tid] = pixel;
+	slices[slice_num * out_size.area() + slice_pos.pos(out_size.x)] = pixel;
 }
 
 
@@ -95,7 +89,7 @@ void run_prepare_pics(
 	esize_t batch_size)
 {
 	esize_t block_size = 1024;
-	esize_t grid_size(div_up(out_size.area() * batch_size * begins_size, block_size));
+	esize_t grid_size(div_up(slice_size.area() * batch_size * begins_size, block_size));
 	prepare_pics<<<grid_size, block_size >>> (pic, slices, hanning_x, hanning_y, sums, begins, src_size, slice_size, out_size, begins_size, batch_size);
 }
 

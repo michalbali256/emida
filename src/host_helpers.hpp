@@ -68,6 +68,15 @@ T* cuda_malloc(size_t num_elements)
 	CUCH(cudaMalloc(&cu_ptr, num_elements * sizeof(T)));
 	return cu_ptr;
 }
+
+template<typename T>
+T* cuda_malloc_host(size_t num_elements)
+{
+	T* ptr;
+	CUCH(cudaMallocHost(&ptr, num_elements * sizeof(T)));
+	return ptr;
+}
+
 template<typename T>
 void cuda_memset(T* cu_ptr, int value, size_t elems)
 {
