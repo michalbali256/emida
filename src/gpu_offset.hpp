@@ -133,7 +133,7 @@ public:
 		else
 		{
 			cu_fft_res_ = (T*)cuda_malloc<complex_t>(fft_work_size_.area() / 2 * total_slices_);
-			cu_cross_res_ = (T*)cuda_malloc<complex_t>(fft_work_size_.area() / 2 * total_slices_);
+			cu_cross_res_ = (T*)cuda_malloc<complex_t>(cross_in_size_.area() / 2 * total_slices_);
 			cuda_memset(cu_pic_, 0, cross_in_size_.area() * total_slices_);
 		}
 
