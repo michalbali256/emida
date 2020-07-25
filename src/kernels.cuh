@@ -25,7 +25,7 @@ struct cross_res_pos_policy_fft
 {
 	static __device__ __inline__ esize_t pos(esize_t i, esize_t pic_num, size2_t slice_pos, size2_t slice_size)
 	{
-		size2_t in_size{ slice_size.x + 3, slice_size.y + 1 };
+		size2_t in_size{ slice_size.x + 1, slice_size.y + 1 };
 		size2_t in_pos = (slice_pos + ((slice_size + 1) / 2 + 1)) % (slice_size + 1);
 		return pic_num * in_size.area() + in_pos.pos(in_size.x);
 	}
