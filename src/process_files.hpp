@@ -73,7 +73,11 @@ class file_processor
 	stopwatch sw;
 	std::mutex mtx_offs;
 	std::condition_variable cond_compute_offs;
-	
+
+	std::mutex mtx_fin_finished;
+	std::condition_variable cond_fin_finished;
+	std::atomic<bool> fin_finished = true;
+
 	offs_job job1;
 	offs_job job2;
 
@@ -190,6 +194,10 @@ public:
 				return;
 			}
 			cudaStreamSynchronize(offs.in_stream);
+
+			std::unique_lock lck(mtx_fin_finished);
+			cond_fin_finished.wait(lck, [&]() {return fin_finished.load(); });
+			fin_finished = false;
 			offs.get_offset_core(fjob->maxes_i, fjob->neighbors);
 
 			fjob->c = job->c;
@@ -215,6 +223,8 @@ public:
 			cond_fin.wait(lck, [&]() {return fjob->ready.load(); });
 			fjob->ready = false;
 			finalize_offsets(*fjob);
+			fin_finished = true;
+			cond_fin_finished.notify_one();
 			std::swap(fjob, fjob_next);
 		}
 	}
