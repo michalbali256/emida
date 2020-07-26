@@ -81,17 +81,17 @@ TEST(maxarg, size_8_fftpos)
 
 	std::vector<double> v =
 	{
-		1,3, 301, 8,// 302, 303,
-		10, 4, 304, 3,// 305, 306,
-		307, 308, 309, 310,// 311, 312,
-		1, 1, 313, 1//, 314, 315
+		1,3, 0, 8,
+		10, 4, 0, 3,
+		0, 0, 0, 0,
+		1, 1, 0, 1
 	};
 	// v is fft-shifted version of following matrix:
 	// 1, 1, 1, 
 	// 8, 1, 3,
 	// 3, 10, 4
 	algorithm_maxarg<double, cross_res_pos_policy_fft> a;
-	a.prepare(v, { 3, 3 }, 1);
+	a.prepare(v, { 4, 4 }, 1);
 	a.run();
 	a.finalize();
 
@@ -104,15 +104,15 @@ TEST(maxarg, size_8x2_fftpos)
 
 	std::vector<double> v =
 	{
-		1, 3, 301, 8,// 302, 303,
-		10, 4, 304, 3,// 305, 306,
-		307, 308, 309, 310,// 311, 312,
-		1, 1, 313, 1,// 314, 315,
+		1, 3, 0, 8,
+		10, 4, 0, 3,
+		0, 0, 0, 0,
+		1, 1, 0, 1,
 
-		1, 3, 301, 8,// 302, 303,
-		10, 4, 304, 3,// 305, 306,
-		307, 308, 309, 310,// 311, 312,
-		1, 1, 313, 1//, 314, 315
+		1, 3, 0, 8,
+		10, 4, 0, 3,
+		0, 0, 0, 0,
+		1, 1, 0, 1
 
 	};
 	// v is fft-shifted version of following matrix:
@@ -120,7 +120,7 @@ TEST(maxarg, size_8x2_fftpos)
 	// 8, 1, 3,
 	// 3, 10, 4
 	algorithm_maxarg<double, cross_res_pos_policy_fft> a;
-	a.prepare(v, { 3, 3 }, 2);
+	a.prepare(v, { 4, 4 }, 2);
 	a.run();
 	a.finalize();
 

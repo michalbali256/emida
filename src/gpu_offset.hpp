@@ -247,7 +247,7 @@ public:
 		if(cross_policy_ == CROSS_POLICY_BRUTE)
 			run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
 		else
-			run_maxarg_reduce<T, cross_res_pos_policy_fft>(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
+			run_maxarg_reduce<T, cross_res_pos_policy_fft>(cu_cross_res_, cu_maxes_, cu_maxes_i_, { cross_size_.x + 1, cross_size_.y + 1 }, maxarg_block_size_, total_slices_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
