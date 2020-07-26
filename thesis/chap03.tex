@@ -278,15 +278,11 @@ We now move on to explain our implementation of the cross--correlation computati
 
 There are two functions in the cuFFT library that are essential for us \texttt{R2C} and \texttt{C2R}, which compute the discrete Fourier transform and its inverse, respectively. \texttt{R2C} takes an array of real numbers and computes their discrete Fourier transform, outputting an array of complex numbers. A complex number is represented as a pair of floats/doubles. The \texttt{C2R} function takes an array of complex numbers, computes their inverse Fourier transform and outputs an array of real numbers.
 
-Both of the functions use an important property of Fourier transform: A series $x$ of $N \in \mathbb{N}$ numbers is real-valued if and only if the Fourier transform of $x$ denoted as $X$ satisfies the Hermitian symmetry, e.g. $X_k = X_{N-k}^\star$. So it is enough to store just half of the transformed array, since the second half can be trivially computed. cuFFT does just that. Analogous theorem applies to two--dimensional Fourier transform as well, so cuFFT operates on roughly half of the elements, namely on the elements with index from the following set: $\{0, 1, \cdots, H\} \times \{0,1,\cdots, \floor{W/2} + 1\}$, where $H$ is number of rows and $W$ is number of columns of the input matrix.
+Both of the functions use an important property of Fourier transform: A series $x$ of $N \in \mathbb{N}$ numbers is real-valued if and only if the Fourier transform of $x$ denoted as $X$ satisfies the Hermitian symmetry, e.g. $X_k = X_{N-k}^\star$. So it is enough to store just half of the transformed array, since the second half can be trivially computed. cuFFT does just that. Analogous theorem applies to two--dimensional Fourier transform as well, so cuFFT operates on roughly half of the elements, namely on the elements with index from the following set: $\{0,1,\cdots, \floor{W/2} + 1\} \times \{0, 1, \cdots, H\}$, where $H$ is number of rows and $W$ is number of columns of the input matrix.
 
 It also makes it possible to store the Fourier transform in roughly the same array as the input and thus perform in--place transforms. The output consists of complex numbers, which are represented by two real numbers, i.e., one element takes twice as much bytes. But at the same time, we only need $W/2 + 1$ columns (we can remove the floor operator, because $W$ is always even in our context as we double the size of a subregion with zero padding). The result is that we save the input in a real matrix with size $(W+2) \times H$, with the two extra columns unused. That is the same amount of space that we need for the transformed complex matrix with size $W/2 + 1 \times H$.
- 
-R2C, C2R functions. Hermitian symmetry - only need to save N/2+1 columns to represent whole transformed data
 
-Multiplication kernel does complex conjugation and multiplies data, saves into the same buffer
-
-We can have a kernel that swaps the quadrants, but that is not necessary actually - the remaining 2 kernels must be aware that the data is shifted.
+\Cref{fft-impl} shows the process with illustration of used buffers. Recall that we cross--correlate a deformed subregion with a reference, both with size $W_s \times H_s$. The preparation kernel extracts the data from the input pattern and outputs it directly into a zero--padded buffer with size $2W_s \times 2H_s$. Then, we use the \texttt{R2C} function from the cuFFT library to compute Fourier transform of the padded deformed subregion. The result is another buffer with size $(W_s + 1) \times 2H$ of complex numbers, which is the same as $(2W_s+2) \times 2H_s$ of real numbers.
 
 \begin{figure}
 	\centering
@@ -294,6 +290,19 @@ We can have a kernel that swaps the quadrants, but that is not necessary actuall
 	\caption{The process of computing cross--correlation using the discrete Fourier transform.}
 	\label{fft-impl}
 \end{figure}
+
+For the next step, we implemented a kernel that does the element--wise multiplication between the complex conjugate of the Fourier--transformed reference subregion and the Fourier transform of deformed subregion. The reference pattern is the same for all deformed ones, so we compute the Fourier transform of its subregions only once. The result of the multiplication is outputted to the buffer with Fourier transform of the deformed subregions, since we do not need it any more.
+
+Then we compute the inverse Fourier transformation using the \texttt{C2R} function from the cuFFT library. The result is the cross--correlation, but with extra row and column of zeros and swapped quadrants.
+
+We could start a kernel that swaps the quadrants and thus finalizes the cross--correlation, but it is not necessary. Instead, we modify the rest of the implementation, so it accesses the data in corresponding way. The arg max kernel stays the same and outputs the position of maximum, which then has to be interpreted correctly by the extract neighborhood kernel and results finalization function. This trick removes the overhead of running the extra kernel at the cost of more complicated, but only slightly more demanding data address calculation.
+
+We also implemented a version where both the Fourier transformation and the inverse are performed in--place, thus allowing to reuse a single buffer for the whole cross--correlation computation. However that is suboptimal for two reasons: first, out--of--place transformations proved to be faster and second, in the in--place version, the zero--padding is overwritten in each iteration, so it is necessary to write the zeros before doing the forward Fourier transform. On contrary, with out--of--place transforms, the zero--padding part of the buffer is read only and we only write it once in the very beginning of the whole algorithm. Moreover, memory consumption is not an issue with our implementation, so we can afford to allocate more buffers.
+
+\vspace{5px}
+
+To sum up, we have described two ways to compute cross--correlation. The first one is based on the definition and  
+
 
 \section{Arg max}
 
