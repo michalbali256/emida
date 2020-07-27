@@ -75,35 +75,32 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 	//and this thread would process sth out of the picture
 
 	esize_t slice_tid = pic_block * blockDim.x + threadIdx.x;
-	size2_t slice_pos = { slice_tid % slice_size.x, slice_tid / slice_size.x };
-
 	
-
-	esize_t i = pic_num * slice_size.area() + slice_pos.pos(slice_size.x);
+	esize_t slice_end = (pic_num + 1) * slice_size.area();
+	esize_t i = pic_num * slice_size.area() + slice_tid;
 	
 	data_index<T> val;
 
-	if (slice_pos.x >= slice_size.x || slice_pos.y >= slice_size.y)
+	if (i >= slice_end)
 	{
 		val.data = 0;
-		val.index = i;
+		val.index = slice_tid;
 	}
 	else
 	{
 		val.data = data[i];
-		val.index = i;
+		val.index = slice_tid;
 		for (esize_t n = 1; n < N; ++n)
 		{
+			i += one_pic_blocks * blockDim.x;
 			slice_tid += one_pic_blocks * blockDim.x;
-			slice_pos = { slice_tid % slice_size.x, slice_tid / slice_size.x };
-			i = pic_num * slice_size.area() + slice_pos.pos(slice_size.x);
 
-			if (slice_pos.x < slice_size.x && slice_pos.y < slice_size.y)
+			if (i < slice_end)
 			{
 				if (data[i] > val.data)
 				{
 					val.data = data[i];
-					val.index = i;
+					val.index = slice_tid;
 				}
 			}
 		}
@@ -141,9 +138,9 @@ __global__ void maxarg_reduce2(const data_index<T>* __restrict__ maxes_in, size2
 
 	if (tid == 0)
 	{
-		esize_t max_i = res.index - blockIdx.x * pic_size.area();
+		//esize_t max_i = res.index - blockIdx.x * pic_size.area();
 
-		size2_t max_pos = pos_policy::shift_pos({ max_i % pic_size.x,  max_i / pic_size.x }, pic_size);
+		size2_t max_pos = pos_policy::shift_pos({ res.index % pic_size.x,  res.index / pic_size.x }, pic_size);
 		maxes_out[blockIdx.x] = max_pos;
 	}
 }
