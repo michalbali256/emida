@@ -11,17 +11,17 @@
 namespace emida
 {
 
-template<typename T, class pos_policy = cross_res_pos_policy_id>
+template<typename T>
 class algorithm_maxarg
 {
 	esize_t batch_size_, grid_size_, one_pic_blocks_;
 	size2_t size_;
 	T* cu_data_;
 	data_index<T>* cu_maxes_;
-	size2_t* cu_res_;
+	data_index<T>* cu_res_;
 	std::vector<data_index<T>> res_;
 	constexpr static esize_t block_size_ = 1024;
-	std::vector<size2_t> max_i_;
+	std::vector<data_index<T>> max_i_;
 public:
 	
 	void prepare(const std::vector<T>& data, size2_t size, esize_t batch_size)
@@ -34,14 +34,14 @@ public:
 		grid_size_ = one_pic_blocks_ * batch_size;
 		res_.resize(grid_size_);
 		cu_maxes_ = vector_to_device(res_);
-		cu_res_ = cuda_malloc<size2_t>(batch_size);
+		cu_res_ = cuda_malloc<data_index<T>>(batch_size);
 
 		
 	}
 
 	void run()
 	{
-		run_maxarg_reduce<T, pos_policy>(cu_data_, cu_maxes_, cu_res_, size_, block_size_, batch_size_);
+		run_maxarg_reduce<T>(cu_data_, cu_maxes_, cu_res_, size_, block_size_, batch_size_);
 		
 		CUCH(cudaDeviceSynchronize());
 		CUCH(cudaGetLastError());
@@ -64,7 +64,7 @@ public:
 		}*/
 	}
 
-	std::vector<size2_t> result()
+	std::vector<data_index<T>> result()
 	{
 		return max_i_;
 	}

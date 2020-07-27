@@ -33,7 +33,7 @@ struct offs_job
 template<typename T>
 struct fin_job
 {
-	size2_t * maxes_i;
+	data_index<T> * maxes_i;
 	T * neighbors;
 	std::atomic<bool> ready = false;
 	esize_t batch_files;
@@ -127,8 +127,8 @@ public:
 
 		esize_t total_slices = (esize_t)a.slice_mids.size() * a.batch_size;
 
-		fin_job1.maxes_i = cuda_malloc_host<size2_t>(total_slices);
-		fin_job2.maxes_i = cuda_malloc_host<size2_t>(total_slices);
+		fin_job1.maxes_i = cuda_malloc_host<data_index<T>>(total_slices);
+		fin_job2.maxes_i = cuda_malloc_host<data_index<T>>(total_slices);
 
 		fin_job1.neighbors = cuda_malloc_host<T>(total_slices * a.fitting_size * a.fitting_size);
 		fin_job2.neighbors = cuda_malloc_host<T>(total_slices * a.fitting_size * a.fitting_size);

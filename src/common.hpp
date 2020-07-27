@@ -28,6 +28,13 @@ struct data_index
 };
 
 template<typename T>
+inline bool operator==(const data_index<T>& lhs, const data_index<T>& rhs)
+{
+	return lhs.data == rhs.data && lhs.index == rhs.index;
+}
+
+
+template<typename T>
 struct vec2
 {
 	T x;

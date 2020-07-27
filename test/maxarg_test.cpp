@@ -15,7 +15,7 @@ TEST(extract_neighbors, size_5x5)
 	double* cu_neigh;
 	cudaMalloc(&cu_neigh, 9 * sizeof(double));
 
-	std::vector<size2_t> max_i = { {3,3} };
+	std::vector<data_index<double>> max_i = { {18, 18} };
 	auto cu_max_i = vector_to_device(max_i);
 
 	run_extract_neighbors<double>(cu_data, cu_max_i, cu_neigh, 3, { 5, 5 }, 1);
@@ -39,7 +39,7 @@ TEST(extract_neighbors, size_5x5x2)
 	size_t neigh_size = 3 * 3 * 2;
 	cudaMalloc(&cu_neigh, neigh_size * sizeof(double));
 
-	std::vector<size2_t> max_i = { {3,3}, {1,1} };
+	std::vector<data_index<double>> max_i = { {18, 18}, {6,6} };
 	auto cu_max_i = vector_to_device(max_i);
 
 	run_extract_neighbors<double>(cu_data, cu_max_i, cu_neigh, 3, { 5, 5 }, 2);
@@ -72,7 +72,7 @@ TEST(maxarg, size_8)
 	a.run();
 	a.finalize();
 	
-	auto expected = size2_t{ 0, 1 };
+	auto expected = data_index<double>{ 10.0, 4 };
 	EXPECT_EQ(a.result()[0], expected);
 }
 
@@ -90,12 +90,12 @@ TEST(maxarg, size_8_fftpos)
 	// 1, 1, 1, 
 	// 8, 1, 3,
 	// 3, 10, 4
-	algorithm_maxarg<double, cross_res_pos_policy_fft> a;
+	algorithm_maxarg<double> a;
 	a.prepare(v, { 4, 4 }, 1);
 	a.run();
 	a.finalize();
 
-	auto expected = size2_t{ 1, 2 };
+	auto expected = data_index<double>{ 10.0, 4 };
 	EXPECT_EQ(a.result()[0], expected);
 }
 
@@ -119,12 +119,12 @@ TEST(maxarg, size_8x2_fftpos)
 	// 1, 1, 1, 
 	// 8, 1, 3,
 	// 3, 10, 4
-	algorithm_maxarg<double, cross_res_pos_policy_fft> a;
+	algorithm_maxarg<double> a;
 	a.prepare(v, { 4, 4 }, 2);
 	a.run();
 	a.finalize();
 
-	std::vector<size2_t> expected = { {1, 2}, {1, 2} };
+	std::vector <data_index<double>> expected = { {10.0, 4}, {10.0, 4} };
 
 	EXPECT_EQ(a.result(), expected);
 }
@@ -144,7 +144,7 @@ TEST(maxarg, size_8x2)
 	a.run();
 	a.finalize();
 
-	std::vector<size2_t> expected = { {0, 1}, {3, 0} };
+	std::vector<data_index<double>> expected = { {10.0, 4}, {18.0, 3} };
 
 	EXPECT_EQ(a.result(), expected);
 }
@@ -168,7 +168,7 @@ TEST(maxarg, size_1333)
 	a.run();
 	a.finalize();
 
-	size2_t expected{ 9, 32 };
+	data_index<double> expected{ 3.0, 1001 };
 	EXPECT_EQ(a.result()[0], expected);
 }
 
@@ -193,11 +193,11 @@ TEST(maxarg, size_1333x3)
 	a.run();
 	a.finalize();
 
-	std::vector<size2_t> expected =
+	std::vector<data_index<double>> expected =
 	{
-		{1,33},
-		{0,0},
-		{24,10}
+		{4.0, 1024},
+		{4.0, 0},
+		{4.0, 334}
 	};
 
 	EXPECT_EQ(a.result(), expected);
@@ -222,9 +222,9 @@ TEST(maxarg, size_4096)
 	a.run();
 	a.finalize();
 
-	std::vector<size2_t> expected =
+	std::vector<data_index<double>> expected =
 	{
-		{1,33}
+		{3.0, 1024}
 	};
 
 	EXPECT_EQ(a.result(), expected);

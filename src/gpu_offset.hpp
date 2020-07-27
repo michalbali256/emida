@@ -43,7 +43,7 @@ private:
 	T* cu_cross_res_;
 	T* cu_fft_res_;
 	T* cu_neighbors_;
-	size2_t* cu_maxes_i_;
+	data_index<T>* cu_maxes_i_;
 	size2_t* cu_begins_;
 	data_index<T>* cu_maxes_;
 
@@ -142,7 +142,7 @@ public:
 
 		cu_neighbors_ = cuda_malloc<T>(neigh_size_);
 
-		cu_maxes_i_ = cuda_malloc<size2_t>(total_slices_);
+		cu_maxes_i_ = cuda_malloc<data_index<T>>(total_slices_);
 
 
 		if (cross_policy_ == CROSS_POLICY_FFT)
@@ -206,7 +206,7 @@ public:
 		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
 		sw.tick("Pic to device: ");
 
-		std::vector<size2_t> maxes_i(total_slices_);
+		std::vector<data_index<T>> maxes_i(total_slices_);
 		std::vector<T> neighbors(neigh_size_);
 		get_offset_core(maxes_i.data(), neighbors.data());
 
@@ -214,7 +214,7 @@ public:
 	}
 
 	//gets two pictures with size cols x rows and returns subpixel offset between them
-	void get_offset_core(size2_t * maxes_i, T * neighbors)
+	void get_offset_core(data_index<T>* maxes_i, T * neighbors)
 	{	
 		sw.zero();
 		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, (esize_t)begins_->size(), batch_size_);
@@ -247,12 +247,12 @@ public:
 		if(cross_policy_ == CROSS_POLICY_BRUTE)
 			run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
 		else
-			run_maxarg_reduce<T, cross_res_pos_policy_fft>(cu_cross_res_, cu_maxes_, cu_maxes_i_, { cross_size_.x + 1, cross_size_.y + 1 }, maxarg_block_size_, total_slices_);
+			run_maxarg_reduce<T>(cu_cross_res_, cu_maxes_, cu_maxes_i_, { cross_size_.x + 1, cross_size_.y + 1 }, maxarg_block_size_, total_slices_);
 
 		CUCH(cudaGetLastError());
 		CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
 
-		copy_from_device_async<size2_t>(cu_maxes_i_, maxes_i, total_slices_, out_stream); sw.tick("Maxes transfer: ");
+		copy_from_device_async<data_index<T>>(cu_maxes_i_, maxes_i, total_slices_, out_stream); sw.tick("Maxes transfer: ");
 
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
@@ -268,7 +268,7 @@ public:
 
 	}
 
-	offsets_t<double> finalize(size2_t * maxes_i, T* neighbors)
+	offsets_t<double> finalize(data_index<T>* maxes_i, T* neighbors)
 	{
 		CUCH(cudaStreamSynchronize(out_stream));
 
@@ -278,8 +278,13 @@ public:
 
 		for (esize_t i = 0; i < total_slices_; ++i)
 		{
-			res[i].x = -((int)maxes_i[i].x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
-			res[i].y = -((int)maxes_i[i].y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
+			size2_t max_pos;
+			if (cross_policy_ == cross_policy::CROSS_POLICY_BRUTE)
+				max_pos = cross_res_pos_policy_id::shift_pos(maxes_i[i].index, cross_size_);
+			else
+				max_pos = cross_res_pos_policy_fft::shift_pos(maxes_i[i].index, cross_size_);
+			res[i].x = -((int)max_pos.x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
+			res[i].y = -((int)max_pos.y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
 		}
 		sw.tick("Offsets finalisation: ");
 		sw.total();
