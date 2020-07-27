@@ -150,8 +150,13 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, data_index<T>* m
 	esize_t one_pic_blocks = div_up(size.area(), block_size*N);
 
 	esize_t grid_size = one_pic_blocks * batch_size;
-	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxes_red, size);
-	maxarg_reduce2<T> <<<batch_size, 1024, 1024 * sizeof(data_index<T>)>>> (maxes_red, maxarg, one_pic_blocks, size);
+	if(one_pic_blocks == 1)
+		maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxarg, size);
+	else
+	{
+		maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>) >>> (data, maxes_red, size);
+		maxarg_reduce2<T> <<<batch_size, 1024, 1024 * sizeof(data_index<T>)>>> (maxes_red, maxarg, one_pic_blocks, size);
+	}
 }
 
 template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, data_index<double>* maxarg, size2_t size, esize_t block_size, esize_t batch_size);
