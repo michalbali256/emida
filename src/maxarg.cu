@@ -6,6 +6,8 @@
 #include "device_helpers.hpp"
 #include "kernels.cuh"
 
+#include <type_traits>
+
 namespace emida
 {
 
@@ -51,6 +53,47 @@ __inline__ __device__ T blockReduceSum(T val) {
 
 	return val;
 }
+
+__device__ __inline__ uint64_t dataindex_as_uint64(data_index<float> val)
+{
+	static_assert(sizeof(data_index<float>) == sizeof(uint64_t), "Wrong data_index<float> length.");
+	return *reinterpret_cast<uint64_t *>(&val);
+}
+
+
+__device__ __inline__ data_index<float> uint64_as_dataindex(uint64_t val)
+{
+	static_assert(sizeof(data_index<float>) == sizeof(uint64_t), "Wrong data_index<float> length.");
+	return *reinterpret_cast<data_index<float>*>(&val);
+}
+
+template<typename T>
+__device__ __inline__ void update_res(const data_index<T>& res, data_index<T>* __restrict__ maxes, esize_t pic_num);
+
+template<>
+__device__ __inline__ void update_res<double>(const data_index<double>& res, data_index<double>* __restrict__ maxes, esize_t pic_num)
+{
+	maxes[blockIdx.x] = res;
+}
+
+template<>
+__device__ __inline__ void update_res<float>(const data_index<float>& res, data_index<float>* __restrict__ maxes, esize_t pic_num)
+{
+	//maxes[blockIdx.x] = res;
+
+	uint64_t* address_as_ull = (uint64_t *)maxes + pic_num;
+	uint64_t old = *address_as_ull;
+	uint64_t assumed;
+
+	do {
+		assumed = old;
+		if(uint64_as_dataindex(assumed).data < res.data)
+			old = atomicCAS(address_as_ull, assumed, dataindex_as_uint64(res));
+
+		// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+	} while (assumed != old);
+}
+
 
 constexpr int N = 10;
 
@@ -111,7 +154,12 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 	data_index<T> res = blockReduceSum(val);
 	
 	if (tid == 0)
-		maxes[blockIdx.x] = res;
+	{
+		if(one_pic_blocks == 1)
+			maxes[blockIdx.x] = res;
+		else
+			update_res<T>(res, maxes, pic_num);
+	}
 }
 
 template<typename T>
@@ -150,7 +198,7 @@ void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, data_index<T>* m
 	esize_t one_pic_blocks = div_up(size.area(), block_size*N);
 
 	esize_t grid_size = one_pic_blocks * batch_size;
-	if(one_pic_blocks == 1)
+	if(one_pic_blocks == 1 || std::is_same<T, float>::value)
 		maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxarg, size);
 	else
 	{
