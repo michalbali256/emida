@@ -109,6 +109,7 @@ In the following sections, we describe the implementation details of each indivi
 
 
 \section{Sum computation}
+\label{sums}
 
 Computation of sum is a textbook example of parallel reduction. \cite{parallelReduction} explains how to implement it on modern GPUs. Since it is very expensive to communicate between arbitrary threads during computation, the reduction is separated into two steps: first, we reduce the data within each block individually and only then we synchronize single value for each block.
 
@@ -271,16 +272,18 @@ The trick with zero--padding the inputs applies to the two--dimensional case as 
 	\item Multiply $X^\star$ with $Y$ element by element. The operation is also called \emph{Hadamard product}.
 	\item Do the inverse discrete Fourier transform on the product.
 \end{enumerate}
-The result is a matrix $R$ of real numbers with the size $2W \times 2H$. It contains the cross--correlation of the input images, but it is circularly shifted. Similar to the one--dimensional case, where the item $N$ of the series was always zero, now the column $R_{*,N}$ and row $R_{N,*}$ are both zero. They separate the matrix into 4 quadrants that are shifted compared to the cross--correlation. Thus, the last step needed to get the resulting cross--correlation is to swap the quadrants diagonally.
+The result is a matrix $R$ of real numbers with the size $2W \times 2H$. It contains the cross--correlation of the input images, but it is circularly shifted. Similar to the one--dimensional case, where the item $N$ of the series was always zero, now the column $R_{*,N}$ and row $R_{N,*}$ are both zero. They separate the matrix into 4 quadrants that are circularly shifted by $N$ compared to the cross--correlation. Thus, the last step needed to get the resulting cross--correlation is to shift the matrix back by $N$, which is the same as swapping the quadrants diagonally.
 
-\subsubsection{Using cuFFT to compute cross--correlation}
-We now move on to explain our implementation of the cross--correlation computation. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. 
+\subsubsection{The cuFFT library}
+We now move on to explain our implementation of the cross--correlation computation. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. In this section, we explain the implementation for one subregion only, since it is trivial to expand it for more subregions.
 
 There are two functions in the cuFFT library that are essential for us \texttt{R2C} and \texttt{C2R}, which compute the discrete Fourier transform and its inverse, respectively. \texttt{R2C} takes an array of real numbers and computes their discrete Fourier transform, outputting an array of complex numbers. A complex number is represented as a pair of floats/doubles. The \texttt{C2R} function takes an array of complex numbers, computes their inverse Fourier transform and outputs an array of real numbers.
 
 Both of the functions use an important property of Fourier transform: A series $x$ of $N \in \mathbb{N}$ numbers is real-valued if and only if the Fourier transform of $x$ denoted as $X$ satisfies the Hermitian symmetry, e.g. $X_k = X_{N-k}^\star$. So it is enough to store just half of the transformed array, since the second half can be trivially computed. cuFFT does just that. Analogous theorem applies to two--dimensional Fourier transform as well, so cuFFT operates on roughly half of the elements, namely on the elements with index from the following set: $\{0,1,\cdots, \floor{W/2} + 1\} \times \{0, 1, \cdots, H\}$, where $H$ is number of rows and $W$ is number of columns of the input matrix.
 
 It also makes it possible to store the Fourier transform in roughly the same array as the input and thus perform in--place transforms. The output consists of complex numbers, which are represented by two real numbers, i.e., one element takes twice as much bytes. But at the same time, we only need $W/2 + 1$ columns (we can remove the floor operator, because $W$ is always even in our context as we double the size of a subregion with zero padding). The result is that we save the input in a real matrix with size $(W+2) \times H$, with the two extra columns unused. That is the same amount of space that we need for the transformed complex matrix with size $W/2 + 1 \times H$.
+
+\subsubsection{Using cuFFT to compute cross--correlation}
 
 \Cref{fft-impl} shows the process with illustration of used buffers. Recall that we cross--correlate a deformed subregion with a reference, both with size $W_s \times H_s$. The preparation kernel extracts the data from the input pattern and outputs it directly into a zero--padded buffer with size $2W_s \times 2H_s$. Then, we use the \texttt{R2C} function from the cuFFT library to compute Fourier transform of the padded deformed subregion. The result is another buffer with size $(W_s + 1) \times 2H$ of complex numbers, which is the same as $(2W_s+2) \times 2H_s$ of real numbers.
 
@@ -297,15 +300,35 @@ Then we compute the inverse Fourier transformation using the \texttt{C2R} functi
 
 We could start a kernel that swaps the quadrants and thus finalizes the cross--correlation, but it is not necessary. Instead, we modify the rest of the implementation, so it accesses the data in corresponding way. The arg max kernel stays the same and outputs the position of maximum, which then has to be interpreted correctly by the extract neighborhood kernel and results finalization function. This trick removes the overhead of running the extra kernel at the cost of more complicated, but only slightly more demanding data address calculation.
 
-We also implemented a version where both the Fourier transformation and the inverse are performed in--place, thus allowing to reuse a single buffer for the whole cross--correlation computation. However that is suboptimal for two reasons: first, out--of--place transformations proved to be faster and second, in the in--place version, the zero--padding is overwritten in each iteration, so it is necessary to write the zeros before doing the forward Fourier transform. On contrary, with out--of--place transforms, the zero--padding part of the buffer is read only and we only write it once in the very beginning of the whole algorithm. Moreover, memory consumption is not an issue with our implementation, so we can afford to allocate more buffers.
+We also implemented a version where both the Fourier transformation and the inverse are performed in--place, thus allowing to reuse a single buffer for the whole cross--correlation computation. However that is suboptimal for two reasons: first, the out--of--place versions of the cuFFT functions proved to be faster and second, in the in--place version, the zero--padding is overwritten in each iteration, so it is necessary to write the zeros before doing the forward Fourier transform. On contrary, with out--of--place transforms, the zero--padding part of the buffer is read only and we only write it once in the very beginning of the whole algorithm. Moreover, memory consumption is not an issue with our implementation, so we can afford to allocate more buffers.
 
 \vspace{5px}
 
-To sum up, we have described two ways to compute cross--correlation. The first one is based on the definition and  
+To sum up, we have described two ways to compute cross--correlation. The first one is based on the definition, the second one uses the Fourier transform which makes it possible to achieve better asymptotic time complexity. However for smaller input sizes, the definition--based approach is faster --- we measure that in chapter 3.
 
+\section{Arg max computation}
+The cross--correlated data are further processed to find the position of maximum for each subregion by using parallel reduction. The computation is very similar to the sums reduction explained in \cref{sums} we use warp--level shuffle instructions and shared memory to reduce the values loaded to each block. The difference compared to sum reduction is that we need to find the maximum and its position at the same time. So throughout the algorithm, we operate on the pair of value and its position. Every time we compare two values and choose the higher one, we propagate its position as well.
 
-\section{Arg max}
+Otherwise the reduction within one block is analogous to the sum reduction. In each step we shuffle down the current value and its position (that means two shuffles per one step). Then we compare the received and current value and save the greater one with its position for the next step. We need five these steps to reduce one warp, then each warp saves its result to the shared memory. Finally, one warp reduces the items in the shared memory to get the result of one block reduction.
 
+In the sums reduction kernel, we used built-in atomic add to update the global memory with the result of block reduction. No such function exists for arg max, since we need to atomically compare two values and then update the position as well. There are several ways how do the update without the atomic operation.
 
+\begin{description}
+	\item[Launch second kernel] The first kernel does no synchronization between the blocks and each block just writes its reduced result to its reserved place in global memory. Then, we start second kernel which reduces the results of the first one. In the second kernel, all the values from one subregion are reduced by one block, so there is no synchronization needed anymore. 
+	\item[One block reduces one whole subregion] We increase the number of values that each thread loads before the reduction, so only one block is needed to find the maximum of each subregion. Therefore, no synchronization across blocks is needed. Depending on the number of subregions, there is a possibility that this approach does not spawn enough blocks to fully utilize the GPU.
+	\item[Atomic compare and swap (float data only)] We can use the atomic compare and swap (CAS) instruction to update the global memory atomically. There are not many blocks that would compete over the same piece of memory, so it is a viable solution. However, it can only be done when we compute the cross--correlation in single precision floating point type, since modern GPUs only support atomic CAS for 8 bytes. A double precision number is 8 bytes long itself, and we need to update the pair of value and its position.
+\end{description}
+
+The different approaches are compared in chapter 3.
+
+\section{Extract neighbors kernel}
+
+Once we compute the position of cross--correlation maximum for each subregion, we need to transfer the maxima and their neighborhoods from GPU to main memory so that the CPU can finalize and output the offsets. The maxima are already ready to transfer as a result of the arg max kernel, but we need to start another kernel to copy the neighborhoods from the cross--correlation into its own buffer, so we do not have to transfer the whole cross--correlation.
+
+Recall that $F$ denotes the size of the square neighborhood. Given a maximum $[x_m, y_m]$, its neighborhood are the points $\{x_m - \frac{F-1}{2}, \cdots, x_m, \cdots, x_m + \frac{F-1}{2}\} \times \{y_m - \frac{F-1}{2}, \cdots, y_m, \cdots, y_m + \frac{F-1}{2}\}$ of cross--correlation. $F$ is always an odd number, so that the maximum is in the middle of the neighborhood. So the output buffer has size $F^2 \cdot S$, because each neighborhood has $F \cdot F$ points and there are $S$ subregions.
+
+In the kernel, we assign one thread to each point of the neighborhood. Each thread computes the address of its point and copies it from the cross--correlation buffer to the neighborhoods buffer.
+
+This kernel works with very small amount of data compared to other kernels, since $F$ is expected to be less than 10. Therefore the running time of this kernel is marginal and does not offer much space for improving overall running time.
 
 \section{Least squares implementation}
