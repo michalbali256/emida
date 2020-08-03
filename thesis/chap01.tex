@@ -47,15 +47,57 @@ The comparison is done by cross--correlating respective subregions of the deform
 
 Once the shifts are computed, they are further processed to obtain an estimation of the actual crystal deformation and other characteristics. However, we do not address that part of the analysis in this thesis, as it is not nearly as computationally expensive as the processing of the images. Moreover, the comparison is commonly used in analysis of the electron backscatter diffraction data, while the processing of the shifts may be different for various purposes.
 
-To sum up, we have thousands images of deformed electron backscatter patterns. Each of them is captured by a scanning electron microscope at a specific location of a specimen. Moreover, we have one reference image of the electron backscatter pattern. We need to quantify the deformation of each deformed pattern, so we choose several subregions and cross--correlate each respective reference and deformed subregion. Maximal correlation gives us the most probable shifts of the subregions. So for each deformed pattern, the result of our algorithm is a list of shifts corresponding to subregions. The shifts are then further processed to obtain their physical interpretation, but that is not covered in this thesis.
+To sum up, we have thousands images of deformed electron backscatter patterns. Each of them was captured by a scanning electron microscope at a specific location of a specimen. Moreover, we have one reference image of the electron backscatter pattern. We need to quantify the deformation of each deformed pattern, so we choose several subregions and cross--correlate each respective reference and deformed subregion. Maximal correlation gives us the most probable shifts of the subregions. So for each deformed pattern, the result of our algorithm is a list of shifts corresponding to subregions. The shifts are then further processed to obtain their physical interpretation, but that is not covered in this thesis.
 
 %In this chapter we describe the algorithm used to analyze the deformation of the patterns. We define cross--correlation and least squares --- techniques that are used in the analysis. Finally, we describe the algorithm that we study in this thesis.
+
+\section{Algorithm description}
+
+In the rest of this chapter, we describe an algorithm used to process the electron backscatter patterns. The specifics of the algorithm correspond to a version that is used in Department of Physics of Material on Charles University in Prague. \todo{Spytat sa Jozefa ci k tomu existuje paper}
+
+The algorithm takes the following input and parameters:
+\begin{itemize}
+	\item reference image of electron backscatter pattern with size $W_p \times H_p$
+	\item $N$ deformed images of electron backscatter pattern images, each with size $W_p \times H_p$
+	\item $S$ positions of subregions that will be compared from each image
+	\item size $W_s \times H_s$ of each subregion
+	\item parameter $F$ that denotes the size of neighborhood used to interpolate the maximum with subpixel accuracy.
+\end{itemize}
+The input images are all greyscale, which means each pixel is represented by one number.
+
+The result of the algorithm is a list of $M$ shifts for each of the $N$ deformed patterns (see \cref{roi-shifts:result} for visualization of the shifts for one pattern).
+
+Algorithm \ref{algo-whole-highlevel} shows a high--level pseudocode of the algorithm. It iterates through all deformed patterns and all subregion positions specified in the input. For each subregion, it computes the cross--correlation between the deformed subregion and subregion at the same position from the reference pattern. The result of cross--correlation is a matrix that expresses a measure of similarity for each possible shift between the subregions (see \cref{cross-corr-def}). In the next step, we further process the matrix to obtain the most probable shift with subpixel accuracy (see \cref{subpixel-peak}), which is the output of the algorithm.
+
+\begin{algorithm}
+	\caption{Processing of electron backscatter patterns}
+	\label{algo-whole-highlevel}
+	\KwIn{one reference electron backscatter pattern \newline
+		$N$ deformed electron backscatter patterns \newline
+		position of $M$ subregions from each pattern \newline
+		size of a subregion \newline}
+	\KwOut{deformation shifts for all $M$ subregions from all $N$ deformed patterns}
+	\vspace{5px}
+	
+	refPat  $\leftarrow$ load the reference pattern from disk\;
+	\ForEach{deformed pattern}{
+		defPat $\leftarrow$ load the deformed pattern from disk\;
+		\ForEach{\emph{regPos} in subregion positions}{
+			refReg, defReg $\leftarrow$ extract subregions from refPat and defPat\;
+			
+			crossResult $\leftarrow$ cross--correlate(refReg, defReg)\;
+			
+			maxX, maxY $\leftarrow$ subpixelPeak(crossResult)\;
+			output [maxX, maxY]\;
+		}
+	}
+\end{algorithm}
 
 \section{Cross--correlation}
 \label{cross-corr-def}
 Cross--correlation provides a measure of similarity of two series for each possible shift between them. It is used in signal processing to find a shorter known feature in a signal or in image processing to locate a smaller shape in a bigger picture. In analysis of the backscatter patterns, it is used to find the most probable relative displacement between two images (subregions of images).
 
-Cross--correlation of two discrete functions $f$ and $g$ is function $C$ defined as follows:
+Cross--correlation of two discrete functions $f, g: \mathbb{Z} \rightarrow \mathbb{R}$ is a function $C:~\mathbb{Z} \rightarrow \mathbb{R}$ defined as follows:
 \[
 C[n] = (f \star g)[n] = \sum_{m=-\infty}^{\infty}f[m]g[m+n],
 \]
@@ -66,18 +108,18 @@ If $C = f \star g$ then $C[n]$ is a number that tells us how much are functions 
 \begin{figure}
 	\centering
 	\includegraphics[width=0.7\linewidth]{img/correlation}
-	\caption{The cross--correlation of two example functions. The image is taken from \cite{correlation_example}.}
+	\caption{The cross--correlation of two example functions\cite{correlation_example}.}
 	\label{correlation-example}
 \end{figure}
 
-Definition of cross--correlation can be extended for two dimensions. For two--dimensional functions $f$ and $g$, their cross--correlation is defined as:
+Definition of cross--correlation can be extended for two dimensions. For two--dimensional functions $f, g: \mathbb{Z}^2 \rightarrow \mathbb{R}$, their cross--correlation is a function $C: \mathbb{Z}^2 \rightarrow \mathbb{R}$ defined as:
 \[
 C[i,j] = (f \star g)[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty}f[x,y]g[x+i,y+j].
 \]
 
 Analogously to one--dimensional cross--correlation, $(f \star g)[i,j]$ is a number that is higher if $f$ is similar to $g$ shifted by $i$ horizontally and by $j$ vertically. \Cref{2d-correlation-example} demonstrates how cross--correlation can be used to search for a smaller pattern in a bigger picture. The brightest points (maxima) in \cref{2d-correlation-example-result} correspond to the best matches between the pattern and the image.
 
-\begin{figure}
+\begin{figure}[b!]
 	\centering
 		\begin{subfigure}{.49\textwidth}
 		\centering
@@ -101,11 +143,11 @@ Analogously to one--dimensional cross--correlation, $(f \star g)[i,j]$ is a numb
 	\label{2d-correlation-example}
 \end{figure}
 
-Theoretically, the domain of cross--correlation is whole $\mathbb{Z}^2$. However, when cross--correlating two images, $(f \star g)[i,j]$ does not make sense for too big $i$ or $j$ because the images would be shifted so much they would not overlap. For two images with sizes $w_1 \times h_1$ and $w_2 \times h_2$, the size of their cross--correlation is $(w_1 + w_2 - 1) \times (h_1 + h_2 - 1)$. The result is a rectangle with the following corners: $[-w_1+1,-h_1+1]$, $[-w_1+1,h_2-1]$, $[w_2-1,h_2-1]$, $[w_2-1,-h_1+1]$. Those are the points of cross--correlation, where the result is computed from the images overlapping only by one pixel.
+Theoretically, the domain of cross--correlation is the whole $\mathbb{Z}^2$. However, when cross--correlating two images, i.e., real--valued matrices, $(f \star g)[i,j]$ does not make sense for all $[i,j] \in \mathbb{Z}^2$, because for some of them the images are shifted so much they do not overlap. For two images with sizes $w_1 \times h_1$ and $w_2 \times h_2$, the size of their cross--correlation is $(w_1 + w_2 - 1) \times (h_1 + h_2 - 1)$. The result is a rectangle with the following corners: $[-w_1+1,-h_1+1]$, $[-w_1+1,h_2-1]$, $[w_2-1,h_2-1]$, $[w_2-1,-h_1+1]$. Those are the points of cross--correlation, where the result is computed from the images overlapping only by one pixel.
 
 \subsection{Zero--normalized cross--correlation}
 
-Cross--correlation as it is defined in the previous section has a major flaw for image processing: it is heavily affected by the brightness of the images. Consider an image, that has some subregions brighter than others. Then, by definition of cross--correlation, that subregions add more to the result, regardless of the second image. \Cref{normalized-initial} shows an example of an image that is much brighter in the top part then in the bottom. \Cref{normalized-simple-cross} shows the result of cross--correlation with the search pattern in \cref{normalized-pattern}. It is clear that the highest values are located where the original image is brightest instead of locating the search pattern.
+Cross--correlation as it is defined in the previous section has a major flaw for image processing: it is heavily affected by the brightness of the images. Consider an image, that has some subregions brighter than others. Then, by definition of cross--correlation, that subregions add more to the result, regardless of the second image. \Cref{normalized-initial} shows an example of an image that is much brighter in the top part than in the bottom. \Cref{normalized-simple-cross} shows the result of cross--correlation with the search pattern in \cref{normalized-pattern}. It is clear that the highest values are located where the original image is brightest instead of locating the search pattern.
 
 \begin{figure}
 	\centering
@@ -139,7 +181,7 @@ Cross--correlation as it is defined in the previous section has a major flaw for
 
 That is why zero--normalized cross--correlation is used. It is based on subtracting respective means from each image. Normalized cross--correlation of two images $f$ and $g$ is defined as follows:
 \[
-\textsc{ZNCC}[i,j] = \sum_{x=-\infty}^{\infty}\sum_{y=-\infty}^{\infty} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
+\textsc{ZNCC}[i,j] = \sum_{x, y} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
 \]  
 where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image $f$ with size $W \times H$, they are defined like so:
 \begin{align*}
@@ -149,15 +191,37 @@ where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$
 
 \Cref{normalized-cross} shows the zero--normalized cross--correlation of the figures \ref{normalized-initial} and \ref{normalized-pattern}. The area of the highest correlation is now clearly visible and corresponds to a Kukuchi line in the original image. Subtracting the mean of both images makes the algorithm less prone to brightness changes across the image.
 
+The intuition behind this behavior is as follows. By the definition of simple cross--correlation, pixels with low brightness multiply and result in low correlation. After subtracting the means, low values in both images become negative. However, two negative numbers multiply into a positive value, so they increase the correlation. On contrary, very bright and very dark pixels multiply into a negative number so their difference causes that they lower the overall correlation value.
+
+The zero--normalized cross--correlation is used in processing of the electron backscatter patterns to compare the reference deformed subregions. It can be computed in three steps:
+\begin{enumerate}
+	\item Find the means of the reference and deformed subregions
+	\item Subtract the means from the pixels of both subregions
+	\item Compute the cross--correlation of the subregions
+\end{enumerate}
+First two steps normalize the subregions and then we perform simple two--dimensional cross--correlation. The result is a two--dimensional matrix with size $(2W_s-1) \times (2H_s-1)$, if the subregions have size $W_s \times H_s$.
 
 
-The intuition behind this behavior is as follows. By the definition of simple cross--correlation, pixels with low brightness multiply and result in low correlation. After subtracting the means, low values in both images become negative. However, two negative numbers multiply into a positive value, so they increase the correlation. On contrary, very bright and very dull pixels multiply into a negative number so their difference causes that they lower the overall correlation value.
+\section{Subpixel peak}
+\label{subpixel-peak}
+Next, we find the maximum of the cross--correlation. The location of the maximum $[x_m,y_m]$ in the matrix is the shift between the deformed and reference subregions. However, the precision of one pixel is not accurate enough in the context of the nanoworld the electron backscatter diffraction studies. That is why we use the cross--correlated data to estimate the maximum with subpixel accuracy.
 
-\section{Least squares}
+We expect that if we could compute the cross--correlation with infinite resolution, so it would be continuous, the neighborhood of the maximum would look like a two--dimensional quadratic function with exactly one maximum. Since we only have limited resolution, we estimate~(fit) the continuous quadratic function from several discrete points of the cross--correlation --- the neighborhood of the maximum. The neighborhood is square--shaped and its size $F \times F$ is a parameter of the algorithm. Finally, we find the exact location of maximum of the estimated continuous quadratic function, which may be slightly shifted from the discrete maximum, depending on the values of the cross--correlation in the neighborhood.
 
-The least squares method is used to approximate the solution of systems of equations do not have an exact solution, since there are more equations than unknowns. Such systems are also called overdetermined systems. In EBSP analysis, the least squares method is used to approximate coefficients of a quadratic function from its several known points.
 
-In the first place, let us formulate the problem that the least squares method addresses. Let $n,m \in N, n > m; A \in \mathbb{R}^{n \times m}; x \in \mathbb{R}^m$ and $b \in \mathbb{R}^n$. Then $Ax = b$ is an overdetermined system of linear equations. It may have a solution, if $b$ is a linear combination of column vectors of $A$ ($b$ is in column space of $A$), but in general, that is not the case.
+So the processing of the cross--correlation is done in several steps:
+\begin{enumerate}
+	\item Find the position $[x_m,y_m]$ of the maximum (often denoted as \emph{arg max} operation) of the cross--correlation. It is a pair of whole numbers from the closed interval $(-W_s, W_s) \times (-H_s, H_s)$.
+	\item Use the \emph{least squares method} to fit a quadratic function to the neighborhood of the maximum. The function is a continuous representation of the cross--correlation peak.
+	\item Find the position of the maximum of the continuous function.
+\end{enumerate}
+
+In the following sections, we describe these steps in detail.
+
+\subsection{Least squares}
+The least squares method is used to approximate the solution of systems of equations do not have an exact solution, since there are more equations than unknowns. Such systems are also called overdetermined systems. In the electron backscatter pattern analysis, the least squares method is used to approximate coefficients of a quadratic function from its several known points.
+
+In the first place, let us formulate the problem that the least squares method addresses. Let $n,m \in \mathbb{N}, n > m; A \in \mathbb{R}^{n \times m}; x \in \mathbb{R}^m$ and $b \in \mathbb{R}^n$. Then $Ax = b$ is an overdetermined system of linear equations. It may have a solution, if $b$ is a linear combination of column vectors of $A$ ($b$ is in column space of $A$), but in general, that is not the case.
 
 Instead of solving the system, we search for a vector $x'$ that has the least difference from the solution:
 \[
@@ -174,40 +238,121 @@ The least squares solution can be calculated using only matrix multiplication an
 x' = (A^TA)^{-1}A^Tb.
 \]
 
-This formula is not used in practice because of effectiveness and numerical stability (instead, it is better to solve the equation $A^TAx = A^Tb$). However, for the algorithm described in this thesis the matrix $A$ does not depend on the input data and thus it is possible to precompute the $(A^TA)^{-1}A^T$ matrix. That reduces the computation of the least squares vector to one matrix--vector multiplication.
+This formula is not used in practice because of effectiveness and numerical stability (instead, it is better to solve the equation $A^TAx = A^Tb$). However, for the algorithm described in this thesis, the approach is sufficient, since the matrix $A$ is constant in our case (see the end of \cref{estimation} for further explanation).
+
+\subsection{Maximum neighborhood fitting}
+
+We use the least squares method to estimate the coefficients of a two--dimensional quadratic function from the neighborhood of the cross--cor\-re\-la\-tion maximum. The neighborhood has size $F \times F$ and has the shape of a square, so for maximum at location $[x_m, y_m]$, the neighborhood points are at positions 
+\[
+\{x_m - \frac{F-1}{2}, \cdots, x_m, \cdots, x_m + \frac{F-1}{2}\} \times \{y_m - \frac{F-1}{2}, \cdots, y_m, \cdots, y_m + \frac{F-1}{2}\}.
+\]
+We only consider odd $F$, so the maximum is always in the middle.
+
+The estimated two--dimensional quadratic function $f:\mathbb{R} \rightarrow \mathbb{R}$ can be written as as:
+\[
+f(x,y) = a + bx + cy + dx^2 + exy + fy^2,
+\]
+where $a, b, c, d, e, f \in \mathbb{R}$. To estimate such function is to find the 6 coefficients $a \dots f$. From the known points of the neighborhood $N$ of size $F \times F$, it is possible to create the following system of equations:
+\[
+\forall [x,y] \in \{0,1,\dots , F-1\}^2 : a + xb + yc + x^2d + xye + y^2f = N[x,y],
+\]
+where $a \dots f$ are unknown variables.
+
+So for each point with coordinates $[x,y]$ in the neighborhood, we create one equation with substituted $x$ and $y$. We have $F^2$ known points, from which we create $s^2$ equations. We have 6 unknown variables and $F$ has to be greater than one and odd, so we have more equations than unknowns. 
+
+\subsubsection{Example of creating equation system}
+
+For instance, let $F$ be 3 and $N$ be the neighborhood of the maximum:
+\[
+N =
+\begin{bmatrix}
+751 & 819 & 765 \\
+825 & 934 & 810 \\
+768 & 798 & 725
+\end{bmatrix}.
+\]
 
 
-\section{Algorithm description}
+\iffalse
+\[
+\begin{bmatrix}
+1 & 0 & 0 & 0 & 0 & 0\\
+1 & 1 & 0 & 1 & 0 & 0\\
+1 & 2 & 0 & 4 & 0 & 0\\
+1 & 0 & 1 & 0 & 0 & 1\\
+1 & 1 & 1 & 1 & 1 & 1\\
+1 & 2 & 1 & 4 & 2 & 1\\
+1 & 0 & 2 & 0 & 0 & 4\\
+1 & 1 & 2 & 1 & 2 & 4\\
+1 & 2 & 2 & 4 & 4 & 4
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+a \\ b \\ c \\ d \\ e \\ f
+\end{bmatrix}
+=
+\begin{bmatrix}
+751 \\ 819 \\ 765 \\ 825 \\ 934 \\ 810 \\ 768 \\ 798 \\ 725
+\end{bmatrix}.
+\]
+\fi
 
-In the following section, we describe how are the zero--normalized cross--corre\-lation and the least squares mathod used to analyze the deformation of EBSPs.
+Then, the linear system looks like this:
+\begin{align*}
+x=0,y=0 \rightarrow a + 0b + 0c + 0d + 0e + 0f &= N[0,0] = 751 \\
+x=1,y=0 \rightarrow a + 1b + 0c + 1d + 0e + 0f &= N[1,0] = 819 \\
+x=2,y=0 \rightarrow a + 2b + 0c + 4d + 0e + 0f &= N[2,0] = 765 \\
+x=0,y=1 \rightarrow a + 0b + 1c + 0d + 0e + 1f &= N[0,1] = 825 \\
+x=1,y=1 \rightarrow a + 1b + 1c + 1d + 1e + 1f &= N[1,1] = 934 \\
+x=2,y=1 \rightarrow a + 2b + 0c + 4d + 2e + 1f &= N[2,1] = 810 \\
+x=0,y=2 \rightarrow a + 0b + 2c + 0d + 0e + 4f &= N[0,2] = 768 \\
+x=1,y=2 \rightarrow a + 1b + 2c + 1d + 2e + 4f &= N[1,2] = 798 \\
+x=2,y=2 \rightarrow a + 2b + 2c + 4d + 4e + 4f &= N[2,2] = 725 \\
+\end{align*}
 
-As described in the beginning of this chapter, the algorithm we implement in this thesis takes deformed EBSPs and cross--correlates several regions of interest with a reference EBSP. A region of interest (ROI) is a rectangular part of an image defined by its size and position. The algorithm then finds the maximum of the cross--correlation, which yields the vector of deformation with one pixel accuracy. Finally, it improves the accuracy by finding the maximum of a fitted quadratic function.
+The left sides contains the equation of the two--dimensional quadratic function with substituted points from the set $\{0,1,2\}^2$. The right side contains all the corresponding values from neighborhood $N$.
 
-The algorithm takes the following input:
-\begin{itemize}
-	\item reference EBSP image with size $W \times H$
-	\item $N$ deformed EBSP images, each with size $W \times H$
-	\item $M$ positions ROIs that will be compared from each image
-	\item size $w \times h$ of each ROI
-	\item size of neighbourhood $s \times s$ of the cross correlation maximum that will be used to fit the quadratic function
-\end{itemize}
-The result of the algorithm is a list of $M$ shifts for each of the $N$ deformed EBSPs (see \cref{roi-shifts:result} for visualization of the shifts for one EBSP).
+\subsubsection{Estimation of function coefficients using least squares method}
+\label{estimation}
 
-Algorithm \ref{algo-whole} describes the whole process in pseudocode. It goes through all deformed EBSPs and all ROI positions specified in the input. For each ROI, it computes the zero--normalized cross--corre\-lation in three steps:
-\begin{enumerate}
-	\item Find means of the ROI
-	\item Subtract the means from ROIs
-	\item Compute cross--correlation
-\end{enumerate}
-The result is an image (two--dimensional array) with size $(2w-1) \times (2h-1)$.
+Once we create the system of equations, we solve it using the least squares method. Recall its solution:
+\[
+x' = (A^TA)^{-1}A^Tb.
+\]
+Matrix $A$ in the solution corresponds to the left sides of the system of equations, $b$ is the vector with values of the neighborhood. We can observe, that the left sides of the equations (matrix $A$) are constant for any neighborhood of size $F$. That also implies that the expression $(A^TA)^{-1}A^T$ in the least squares solution is constant for the values of the neighborhood and only depends on the parameter $F$.
 
+That means we can precompute the constant part of the least squares formula for each $F$. That reduces the computation of least squares to only one matrix--vector multiplication. We do not expect that $F$ can have many different values. It has to be odd and the neighborhood is expected to be fairly small --- for this thesis we implemented only the options $F \in {3, 5, 7, 9}$.
+
+
+\subsection{Maximum of fitted function}
+
+The last step in the algorithm is to find the maximum of the quadratic function. We do that using standard methods of mathematical analysis: we find where are the partial derivations of the function equal to zero.
+
+The partial derivations of the quadratic function are:
+\begin{align*}
+\frac{\partial f}{\partial x}(x,y) &= 2dx + ey + b,\\
+\frac{\partial f}{\partial y}(x,y) &= ex + 2fy + c.
+\end{align*}
+
+If the function has an extreme, then it is located at the point where the partial derivations are both zero. That implies the a linear system of equations with the following solution:
+\begin{align*}
+x_m &= \frac{2bf - ce}{e^2 - 4df}\\
+y_m &= \frac{2cd - be}{e^2 - 4df}
+\end{align*}
+
+The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum. All that is left is to combine those two to get the offset of one ROI of the EBSP.
+
+\section{Summary}
+
+
+\todo{SUMMARY}
 \begin{algorithm}
 	\caption{EBSP deformation processing}
 	\label{algo-whole}
 	\KwIn{one reference EBSP \newline
 		N deformed EBSPs \newline
-	 	position of M regions of interest (ROI) from each EBSP \newline
- 		size of one ROI \newline}
+		position of M regions of interest (ROI) from each EBSP \newline
+		size of one ROI \newline}
 	\KwOut{deformation shifts for all M ROIs from all N deformed EBSPs}
 	\vspace{5px}
 	
@@ -236,74 +381,3 @@ The result is an image (two--dimensional array) with size $(2w-1) \times (2h-1)$
 		\KwRet maximum of the quadratic function\;
 	}
 \end{algorithm}
-
-\subsection{Subpixel peak}
-
-Next, we find the maximum of the cross--correlation. The location of the maximum $[x,y]$ in the matrix is the shift between the deformed and reference ROI. However, the precision of one pixel is not enough because it is too big in comparison with the nanoworld the EBSP technique studies. That is why we use the cross--correlated data to estimate the maximum with subpixel accuracy.
-
-We take a square--shaped neighborhood of the maximum with size $s \times s$ and fit a two--dimensional quadratic function defined as:
-\[
-f(x,y) = a + bx + cy + dx^2 + exy + fy^2,
-\]
-where $a, b, c, d, e, f \in \mathbb{R}$. To fit such function is to estimate the 6 coefficients $a \dots f$. From the known points of the neighborhood $N$ of size $s \times s$, it is possible to create the following system of equations:
-\[
-\forall [x,y] \in \{0,1,\dots , s-1\}^2 : a + xb + yc + x^2d + xye + y^2f = N[x,y],
-\]
-where $a \dots f$ are unknown variables.
-
-We have $s^2$ known points, from which we create $s^2$ equations. Since we have 6 unknown variables, $s$ has to be at least 3, so we have more equations than unknowns. 
-
-We solve the system using the least squares method, which estimates the coefficients $a \dots f$. That means we know the equation of the quadratic function which fits the neighborhood.
-
-\subsubsection{Subpixel peak example}
-
-For instance, let $s$ be 3 and $N$ be the neighborhood of the maximum:
-\[
-N =
-\begin{bmatrix}
-751 & 819 & 765 \\
-825 & 934 & 810 \\
-768 & 798 & 725
-\end{bmatrix}.
-\]
-Then, the linear system looks like this:
-\[
-\begin{bmatrix}
-1 & 0 & 0 & 0 & 0 & 0\\
-1 & 1 & 0 & 1 & 0 & 0\\
-1 & 2 & 0 & 4 & 0 & 0\\
-1 & 0 & 1 & 0 & 0 & 1\\
-1 & 1 & 1 & 1 & 1 & 1\\
-1 & 2 & 1 & 4 & 2 & 1\\
-1 & 0 & 2 & 0 & 0 & 4\\
-1 & 1 & 2 & 1 & 2 & 4\\
-1 & 2 & 2 & 4 & 4 & 4
-\end{bmatrix}
-\cdot
-\begin{bmatrix}
-a \\ b \\ c \\ d \\ e \\ f
-\end{bmatrix}
-=
-\begin{bmatrix}
-751 \\ 819 \\ 765 \\ 825 \\ 934 \\ 810 \\ 768 \\ 798 \\ 725
-\end{bmatrix}.
-\]
-The left side contains all the points from the set $\{0,1,2\}^2$; right side contains all the corresponding values from neighborhood $N$.
-
-\subsubsection{Maximum of fitted function}
-
-The last step in the algorithm is to find the maximum of the quadratic function. We do that using standard methods of mathematical analysis: we find where are the partial derivations of the function equal to zero.
-
-The partial derivations of the quadratic function are:
-\begin{align*}
-\frac{\partial f}{\partial x}(x,y) &= 2dx + ey + b,\\
-\frac{\partial f}{\partial y}(x,y) &= ex + 2fy + c.
-\end{align*}
-
-If the function has an extreme, then it is located at the point where the partial derivations are both zero. That implies the a linear system of equations with the following solution:
-\begin{align*}
-x_m &= \frac{2bf - ce}{e^2 - 4df}\\
-y_m &= \frac{2cd - be}{e^2 - 4df}
-\end{align*}
-
-The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum. All that is left is to combine those two to get the offset of one ROI of the EBSP.
