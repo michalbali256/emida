@@ -310,7 +310,7 @@ x=1,y=2 \rightarrow a + 1b + 2c + 1d + 2e + 4f &= N[1,2] = 798 \\
 x=2,y=2 \rightarrow a + 2b + 2c + 4d + 4e + 4f &= N[2,2] = 725 \\
 \end{align*}
 
-The left sides contains the equation of the two--dimensional quadratic function with substituted points from the set $\{0,1,2\}^2$. The right side contains all the corresponding values from neighborhood $N$.
+The left sides contains the equation of the two--dimensional quadratic function with substituted points from the set $\{0,1,2\}^2$ (for this example, we have chosen the zero point to be the top left corner). The right side contains all the corresponding values from neighborhood $N$.
 
 \subsubsection{Estimation of function coefficients using least squares method}
 \label{estimation}
@@ -340,32 +340,37 @@ x_m &= \frac{2bf - ce}{e^2 - 4df}\\
 y_m &= \frac{2cd - be}{e^2 - 4df}
 \end{align*}
 
-The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum. All that is left is to combine those two to get the offset of one ROI of the EBSP.
+The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum.
 
 \section{Summary}
 
+Algorithm \ref{algo-whole} summarizes the algorithm described in this chapter. It is clear that all the patterns and even their subregions are processed separately so it is easy to parallelize it. At the same time, there may be thousands of the patterns and tens of subregions in each, so there is enough data to utilize the whole GPU. The most computationally expensive part is the cross--correlation. We explain the implementation details of the algorithm in the next chapter.
 
-\todo{SUMMARY}
 \begin{algorithm}
 	\caption{EBSP deformation processing}
 	\label{algo-whole}
-	\KwIn{one reference EBSP \newline
-		N deformed EBSPs \newline
-		position of M regions of interest (ROI) from each EBSP \newline
-		size of one ROI \newline}
-	\KwOut{deformation shifts for all M ROIs from all N deformed EBSPs}
+	\KwIn{one reference electron backscatter pattern \newline
+		$N$ deformed electron backscatter patterns \newline
+		position of $M$ subregions from each pattern \newline
+		size of a subregion \newline
+		parameter $F$ --- size of neighborhood}
+	\KwOut{deformation shifts for all $M$ subregions from all $N$ deformed patterns}
 	\vspace{5px}
 	
-	refEBSP  $\leftarrow$ load reference EBSP from disk\;
-	\ForEach{deformed EBSP}{
-		defEBSP $\leftarrow$ load EBSP from disk\;
-		\ForEach{\emph{roiPos} in ROI positions}{
-			refROI, defROI $\leftarrow$ extract ROI from refEBSP and defEBSP\;
-			
-			find the mean of both ROIs and subtract it\;
-			
+	refPat  $\leftarrow$ load reference pattern from disk\;
+	\ForEach{deformed pattern}{
+		defEBSP $\leftarrow$ load deformed pattern from disk\;
+		\ForEach{\emph{regPos} in subregion positions}{
+			refReg $\leftarrow$ extract subregion at regPos from refPat\;
+			defReg $\leftarrow$ extract subregion at regPos from defPat\;
+			\BlankLine
+			refMean, defMean $\leftarrow$ means of both subregions\;
+			\BlankLine
+			subtract refMean from pixels of refReg\;
+			subtract defMean from pixels of defReg\;
+			\BlankLine
 			crossResult $\leftarrow$ cross--correlate(refROI,defROI)\;
-			%
+			\BlankLine
 			maxX, maxY $\leftarrow$ subpixelPeak(crossResult)\;
 			output [maxX, maxY]\;
 		}
@@ -375,9 +380,10 @@ The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood
 	\SetKwFunction{FSubpixelPeak}{subpixelPeak}    
 	\Fn{\FSubpixelPeak{crossResult}}{
 		[maxX, maxY] $\leftarrow$ argmax(crossResult)\;
-		neigh $\leftarrow$ extract neighborhood of [maxX, maxY]\;
+		neighbors $\leftarrow$ extract neighborhood of [maxX, maxY]\;
 		
-		fit a quadratic function to neigh using the least squares method\;
-		\KwRet maximum of the quadratic function\;
+		coefs $\leftarrow$ fitQuadraticFunction($F$, neighbors)\;
+		\KwRet arg max of the quadratic function with coefficients coefs \;
 	}
 \end{algorithm}
+
