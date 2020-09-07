@@ -208,79 +208,7 @@ This gives us an interval through which we iterate $x$ in the inner loops for ea
 
 The modified algorithm written as a CUDA kernel is listed in algorithm~\ref{crossKernel}. We implemented the algorithm for CUDA by parallelizing over the outer two loops. That means each thread computes one shift and thus one value of the result. It uses two--dimensional blocks, so we can just use the two indices as \IT{shiftX} and \IT{shiftY}. For computing more subregions at a time, we simply use more threads.
 
-The described algorithm has asymptotic time complexity $\mathcal{O}(W_s^2H_s^2)$. In the following section, we describe a way to compute two--dimensional cross--correlation in $\mathcal{O}(W_sH_s\log_2(W_sH_s))$ using Fourier transform.
 
-\subsection{Computing cross--correlation using discrete \\ Fourier transform}
-\label{fft}
-
-We first define \emph{circular cross--correlation}, which is a way to cross--correlate periodic functions. Then, we define \emph{discrete Fourier transform} and show how it is used to compute circular cross-correlation. Finally we show how to get the cross--correlation we need in the implementation. All is described for one--dimensional case only, since two--dimensional is analogous.
-
-Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$ and $\{y_n\} = y_0, y_1, \dots , y_{N-1}$ be series of complex numbers. Then their circular cross--correlation is another series of $N$ numbers defined by the formula
-\[
-\{\mathbf{x} \star_N \mathbf{y}\}_n = \sum_{l=0}^{N-1}x^\star_ly_{(n+l)\bmod N},
-\]
-where $\cdot \star_N \cdot$ denotes the circular cross--correlation of two series.
-%We can see that the definition is very similar to cross--correlation of two functions (see \cref{cross-corr-def}), except here we do.
-
-Circular cross--correlation can be interpreted as a cross--correlation of two periodic functions. For any periodic function with period $N$, we only need $N$ consecutive values to represent, since the rest of the function repeats the same values. At the same time, given two periodic discrete functions $f, g : \mathbb{Z} \rightarrow \mathbb{C}$ with period $N$, their cross--correlation $f \star g$ is also periodic with the same period. So if we interpret the series in the definition of circular cross--correlation of as periodic functions, then the resulting series represents (non--circular) cross--correlation of the functions.
-
-%The $\mod$ operation causes that whenever the $n+l$ is greater or equal than $N$, we ``circulate'' and take 
-
-The circular cross--correlation can be quickly computed by using the discrete Fourier transform.
-
-The \emph{discrete Fourier transform} is a function $\mathcal{F}: \mathbb{C}^N \times \mathbb{C}^N$ that transforms a series of $N \in \mathbb{N}$ complex numbers $\{x_n\} = x_0, x_1, \dots , x_{N-1}$ into another $N$ complex numbers $\{X_n\} = X_0, X_1, \dots , X_{N-1}$, which are defined as follows:
-\[
-X_k = \sum_{n=0}^{N-1} x_n \cdot e^{-\frac{i2\pi}{N}kn}.
-\]
-The Fourier transform is invertible, so if $\mathcal{F}(\mathbf{x}) = \mathbf{X}$, then $\mathcal{F}^{-1}(\mathbf{X}) = \mathbf{x}$.
-
-Fourier transform has a broad range of practical applications --- it is used for example in digital signal processing, solving partial differential equations or big numbers multiplication. It can be used to quickly compute the circular cross--correlation using the following theorem \cite{proakis2004digital}.
-
-Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$, $\{y_n\} = y_0, y_1, \dots , y_{N-1}$ be series of complex numbers and let $\{X_n\}$, $\{Y_n\}$ be their Fourier transforms. Then, we can compute \emph{circular cross--correlation} like so: 
-\[
-\mathcal{F}^{-1}\{\mathbf{X}^\star \cdot \mathbf{Y}\}_n = \sum_{l=0}^{N-1}x^\star_ly_{(n+l)\bmod N},
-\]
-where $\cdot^\star$ denotes the complex conjugate and $\cdot$ denotes element by element multiplication.
-
-In other words, in order to compute the circular cross--correlation of two series $\{x_n\}$ and $\{y_n\}$, we first compute their Fourier transforms $\{X_n\}$ and $\{Y_n\}$, then multiply corresponding elements of $\{X_n\}$ and the complex conjugate of $\{X_n\}$. Finally, we do an inverse Fourier transform. We do all of this, because we are able to compute both the discrete Fourier transform and its inverse in time $\mathcal{O}(N \log N)$, which gives us the overall asymptotic time $\mathcal{O}(N \log N)$ compared to $\mathcal{O}(N^2)$ when computing the circular cross--correlation from definition.
-
-%To compute non--circular cross--correlation using this method, we use a trick with zero padding. Let $N \in \mathbb{N}$, $f$ and $g$ be two discrete functions, that are non--zero only in the first 
-
-\begin{figure}
-	\centering
-	\includegraphics[width=\textwidth]{img/circ-cross-example}
-	\caption{Illustration of the relationship between circular and non--circular cross--correlation. The left side shows a cross--correlation of two series $a$ and $b$. The right side shows the circular cross--correlation of $x$ and $y$, which are zero--padded versions of the series $a$ and $b$. Corresponding values of both correlations are shown side by side.}
-	\label{circ-cross-example}
-\end{figure}
-
-To compute non--circular cross--correlation using this method, we use the following trick: for series $\{x_n\}$ and $\{y_n\}$ of length $N$, we expand both of them with $N$ zeros and then do circular cross--correlation. It results in a series $\{c_n\} = \mathbf{x} \star_N \mathbf{y}$ of $2N$ numbers. The numbers in the series have the following interpretation: $c_0, \cdots, c_{N-1}$ are the values of non--circular cross--correlation with shifts $0, 1, \cdots, N$ and $c_{N+1}, c_{N+2}, \cdots, c_{2N-1}$ represent the shifts $(-N+1), (-N+1), \cdots, -2, -1$. $c_{N+1}$ is always zero and does not have any interpretation.
-
-The reason why this works is illustrated in \cref{circ-cross-example}. When doing regular cross--correlation (in the left side of the figure), we slide one of the series along the other and for every shift, we multiply the corresponding numbers. If a number does not have any counterpart in the other series with respect to the current shift, it is discarded. For circular cross--correlation, we again slide one of the series, but this time we do it ``circularly'', using the modulo operator. We use the zeros that we expanded the original series with to rule out the values that should not be multiplied for the current shift.
-
-\subsubsection{Two--dimensional discrete Fourier transform}
-
-In order to use the described method in our implementation, we need to expand it to work on two--dimensional inputs.
-
-Let $N, M \in \mathbb{N}$, $\mathbf{x} \in \mathbb{C}^{N\times M}$. Then $\mathbf{X} \in \mathbb{C}^{N\times M}$ is the Fourier transform of x, if the following holds for each item of the matrix $\mathbb{X}$:
-\[
-X_{k,l} = \sum_{n=0}^{N-1} \sum_{m=0}^{M-1} x_{n,m} \cdot e^{-i2\pi(\frac{kn}{N} + \frac{lm}{M})}.
-\]
-
-Next, the circular cross--correlation theorem can be rewritten for two dimensions as well. Let $N, M \in \mathbb{N}$, $\mathbf{x} \in \mathbb{C}^{N\times M}$, $\mathbf{y} \in \mathbb{C}^{N\times M}$ let $\mathbf{X} = \mathcal{F}(\mathbf{x})$ and $\mathbf{Y} = \mathcal{F}(\mathbf{y})$ be their Fourier transforms. Then, we can compute the two--dimensional circular cross--correlation like so: 
-\[
-\mathcal{F}^{-1}\{\mathbf{X}^\star \cdot \mathbf{Y}\}_{n,m} = \sum_{k=0}^{N-1} \sum_{l=0}^{M-1} x^\star_{k,l} y_{(n+k)\bmod N, (m+l)\bmod M},
-\]
-where $\cdot^\star$ denotes the complex conjugate and $\cdot$ denotes element by element multiplication.
-
-The trick with zero--padding the inputs applies to the two--dimensional case as well. So when we want to compute the cross--correlation of two images $x$ and $y$ (represented by matrices in the theorem) with resolution $W \times H$, we do the following steps:
-\begin{enumerate}
-	\item Zero--pad the images --- we enlarge the image to the size $2W \times 2H$ by adding zeros.
-	\item Compute the Fourier transforms of the images, which gives us two matrices $X = \mathcal{F}(x)$ and $Y =\mathcal{F}(y)$ of complex numbers with sizes $2W \times 2H$.
-	\item Compute the complex conjugate of the matrix $X$.
-	\item Multiply $X^\star$ with $Y$ element by element. The operation is also called \emph{Hadamard product}.
-	\item Do the inverse discrete Fourier transform on the product.
-\end{enumerate}
-The result is a matrix $R$ of real numbers with the size $2W \times 2H$. It contains the cross--correlation of the input images, but it is circularly shifted. Similar to the one--dimensional case, where the item $N$ of the series was always zero, now the column $R_{*,N}$ and row $R_{N,*}$ are both zero. They separate the matrix into 4 quadrants that are circularly shifted by $N$ compared to the cross--correlation. Thus, the last step needed to get the resulting cross--correlation is to shift the matrix back by $N$, which is the same as swapping the quadrants diagonally.
 
 \subsubsection{The cuFFT library}
 We now move on to explain our implementation of the cross--correlation computation. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. In this section, we explain the implementation for one subregion only, since it is trivial to expand it for more subregions.
