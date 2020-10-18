@@ -210,8 +210,8 @@ The modified algorithm written as a CUDA kernel is listed in algorithm~\ref{cros
 
 
 
-\subsubsection{The cuFFT library}
-We now move on to explain our implementation of the cross--correlation computation. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. In this section, we explain the implementation for one subregion only, since it is trivial to expand it for more subregions.
+\subsection{The cuFFT library}
+We now move on to explain our implementation of the cross--correlation computation using the Fourier transform. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. In this section, we explain the implementation for one subregion only, since it is trivial to expand it for more subregions.
 
 There are two functions in the cuFFT library that are essential for us \texttt{R2C} and \texttt{C2R}, which compute the discrete Fourier transform and its inverse, respectively. \texttt{R2C} takes an array of real numbers and computes their discrete Fourier transform, outputting an array of complex numbers. A complex number is represented as a pair of floats/doubles. The \texttt{C2R} function takes an array of complex numbers, computes their inverse Fourier transform and outputs an array of real numbers.
 
@@ -219,7 +219,7 @@ Both of the functions use an important property of Fourier transform: A series $
 
 It also makes it possible to store the Fourier transform in roughly the same array as the input and thus perform in--place transforms. The output consists of complex numbers, which are represented by two real numbers, i.e., one element takes twice as much bytes. But at the same time, we only need $W/2 + 1$ columns (we can remove the floor operator, because $W$ is always even in our context as we double the size of a subregion with zero padding). The result is that we save the input in a real matrix with size $(W+2) \times H$, with the two extra columns unused. That is the same amount of space that we need for the transformed complex matrix with size $W/2 + 1 \times H$.
 
-\subsubsection{Using cuFFT to compute cross--correlation}
+\subsection{Using cuFFT to compute cross--correlation}
 
 \Cref{fft-impl} shows the process with illustration of used buffers. Recall that we cross--correlate a deformed subregion with a reference, both with size $W_s \times H_s$. The preparation kernel extracts the data from the input pattern and outputs it directly into a zero--padded buffer with size $2W_s \times 2H_s$. Then, we use the \texttt{R2C} function from the cuFFT library to compute Fourier transform of the padded deformed subregion. The result is another buffer with size $(W_s + 1) \times 2H$ of complex numbers, which is the same as $(2W_s+2) \times 2H_s$ of real numbers.
 

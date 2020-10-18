@@ -53,7 +53,7 @@ To sum up, we have thousands images of deformed electron backscatter patterns. E
 
 \section{Algorithm description}
 
-In the rest of this chapter, we describe an algorithm used to process the electron backscatter patterns. The specifics of the algorithm correspond to a version that is used in Department of Physics of Material on Charles University in Prague. \todo{Spytat sa Jozefa ci k tomu existuje paper}
+In the rest of this chapter, we describe an algorithm used to process the electron backscatter patterns. The specifics of the algorithm correspond to a version that is used in Department of Physics of Material in Charles University in Prague.
 
 The algorithm takes the following input and parameters:
 \begin{itemize}
@@ -61,11 +61,11 @@ The algorithm takes the following input and parameters:
 	\item $N$ deformed images of electron backscatter pattern images, each with size $W_p \times H_p$
 	\item $S$ positions of subregions that will be compared from each image
 	\item size $W_s \times H_s$ of each subregion
-	\item parameter $F$ that denotes the size of neighborhood used to interpolate the maximum with subpixel accuracy.
+	\item parameter $F$ that denotes the size of neighborhood used to interpolate the maximum with subpixel accuracy (see \cref{subpixel-peak})
 \end{itemize}
-The input images are all greyscale, which means each pixel is represented by one number.
+The input images are all greyscale, which means each pixel is represented by one number. In our testing data, pixels were represented by 16 bit integers in range~$0 - 65535$.
 
-The result of the algorithm is a list of $M$ shifts for each of the $N$ deformed patterns (see \cref{roi-shifts:result} for visualization of the shifts for one pattern).
+The result of the algorithm is a list of $S$ shifts for each of the $N$ deformed patterns (see \cref{roi-shifts:result} for visualization of the shifts for one pattern).
 
 Algorithm \ref{algo-whole-highlevel} shows a high--level pseudocode of the algorithm. It iterates through all deformed patterns and all subregion positions specified in the input. For each subregion, it computes the cross--correlation between the deformed subregion and subregion at the same position from the reference pattern. The result of cross--correlation is a matrix that expresses a measure of similarity for each possible shift between the subregions (see \cref{cross-corr-def}). In the next step, we further process the matrix to obtain the most probable shift with subpixel accuracy (see \cref{subpixel-peak}), which is the output of the algorithm.
 
@@ -74,14 +74,13 @@ Algorithm \ref{algo-whole-highlevel} shows a high--level pseudocode of the algor
 	\label{algo-whole-highlevel}
 	\KwIn{one reference electron backscatter pattern \newline
 		$N$ deformed electron backscatter patterns \newline
-		position of $M$ subregions from each pattern \newline
+		position of $S$ subregions from each pattern \newline
 		size of a subregion \newline}
-	\KwOut{deformation shifts for all $M$ subregions from all $N$ deformed patterns}
+	\KwOut{deformation shifts for all $S$ subregions from all $N$ deformed patterns}
 	\vspace{5px}
 	
-	refPat  $\leftarrow$ load the reference pattern from disk\;
-	\ForEach{deformed pattern}{
-		defPat $\leftarrow$ load the deformed pattern from disk\;
+	refPat  $\leftarrow$ reference pattern\;
+	\ForEach{\emph{defPat} in deformed patterns}{
 		\ForEach{\emph{regPos} in subregion positions}{
 			refReg, defReg $\leftarrow$ extract subregions from refPat and defPat\;
 			
@@ -143,14 +142,14 @@ Analogously to one--dimensional cross--correlation, $(f \star g)[i,j]$ is a numb
 	\label{2d-correlation-example}
 \end{figure}
 
-Theoretically, the domain of cross--correlation is the whole $\mathbb{Z}^2$. However, when cross--correlating two images, i.e., real--valued matrices, $(f \star g)[i,j]$ does not make sense for all $[i,j] \in \mathbb{Z}^2$, because for some of them the images are shifted so much they do not overlap. For two images with sizes $w_1 \times h_1$ and $w_2 \times h_2$, the size of their cross--correlation is $(w_1 + w_2 - 1) \times (h_1 + h_2 - 1)$. The result is a rectangle with the following corners: $[-w_1+1,-h_1+1]$, $[-w_1+1,h_2-1]$, $[w_2-1,h_2-1]$, $[w_2-1,-h_1+1]$. Those are the points of cross--correlation, where the result is computed from the images overlapping only by one pixel.
+Theoretically, the domain of cross--correlation is the whole $\mathbb{Z}^2$. However, when cross--correlating two images, i.e., real--valued matrices, $(f \star g)[i,j]$ does not make sense for all $[i,j] \in \mathbb{Z}^2$, because for some of them the images are shifted so much they do not overlap. For two images with sizes $w_1 \times h_1$ and $w_2 \times h_2$, the size of their relevant cross--correlation domain is $(w_1 + w_2 - 1) \times (h_1 + h_2 - 1)$. The result is a rectangle with the following corners: $[-w_1+1,-h_1+1]$, $[-w_1+1,h_2-1]$, $[w_2-1,h_2-1]$, $[w_2-1,-h_1+1]$. Those are the points of cross--correlation, where the result is computed from the images overlapping only by one pixel.
 
 \subsection{Computing cross--correlation using discrete \\ Fourier transform}
 \label{fft}
 
-The cross--correlation can be computed using an algorithm based on the definition with asymptotic time complexity $\mathcal{O}(W_s^2H_s^2)$ for two images with resolution $W_s \times H_s$ --- for each of the resulting $(2W_s - 1)(2H_s - 1)$ pixels, we need to multiply at most $W_sH_s$ pixels. In the following section, we describe a way to compute two--dimensional cross--correlation in $\mathcal{O}(W_sH_s\log_2(W_sH_s))$ using Fourier transform.
+The cross--correlation can be computed using an algorithm based on its definition with asymptotic time complexity $\mathcal{O}(W_s^2H_s^2)$ for two images with resolution $W_s \times H_s$ --- for each of the resulting $(2W_s - 1)(2H_s - 1)$ pixels, we need to multiply at most $W_sH_s$ pixels. In the following section, we describe a way to compute two--dimensional cross--correlation in $\mathcal{O}(W_sH_s\log_2(W_sH_s))$ using \emph{discrete Fourier transform}. In the next section we show how it is used to compute \emph{circular cross--correlation}, which can be subsequently transformed into the (non--circular) cross--correlation we defined in the previous section.
 
-We first define \emph{circular cross--correlation}, which is a way to cross--correlate periodic functions. Then, we define \emph{discrete Fourier transform} and show how it is used to compute circular cross-correlation. Finally we show how to get the cross--correlation we need in the implementation. All is described for one--dimensional case only, since two--dimensional is analogous.
+%We first define \emph{circular cross--correlation}, because it can be used to compute cross--correlation. Then, we define \emph{discrete Fourier transform} and show how it is used to compute circular cross-correlation. Finally we show how to get the cross--correlation we need in the implementation. All is described for one--dimensional case only, since two--dimensional is analogous.
 
 Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$ and $\{y_n\} = y_0, y_1, \dots , y_{N-1}$ be series of complex numbers. Then their circular cross--correlation is another series of $N$ numbers defined by the formula
 \[
@@ -177,7 +176,7 @@ Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$, $\{y_n\} = y_0, y
 \[
 \mathcal{F}^{-1}\{\mathbf{X}^\star \cdot \mathbf{Y}\}_n = \sum_{l=0}^{N-1}x^\star_ly_{(n+l)\bmod N},
 \]
-where $\cdot^\star$ denotes the complex conjugate and $\cdot$ denotes element by element multiplication.
+where $\star$ denotes the \emph{complex conjugate} and $\cdot$ denotes element by element multiplication. Complex conjugate of a complex number $a + bi$, where $a, b \in \mathbb{R}$, is the complex number $a - bi$. Complex conjugate of series $\{a_n\}$ is series $\{b_n\}$, where every element $b_n$ is the complex conjugate of the original element $a_n$.
 
 In other words, in order to compute the circular cross--correlation of two series $\{x_n\}$ and $\{y_n\}$, we first compute their Fourier transforms $\{X_n\}$ and $\{Y_n\}$, then multiply corresponding elements of $\{X_n\}$ and the complex conjugate of $\{X_n\}$. Finally, we do an inverse Fourier transform. We do all of this, because we are able to compute both the discrete Fourier transform and its inverse in time $\mathcal{O}(N \log N)$, which gives us the overall asymptotic time $\mathcal{O}(N \log N)$ compared to $\mathcal{O}(N^2)$ when computing the circular cross--correlation from definition.
 
@@ -190,9 +189,9 @@ In other words, in order to compute the circular cross--correlation of two serie
 	\label{circ-cross-example}
 \end{figure}
 
-To compute non--circular cross--correlation using this method, we use the following trick: for series $\{x_n\}$ and $\{y_n\}$ of length $N$, we expand both of them with $N$ zeros and then do circular cross--correlation. It results in a series $\{c_n\} = \mathbf{x} \star_N \mathbf{y}$ of $2N$ numbers. The numbers in the series have the following interpretation: $c_0, \cdots, c_{N-1}$ are the values of non--circular cross--correlation with shifts $0, 1, \cdots, N$ and $c_{N+1}, c_{N+2}, \cdots, c_{2N-1}$ represent the shifts $(-N+1), (-N+1), \cdots, -2, -1$. $c_{N+1}$ is always zero and does not have any interpretation.
+To compute non--circular cross--correlation using this method, we use the following trick: for series $\{x_n\}$ and $\{y_n\}$ of length $N$, we expand both of them with $N$ zeros and then do circular cross--correlation. The result of such operation is the desired cross--correlation, only circularly shifted by N elements. The reason why it works is illustrated in \Cref{circ-cross-example}. When doing regular cross--correlation (in the left side of the figure), we slide one of the series along the other and for every shift, we multiply the corresponding numbers. If a number does not have any counterpart in the other series with respect to the current shift, it is discarded. For circular cross--correlation, we again slide one of the series, but this time we do it circularly using the modulo operator. We use the zeros that we expanded the original series with to rule out the values that should not be multiplied for the current shift.
 
-The reason why this works is illustrated in \cref{circ-cross-example}. When doing regular cross--correlation (in the left side of the figure), we slide one of the series along the other and for every shift, we multiply the corresponding numbers. If a number does not have any counterpart in the other series with respect to the current shift, it is discarded. For circular cross--correlation, we again slide one of the series, but this time we do it ``circularly'', using the modulo operator. We use the zeros that we expanded the original series with to rule out the values that should not be multiplied for the current shift.
+The circular cross--correlation of zero--padded series results in a series $\{c_n\} = \mathbf{x} \star_N \mathbf{y}$ of $2N$ numbers. The numbers in the series have the following interpretation: $c_0, \cdots, c_{N-1}$ are the values of non--circular cross--correlation with shifts $0, 1, \cdots, N$ and $c_{N+1}, c_{N+2}, \cdots, c_{2N-1}$ represent the shifts $(-N+1), (-N+2), \cdots, -2, -1$. $c_{N}$ is always zero and does not have any interpretation.
 
 \subsubsection{Two--dimensional discrete Fourier transform}
 
@@ -257,7 +256,7 @@ That is why zero--normalized cross--correlation is used. It is based on subtract
 \[
 \textsc{ZNCC}[i,j] = \sum_{x, y} \frac{1}{\sigma_f \sigma_g}(f[x,y] - \mu_f)(g[x+i,y+j] - \mu_g),
 \]  
-where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image $f$ with size $W \times H$, they are defined like so:
+where $\mu_f$ and $\mu_g$ are the means of the images and $\sigma_f$, $\sigma_g$ are their standard deviations. For an image $f$ with size $W \times H$, they are defined as follows:
 \begin{align*}
 \mu_f &= \frac{1}{WH} \sum_{x,y}{}f[x,y], \\
 \sigma_f &= \sqrt{\frac{1}{WH-1} \sum_{x,y}(f[x,y]-\mu_f)^2}.
@@ -271,9 +270,11 @@ The zero--normalized cross--correlation is used in processing of the electron ba
 \begin{enumerate}
 	\item Find the means of the reference and deformed subregions
 	\item Subtract the means from the pixels of both subregions
+	\item Find the standard deviations of the reference and deformed subregions
+	\item Divide the the pixels of both subregions by their respective standard deviations
 	\item Compute the cross--correlation of the subregions
 \end{enumerate}
-First two steps normalize the subregions and then we perform simple two--dimensional cross--correlation. The result is a two--dimensional matrix with size $(2W_s-1) \times (2H_s-1)$, if the subregions have size $W_s \times H_s$.
+First four steps normalize the subregions and then we perform the simple two--dimensional cross--correlation. The result is a two--dimensional matrix with size $(2W_s-1) \times (2H_s-1)$, if the subregions have size $W_s \times H_s$.
 
 
 \section{Subpixel peak}
@@ -293,11 +294,11 @@ So the processing of the cross--correlation is done in several steps:
 In the following sections, we describe these steps in detail.
 
 \subsection{Least squares}
-The least squares method is used to approximate the solution of systems of equations do not have an exact solution, since there are more equations than unknowns. Such systems are also called overdetermined systems. In the electron backscatter pattern analysis, the least squares method is used to approximate coefficients of a quadratic function from its several known points.
+The least squares method is used to approximate the solution of systems of equations do not have an exact solution, since there are more equations than variables. Such systems are also called overdetermined systems. In the electron backscatter pattern analysis, the least squares method is used to approximate coefficients of a quadratic function from its several known points.
 
 In the first place, let us formulate the problem that the least squares method addresses. Let $n,m \in \mathbb{N}, n > m; A \in \mathbb{R}^{n \times m}; x \in \mathbb{R}^m$ and $b \in \mathbb{R}^n$. Then $Ax = b$ is an overdetermined system of linear equations. It may have a solution, if $b$ is a linear combination of column vectors of $A$ ($b$ is in column space of $A$), but in general, that is not the case.
 
-Instead of solving the system, we search for a vector $x'$ that has the least difference from the solution:
+Instead of solving the system, we search for a vector $x'$ that has the least difference from the right hand side of the equation:
 \[
 x' = \min_x \norm{Ax - b},
 \]
@@ -307,12 +308,12 @@ where $\norm{\cdot}$ denotes Euclidean norm. For a vector $x \in \mathbb{R}^n$, 
 \]
 So we minimize the sum of squared differences between the left and right sides of the equations in the system, hence the name least squares.
 
-The least squares solution can be calculated using only matrix multiplication and inversion as follows (a proof can be found for example in \cite{anton2013elementary}):  
+The least squares solution can be calculated using only matrix multiplication and inversion as follows \cite{anton2013elementary}:  
 \[
 x' = (A^TA)^{-1}A^Tb.
 \]
 
-This formula is not used in practice because of effectiveness and numerical stability (instead, it is better to solve the equation $A^TAx = A^Tb$). However, for the algorithm described in this thesis, the approach is sufficient, since the matrix $A$ is constant in our case (see the end of \cref{estimation} for further explanation).
+This formula is not used in practice because of effectiveness and numerical stability (instead, it is better to solve the equation $A^TAx = A^Tb$). However, for the algorithm described in this thesis, the approach is sufficient, since the matrix $A$ is constant in our case (as we will explain in the end of \cref{estimation} for further explanation).
 
 \subsection{Maximum neighborhood fitting}
 
@@ -393,9 +394,9 @@ Once we create the system of equations, we solve it using the least squares meth
 \[
 x' = (A^TA)^{-1}A^Tb.
 \]
-Matrix $A$ in the solution corresponds to the left sides of the system of equations, $b$ is the vector with values of the neighborhood. We can observe, that the left sides of the equations (matrix $A$) are constant for any neighborhood of size $F$. That also implies that the expression $(A^TA)^{-1}A^T$ in the least squares solution is constant for the values of the neighborhood and only depends on the parameter $F$.
+Matrix $A$ in the solution corresponds to the left sides of the system of equations, $b$ is the vector with values of the neighborhood. We can observe that the left sides of the equations (matrix $A$) are constant for any neighborhood of size $F$. That also implies that the expression $(A^TA)^{-1}A^T$ in the least squares solution is constant for the values of the neighborhood and only depends on the parameter $F$.
 
-That means we can precompute the constant part of the least squares formula for each $F$. That reduces the computation of least squares to only one matrix--vector multiplication. We do not expect that $F$ can have many different values. It has to be odd and the neighborhood is expected to be fairly small --- for this thesis we implemented only the options $F \in {3, 5, 7, 9}$.
+That means we can precompute the constant part of the least squares formula for each $F$. That reduces the computation of least squares to only one matrix--vector multiplication. We do not expect that $F$ can have many different values. It has to be odd and the neighborhood is expected to be fairly small --- for this thesis we implemented only the options $F \in \{3, 5, 7, 9\}$.
 
 
 \subsection{Maximum of fitted function}
@@ -415,6 +416,12 @@ y_m &= \frac{2cd - be}{e^2 - 4df}
 \end{align*}
 
 The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum.
+
+\subsubsection{Scaling the neighborhood by constant}
+
+When we multiply the result of the cross--correlation by constant, the result of the algorithm does not change. The reason is as follows. In the first step of the algorithm, we find the position of maximum of the cross--correlation which is not affected by constant scaling. Next, since the neighborhood is scaled by constant, the quadratic function approximation will be scaled as well. Finally, we find the maximum position of the estimated continuous function, which is the same as if the function was not scaled.
+
+It means that when computing the zero--normalized cross--correlation, we can omit two of its steps --- computation of standard deviation and division by the result, which simplifies the final algorithm.
 
 \section{Summary}
 
