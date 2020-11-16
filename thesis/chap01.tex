@@ -1,4 +1,5 @@
 \chapter{Processing of electron backscatter patterns}
+\label{chap1}
 
 Electron microscopes are used in many scientific fields to study microstructure of materials. They rely on electrons instead of photons, which allows them to achieve greater magnification than light microscopes. The microscope emits a beam of electrons, which interact with the specimen, either transmitting through it or reflecting back. The electrons therefore carry an information about the specimen. We capture them on a phosphor screen which emits light and then we take a picture of the screen by a camera, so the result of one electron microscope measurement is an image.
 
@@ -294,7 +295,7 @@ So the processing of the cross--correlation is done in several steps:
 In the following sections, we describe these steps in detail.
 
 \subsection{Least squares}
-The least squares method is used to approximate the solution of systems of equations do not have an exact solution, since there are more equations than variables. Such systems are also called overdetermined systems. In the electron backscatter pattern analysis, the least squares method is used to approximate coefficients of a quadratic function from its several known points.
+The least squares method is used to approximate the solution of systems of equations which do not have an exact solution, since there are more equations than variables. Such systems are also called overdetermined systems. In the electron backscatter pattern analysis, the least squares method is used to approximate coefficients of a quadratic function from its several known points.
 
 In the first place, let us formulate the problem that the least squares method addresses. Let $n,m \in \mathbb{N}, n > m; A \in \mathbb{R}^{n \times m}; x \in \mathbb{R}^m$ and $b \in \mathbb{R}^n$. Then $Ax = b$ is an overdetermined system of linear equations. It may have a solution, if $b$ is a linear combination of column vectors of $A$ ($b$ is in column space of $A$), but in general, that is not the case.
 
@@ -450,7 +451,7 @@ Algorithm \ref{algo-whole} summarizes the algorithm described in this chapter. I
 			subtract refMean from pixels of refReg\;
 			subtract defMean from pixels of defReg\;
 			\BlankLine
-			crossResult $\leftarrow$ cross--correlate(refROI,defROI)\;
+			crossResult $\leftarrow$ cross--correlate(refReg,defReg)\;
 			\BlankLine
 			maxX, maxY $\leftarrow$ subpixelPeak(crossResult)\;
 			output [maxX, maxY]\;

@@ -1,4 +1,4 @@
-\chapter{Analysis and implementation}
+\chapter{Analysis and Implementation}
 
 In this chapter we analyze the algorithm used to process EBSD data and explain how to implement it effectively for GPUs. We use the CUDA platform, which is currently the most popular technology for general purpose computing on graphics cards.
 
@@ -8,6 +8,25 @@ The input for the algorithm consists of one reference and many deformed backscat
 
 The result of the algorithm is a list of two--dimensional vectors that we write to the standard output.
 
+There are further parameters to the algorithm explained in the \cref{chap1}. \Cref {params} summarizes them along with the range of values that we consider.
+
+\begin{table}[]
+	\centering
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		Parameter                  & Label            &    Value range  \\ \midrule
+		Size of input pattern      & $W_p \times H_p$ & $640 \times 480$\footnotemark  -- $1400 \times 1000$ \footnotemark  \\
+		Number of subregions       & $S$              &               10 -- 100 \\
+		Size of a subregion        & $W_r \times H_r$ & $50 \times 50$ -- $250 \times 250$ \\
+		Diameter of a neighborhood & $F$              &                3,5,7,9 \\ \bottomrule
+	\end{tabular}
+	\caption{Summary of algorithm parameters with example values that show their order of magnitude.}
+	\label{params}
+\end{table}
+\footnotetext[1]{\url{https://www.edax.com/products/ebsd/digiview-ebsd-camera}}
+\footnotetext{\url{https://www.eden-instruments.com/en/download/hikari-ebsd-camera-series/}}
+
+\if{false}
 From a high--level point of view, the algorithm first loads reference pattern from disk. Then it goes through a list of file names of deformed images and does 3 steps with each:
 \begin{enumerate}
 	\item Load a deformed pattern from disk.
@@ -18,6 +37,8 @@ While the steps 1 and 3 have to be done by the CPU, the second step is suitable 
 
 As explained in the previous chapter, the comparison of two patterns is done by cross--correlating several subregions of the images and then finding the offset for which the correlation is maximal. Location, size and number of the subregions is a parameter for the algorithm; we expect that there will be tens of subregions with size in the order of $100 \times 100$ pixels. All the subregions in all the images are processed independently from each other, providing a great opportunity to utilize data parallelism.
 
+
+
 The processing of each subregion is done in several steps:
 \begin{enumerate}
 	\item Normalize the pixels of the subregion --- compute its mean and subtract it from each pixel
@@ -27,6 +48,123 @@ The processing of each subregion is done in several steps:
 \end{enumerate}
 
 These steps can be executed in parallel for all the subregions of one pattern. So every time we start a kernel, it executes the step for all the subregions of the pattern. We can go even further and process the subregions of several patterns, i.e., a batch of patterns, at the same time. This approach can help to increase the GPU utilization, especially when there are only few subregions in each pattern. In the rest of the chapter, we mostly describe the algorithm for one pattern only, because it is not very hard to expand it for batches of patterns.
+
+\fi
+
+
+
+\section{Cross--correlation}
+We start by analyzing the core of the algorithm --- cross--correlation, which is also the most computationally expensive part. The input for cross--correlation are two images, in our case it is a deformed and a reference subregion. More precisely, there are several pairs of subregions, but since they are completely independent, we explain the algorithm for one pair only. With respect to the definition in \cref{cross-corr-def}, we cross--correlate the reference with deformed subregion, i.e. $reference \star deformed$, not the other way around. Also, both subregions are of the same size, which simplifies some aspects of the algorithm.
+
+\subsection{Related work}
+
+Since cross--correlation is quite a common operation in image processing, various researchers implemented it on GPUs. For example, Liu, Zou and Luo implemented the cross--correlation for CUDA 3.1 using the cuFFT library in 2011 \cite{liu2011gpu}. Lewis explained how to optimize computation of normalized cross--correlation denominator \cite{lewisfast} and Gangodkar et al. implemented it for GPU \cite{gandokar2012fastNCCGPU}. It is also used as part of various image processing algorithms, for example Idzenga, Gaburov, Vermin, Menssen and De Korte used a GPU implementation of normalized cross--correlation for ultrasound images analysis \cite{Idzenga2014Ultrasonics}.
+
+There are also libraries that can leverage GPUs to compute cross--correlation. Matlab has a function called \texttt{xcorr2} that can be GPU--accelerated \cite{MATLAB:2018}.  npp
+
+convolution?
+
+
+ We first describe a naive algorithm designed directly from the definition. Then we explain another implementation that uses discrete Fourier transform. The reason why we implement two versions is that although the Fourier transform based implementation has better asymptotic complexity, the subregions may not be big enough to reflect it.
+
+
+
+A serial algorithm for cross--correlation is shown in algorithm \ref{crossAlgo}. It is directly based on the definition. It iterates over all possible shifts between the images (subregions), i.e. $\forall [shiftX, shiftY] \in (-W_s, W_s) \times (-H_s, H_s)$. Shifts that are further from zero than width (height) of the picture are always zero, since the second subregion is shifted so far that they do not overlap at all. For each of the shifts $[shiftX, shiftY]$, we sum over the products of pixels that overlap when we shift the deformed subregion by shiftX pixels horizontally and by shiftY vertically.
+
+
+
+\begin{algorithm}
+	\caption{Serial algorithm that computes cross--correlation.}
+	\label{crossAlgo}
+	\KwIn{reference: an array of pixels of a reference subregion \newline
+		deformed: an array of pixels of a deformed subregion \newline
+		$W_s, H_s$: size of both subregions}
+	\KwOut{result: cross--correlation between reference and deformed subregions}
+	\vspace{5px}
+	
+	\For{$\text{shiftX} \in (-W_s, W_s)$}{
+		\For{$\text{shiftY} \in (-H_s, H_s)$}{
+			sum = 0\;
+			\For{$x \in [0, W_s)$}{
+				\For{$y \in [0, H_s)$}{
+					shiftedX = x + shiftX\;
+					shiftedY = y + shiftY\;
+					\If{$\text{shiftedX} \in [0,W_s]$ \textbf{and} $\text{shiftedY} \in [0,H_s]$}{
+						sum += reference[x,y] * \newline deformed[shiftedX, shiftedY]\;
+					}
+				}
+			}
+			result[shiftX, shiftY] = sum\;
+		}
+	}
+\end{algorithm}
+
+\begin{algorithm}
+	\caption{Pseudocode of CUDA kernel that computes cross--correlation.}
+	\label{crossKernel}
+	
+	shiftX = threadId.x\;
+	shiftY = threadId.y\;
+	intervalX = $\text{shiftX} < 0$ ? $[-\text{shiftX}, W_s]$ : $[0, W_s - \text{shiftX}]$\;
+	intervalY = $\text{shiftY} < 0$ ? $[-\text{shiftY}, H_s]$ : $[0, H_s - \text{shiftY}]$\;
+	
+	sum = 0\;
+	\For{$x \in [0, \text{intervalX})$}{
+		\For{$y \in [0, \text{intervalY})$}{
+			shiftedX = x + shiftX\;
+			shiftedY = y + shiftY\;
+			sum += reference[x,y] * deformed[shiftedX, shiftedY]\;
+		}
+	}
+	result[shiftX, shiftY] = sum\;
+	
+\end{algorithm}
+
+The inner two loops of the algorithm iterate through all pixels of the reference image. However that is not necessary for all shifts, since for most of them only smaller parts of the images overlap (the only shift that requires iteration through all points is $[0,0]$). The if statement then filters out the pixels that do not overlap for specific shift. For performance reasons, we can get rid of the if statement, if we rewrite the two inner loops to always stay within the boundaries of the images.
+
+We will reason only about $shiftX$, since the same argumentation applies to $shiftY$. So we are asking the following question: for which $x \in [0, W_s)$, it holds that $(x + shiftX) \in [0, W_s)$, if $shiftX \in (-W_s, W_s)$? We divide $shiftX$ into negative and nonnegative values:
+\begin{itemize}
+	\item $\forall shiftX \in (-W_s, 0): (x + shiftX) \in [0, W_s) \iff x \in [-shiftX, W_s]$
+	\item $\forall shiftX \in [0, W_s): (x + shiftX) \in [0, W_s) \iff x \in [0, W_s - shiftX]$
+\end{itemize}
+This gives us an interval through which we iterate $x$ in the inner loops for each \IT{shiftX}. Similar modification applies for the y loop based on \IT{shiftY} as well.
+
+The modified algorithm written as a CUDA kernel is listed in algorithm~\ref{crossKernel}. We implemented the algorithm for CUDA by parallelizing over the outer two loops. That means each thread computes one shift and thus one value of the result. It uses two--dimensional blocks, so we can just use the two indices as \IT{shiftX} and \IT{shiftY}. For computing more subregions at a time, we simply use more threads.
+
+
+
+\subsection{The cuFFT library}
+We now move on to explain our implementation of the cross--correlation computation using the Fourier transform. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. In this section, we explain the implementation for one subregion only, since it is trivial to expand it for more subregions.
+
+There are two functions in the cuFFT library that are essential for us \texttt{R2C} and \texttt{C2R}, which compute the discrete Fourier transform and its inverse, respectively. \texttt{R2C} takes an array of real numbers and computes their discrete Fourier transform, outputting an array of complex numbers. A complex number is represented as a pair of floats/doubles. The \texttt{C2R} function takes an array of complex numbers, computes their inverse Fourier transform and outputs an array of real numbers.
+
+Both of the functions use an important property of Fourier transform: A series $x$ of $N \in \mathbb{N}$ numbers is real-valued if and only if the Fourier transform of $x$ denoted as $X$ satisfies the Hermitian symmetry, e.g. $X_k = X_{N-k}^\star$. So it is enough to store just half of the transformed array, since the second half can be trivially computed. cuFFT does just that. Analogous theorem applies to two--dimensional Fourier transform as well, so cuFFT operates on roughly half of the elements, namely on the elements with index from the following set: $\{0,1,\cdots, \floor{W/2} + 1\} \times \{0, 1, \cdots, H\}$, where $H$ is number of rows and $W$ is number of columns of the input matrix.
+
+It also makes it possible to store the Fourier transform in roughly the same array as the input and thus perform in--place transforms. The output consists of complex numbers, which are represented by two real numbers, i.e., one element takes twice as much bytes. But at the same time, we only need $W/2 + 1$ columns (we can remove the floor operator, because $W$ is always even in our context as we double the size of a subregion with zero padding). The result is that we save the input in a real matrix with size $(W+2) \times H$, with the two extra columns unused. That is the same amount of space that we need for the transformed complex matrix with size $W/2 + 1 \times H$.
+
+\subsection{Using cuFFT to compute cross--correlation}
+
+\Cref{fft-impl} shows the process with illustration of used buffers. Recall that we cross--correlate a deformed subregion with a reference, both with size $W_s \times H_s$. The preparation kernel extracts the data from the input pattern and outputs it directly into a zero--padded buffer with size $2W_s \times 2H_s$. Then, we use the \texttt{R2C} function from the cuFFT library to compute Fourier transform of the padded deformed subregion. The result is another buffer with size $(W_s + 1) \times 2H$ of complex numbers, which is the same as $(2W_s+2) \times 2H_s$ of real numbers.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\textwidth]{img/fft-impl}
+	\caption{The process of computing cross--correlation using the discrete Fourier transform.}
+	\label{fft-impl}
+\end{figure}
+
+For the next step, we implemented a kernel that does the element--wise multiplication between the complex conjugate of the Fourier--transformed reference subregion and the Fourier transform of deformed subregion. The reference pattern is the same for all deformed ones, so we compute the Fourier transform of its subregions only once. The result of the multiplication is outputted to the buffer with Fourier transform of the deformed subregions, since we do not need it any more.
+
+Then we compute the inverse Fourier transformation using the \texttt{C2R} function from the cuFFT library. The result is the cross--correlation, but with extra row and column of zeros and swapped quadrants.
+
+We could start a kernel that swaps the quadrants and thus finalizes the cross--correlation, but it is not necessary. Instead, we modify the rest of the implementation, so it accesses the data in corresponding way. The arg max kernel stays the same and outputs the position of maximum, which then has to be interpreted correctly by the extract neighborhood kernel and results finalization function. This trick removes the overhead of running the extra kernel at the cost of more complicated, but only slightly more demanding data address calculation.
+
+We also implemented a version where both the Fourier transformation and the inverse are performed in--place, thus allowing to reuse a single buffer for the whole cross--correlation computation. However that is suboptimal for two reasons: first, the out--of--place versions of the cuFFT functions proved to be faster and second, in the in--place version, the zero--padding is overwritten in each iteration, so it is necessary to write the zeros before doing the forward Fourier transform. On contrary, with out--of--place transforms, the zero--padding part of the buffer is read only and we only write it once in the very beginning of the whole algorithm. Moreover, memory consumption is not an issue with our implementation, so we can afford to allocate more buffers.
+
+\vspace{5px}
+
+To sum up, we have described two ways to compute cross--correlation. The first one is based on the definition, the second one uses the Fourier transform which makes it possible to achieve better asymptotic time complexity. However for smaller input sizes, the definition--based approach is faster --- we measure that in chapter 3.
+
 
 
 \section{Implementation overview}
@@ -53,22 +191,6 @@ The last part of the algorithm fits a continuous quadratic function to the neigh
 The decomposition into kernels is mostly determined by the need of global barriers. Both finding of sum and arg max use parallel reduction, which has to fully finish before any of its results are complete. The kernel that extracts the subregions from the pattern is necessary to simplify the cross--correlation and allow usage of third party libraries (see \cref{fft}, where the implementation of cross--correlation is explained).
 
 To illustrate the data flow better and reason about it, \cref{params} summarizes parameters of the algorithm and \cref{buftypes} shows all buffers used on GPU with their sizes. The kernels that compute sums and normalize the subregions both work with $W_r \cdot H_r \cdot S$ items (i.e. all subregions). The cross--correlation has nearly four times as big output, which is then processed by the arg max kernel. After the maximum reduction, the buffers that are transferred to the CPU memory are quite small.
-
-% Please add the following required packages to your document preamble:
-% \usepackage{booktabs}
-\begin{table}[]
-	\centering
-	\begin{tabular}{@{}llr@{}}
-		\toprule
-		Parameter                  & Label            &    Typical value \\ \midrule
-		Size of input pattern      & $W_p \times H_h$ & $900 \times 900$ \\
-		Number of subregions       & $S$              &               50 \\
-		Size of a subregion        & $W_r \times H_r$ & $100 \times 100$ \\
-		Diameter of a neighborhood & $F$              &                5 \\ \bottomrule
-	\end{tabular}
-	\caption{Summary of algorithm parameters with example values that show their order of magnitude.}
-	\label{params}
-\end{table}
 
 \begin{table}[]
 	\begin{tabular}{@{}lll@{}}
@@ -136,111 +258,6 @@ Once the sums are computed, we need to subtract them from each pixel of respecti
 
 The kernel is fairly straightforward, we assign one thread to each pixel in each subregion. The threads compute the position of their pixel in the pattern using the buffer with the positions of the subregions, then compute mean using the sums buffer, subtract it and finally write the value to the output buffer.
 
-
-
-\todo{Maybe vectorization of loads and stores, since it loads u16ints.}
-
-\section{Cross--correlation}
-The prepare kernel results in a buffer with normalized deformed subregions that are cross--correlated with the reference subregions.
- Cross--correlation is the core of the algorithm implemented in this thesis and it is also the most computationally expensive part. We first describe a naive algorithm designed directly from the definition. Then we explain another implementation that uses discrete Fourier transform. The reason why we implement two versions is that although the Fourier transform based implementation has better asymptotic complexity, the subregions may not be big enough to reflect it.
-
-The input for cross--correlation are two images, in our case it is a deformed and a reference subregion. More precisely, there are several pairs of subregions, but since they are completely independent, we explain the algorithm for one pair only. With respect to the definition in \cref{cross-corr-def}, we cross--correlate the reference with deformed subregion, i.e. $reference \star deformed$, not the other way around. Also, both subregions are of the same size, which simplifies some aspects of the algorithm.
-
-A serial algorithm for cross--correlation is shown in algorithm \ref{crossAlgo}. It is directly based on the definition. It iterates over all possible shifts between the images (subregions), i.e. $\forall [shiftX, shiftY] \in (-W_s, W_s) \times (-H_s, H_s)$. Shifts that are further from zero than width (height) of the picture are always zero, since the second subregion is shifted so far that they do not overlap at all. For each of the shifts $[shiftX, shiftY]$, we sum over the products of pixels that overlap when we shift the deformed subregion by shiftX pixels horizontally and by shiftY vertically.
-
-
-
-\begin{algorithm}
-	\caption{Serial algorithm that computes cross--correlation.}
-	\label{crossAlgo}
-	\KwIn{reference: an array of pixels of a reference subregion \newline
-		  deformed: an array of pixels of a deformed subregion \newline
-	      $W_s, H_s$: size of both subregions}
-	\KwOut{result: cross--correlation between reference and deformed subregions}
-	\vspace{5px}
-	
-	\For{$\text{shiftX} \in (-W_s, W_s)$}{
-		\For{$\text{shiftY} \in (-H_s, H_s)$}{
-			sum = 0\;
-			\For{$x \in [0, W_s)$}{
-				\For{$y \in [0, H_s)$}{
-					shiftedX = x + shiftX\;
-					shiftedY = y + shiftY\;
-					\If{$\text{shiftedX} \in [0,W_s]$ \textbf{and} $\text{shiftedY} \in [0,H_s]$}{
-						sum += reference[x,y] * \newline deformed[shiftedX, shiftedY]\;
-					}
-				}
-			}
-			result[shiftX, shiftY] = sum\;
-		}
-	}
-\end{algorithm}
-
-\begin{algorithm}
-	\caption{Pseudocode of CUDA kernel that computes cross--correlation.}
-	\label{crossKernel}
-	
-	shiftX = threadId.x\;
-	shiftY = threadId.y\;
-	intervalX = $\text{shiftX} < 0$ ? $[-\text{shiftX}, W_s]$ : $[0, W_s - \text{shiftX}]$\;
-	intervalY = $\text{shiftY} < 0$ ? $[-\text{shiftY}, H_s]$ : $[0, H_s - \text{shiftY}]$\;
-		
-	sum = 0\;
-	\For{$x \in [0, \text{intervalX})$}{
-		\For{$y \in [0, \text{intervalY})$}{
-			shiftedX = x + shiftX\;
-			shiftedY = y + shiftY\;
-			sum += reference[x,y] * deformed[shiftedX, shiftedY]\;
-		}
-	}
-	result[shiftX, shiftY] = sum\;
-
-\end{algorithm}
-
-The inner two loops of the algorithm iterate through all pixels of the reference image. However that is not necessary for all shifts, since for most of them only smaller parts of the images overlap (the only shift that requires iteration through all points is $[0,0]$). The if statement then filters out the pixels that do not overlap for specific shift. For performance reasons, we can get rid of the if statement, if we rewrite the two inner loops to always stay within the boundaries of the images.
-
-We will reason only about $shiftX$, since the same argumentation applies to $shiftY$. So we are asking the following question: for which $x \in [0, W_s)$, it holds that $(x + shiftX) \in [0, W_s)$, if $shiftX \in (-W_s, W_s)$? We divide $shiftX$ into negative and nonnegative values:
-\begin{itemize}
-	\item $\forall shiftX \in (-W_s, 0): (x + shiftX) \in [0, W_s) \iff x \in [-shiftX, W_s]$
-	\item $\forall shiftX \in [0, W_s): (x + shiftX) \in [0, W_s) \iff x \in [0, W_s - shiftX]$
-\end{itemize}
-This gives us an interval through which we iterate $x$ in the inner loops for each \IT{shiftX}. Similar modification applies for the y loop based on \IT{shiftY} as well.
-
-The modified algorithm written as a CUDA kernel is listed in algorithm~\ref{crossKernel}. We implemented the algorithm for CUDA by parallelizing over the outer two loops. That means each thread computes one shift and thus one value of the result. It uses two--dimensional blocks, so we can just use the two indices as \IT{shiftX} and \IT{shiftY}. For computing more subregions at a time, we simply use more threads.
-
-
-
-\subsection{The cuFFT library}
-We now move on to explain our implementation of the cross--correlation computation using the Fourier transform. We use the cuFFT\footnote{\url{https://docs.nvidia.com/cuda/cufft/index.html}} library for CUDA to compute the discrete Fourier transform and its inverse. It is a highly optimized implementation of the \emph{Fast Fourier algorithm}, which computes the Fourier transform in time $\mathcal{O}(n \log n)$. It also supports batched transformations (i.e. several unrelated transformations can be done by calling single library function), which is very important for our implementation, since we do many transformations of rather small images at once. In this section, we explain the implementation for one subregion only, since it is trivial to expand it for more subregions.
-
-There are two functions in the cuFFT library that are essential for us \texttt{R2C} and \texttt{C2R}, which compute the discrete Fourier transform and its inverse, respectively. \texttt{R2C} takes an array of real numbers and computes their discrete Fourier transform, outputting an array of complex numbers. A complex number is represented as a pair of floats/doubles. The \texttt{C2R} function takes an array of complex numbers, computes their inverse Fourier transform and outputs an array of real numbers.
-
-Both of the functions use an important property of Fourier transform: A series $x$ of $N \in \mathbb{N}$ numbers is real-valued if and only if the Fourier transform of $x$ denoted as $X$ satisfies the Hermitian symmetry, e.g. $X_k = X_{N-k}^\star$. So it is enough to store just half of the transformed array, since the second half can be trivially computed. cuFFT does just that. Analogous theorem applies to two--dimensional Fourier transform as well, so cuFFT operates on roughly half of the elements, namely on the elements with index from the following set: $\{0,1,\cdots, \floor{W/2} + 1\} \times \{0, 1, \cdots, H\}$, where $H$ is number of rows and $W$ is number of columns of the input matrix.
-
-It also makes it possible to store the Fourier transform in roughly the same array as the input and thus perform in--place transforms. The output consists of complex numbers, which are represented by two real numbers, i.e., one element takes twice as much bytes. But at the same time, we only need $W/2 + 1$ columns (we can remove the floor operator, because $W$ is always even in our context as we double the size of a subregion with zero padding). The result is that we save the input in a real matrix with size $(W+2) \times H$, with the two extra columns unused. That is the same amount of space that we need for the transformed complex matrix with size $W/2 + 1 \times H$.
-
-\subsection{Using cuFFT to compute cross--correlation}
-
-\Cref{fft-impl} shows the process with illustration of used buffers. Recall that we cross--correlate a deformed subregion with a reference, both with size $W_s \times H_s$. The preparation kernel extracts the data from the input pattern and outputs it directly into a zero--padded buffer with size $2W_s \times 2H_s$. Then, we use the \texttt{R2C} function from the cuFFT library to compute Fourier transform of the padded deformed subregion. The result is another buffer with size $(W_s + 1) \times 2H$ of complex numbers, which is the same as $(2W_s+2) \times 2H_s$ of real numbers.
-
-\begin{figure}
-	\centering
-	\includegraphics[width=0.7\textwidth]{img/fft-impl}
-	\caption{The process of computing cross--correlation using the discrete Fourier transform.}
-	\label{fft-impl}
-\end{figure}
-
-For the next step, we implemented a kernel that does the element--wise multiplication between the complex conjugate of the Fourier--transformed reference subregion and the Fourier transform of deformed subregion. The reference pattern is the same for all deformed ones, so we compute the Fourier transform of its subregions only once. The result of the multiplication is outputted to the buffer with Fourier transform of the deformed subregions, since we do not need it any more.
-
-Then we compute the inverse Fourier transformation using the \texttt{C2R} function from the cuFFT library. The result is the cross--correlation, but with extra row and column of zeros and swapped quadrants.
-
-We could start a kernel that swaps the quadrants and thus finalizes the cross--correlation, but it is not necessary. Instead, we modify the rest of the implementation, so it accesses the data in corresponding way. The arg max kernel stays the same and outputs the position of maximum, which then has to be interpreted correctly by the extract neighborhood kernel and results finalization function. This trick removes the overhead of running the extra kernel at the cost of more complicated, but only slightly more demanding data address calculation.
-
-We also implemented a version where both the Fourier transformation and the inverse are performed in--place, thus allowing to reuse a single buffer for the whole cross--correlation computation. However that is suboptimal for two reasons: first, the out--of--place versions of the cuFFT functions proved to be faster and second, in the in--place version, the zero--padding is overwritten in each iteration, so it is necessary to write the zeros before doing the forward Fourier transform. On contrary, with out--of--place transforms, the zero--padding part of the buffer is read only and we only write it once in the very beginning of the whole algorithm. Moreover, memory consumption is not an issue with our implementation, so we can afford to allocate more buffers.
-
-\vspace{5px}
-
-To sum up, we have described two ways to compute cross--correlation. The first one is based on the definition, the second one uses the Fourier transform which makes it possible to achieve better asymptotic time complexity. However for smaller input sizes, the definition--based approach is faster --- we measure that in chapter 3.
 
 \section{Arg max computation}
 The cross--correlated data are further processed to find the position of maximum for each subregion by using parallel reduction. The computation is very similar to the sums reduction explained in \cref{sums} we use warp--level shuffle instructions and shared memory to reduce the values loaded to each block. The difference compared to sum reduction is that we need to find the maximum and its position at the same time. So throughout the algorithm, we operate on the pair of value and its position. Every time we compare two values and choose the higher one, we propagate its position as well.

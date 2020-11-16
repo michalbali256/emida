@@ -80,3 +80,65 @@
   journal={PHI Publication: New Delhi, India},
   year={2004}
 }
+
+@inproceedings{liu2011gpu,
+  title={GPU Accelerated Fourier Cross Correlation Computation and Its Application in Template Matching},
+  author={Liu, Yunhui and Zou, Qi and Luo, Siwei},
+  booktitle={International Conference on High Performance Networking, Computing and Communication Systems},
+  pages={484--491},
+  year={2011},
+  organization={Springer}
+}
+
+@ARTICLE{Idzenga2014Ultrasonics,
+  author={T. {Idzenga} and E. {Gaburov} and W. {Vermin} and J. {Menssen} and C. L. {De Korte}},
+  journal={IEEE Transactions on Ultrasonics, Ferroelectrics, and Frequency Control}, 
+  title={Fast 2-D ultrasound strain imaging: the benefits of using a GPU}, 
+  year={2014},
+  volume={61},
+  number={1},
+  pages={207-213},
+  doi={10.1109/TUFFC.2014.2893}}
+  
+@InProceedings{gandokar2012fastNCCGPU,
+  author="Gangodkar, Durgaprasad
+  and Gupta, Sachin
+  and Gill, Gurbinder Singh
+  and Kumar, Padam
+  and Mittal, Ankush",
+  editor="Thilagam, P. Santhi
+  and Pais, Alwyn Roshan
+  and Chandrasekaran, K.
+  and Balakrishnan, N.",
+  title="Efficient Variable Size Template Matching Using Fast Normalized Cross Correlation on Multicore Processors",
+  booktitle="Advanced Computing, Networking and Security",
+  year="2012",
+  publisher="Springer Berlin Heidelberg",
+  address="Berlin, Heidelberg",
+  pages="218--227",
+  abstract="Normalized Cross Correlation (NCC) is an efficient and robust way for finding the location of a template in given image. However NCC is computationally expensive. Fast normalized cross correlation (FNCC) makes use of pre-computed sum-tables to improve the computational efficiency of NCC. In this paper we propose a strategy for parallel implementation of FNCC algorithm using NVIDIA's Compute Unified Device Architecture (CUDA) for real-time template matching. We also present an approach to make proposed method adaptable to variable size templates which is an important challenge to tackle. Efficient parallelization strategies, adopted for pre-computing sum-tables and extracting data parallelism by dividing the image into series of blocks, substantially reduce required computational time. We show that by optimal utilization of different memories available on multicore architecture and exploiting the asynchronous nature of CUDA kernel calls we can obtain speedup of the order 17X as compared to the sequential implementation.",
+  isbn="978-3-642-29280-4"
+  }
+  
+@article{lewisfast,
+  title={Fast Template Matching. 1994},
+  author={Lewis, JP},
+  journal={URL http://www. scribblethink. org/Work/nvisionInterface/vi95\_lewis. pdf. Cited on},
+  pages={6}
+}
+
+@book{MATLAB:2018,
+  year = {2018},
+  author = {MATLAB},
+  title = {9.7.0.1190202 (R2019b)},
+  publisher = {The MathWorks Inc.},
+  address = {Natick, Massachusetts},
+  url    = "https://www.mathworks.com/help/signal/ref/xcorr2.html"
+}
+
+@misc{NPP,
+ author = {NVIDIA Corporation},
+ title = {2D Image And Signal Performance Primitives (NPP) Version 11.0.1.*},
+ url    = "https://docs.nvidia.com/cuda/npp/index.html"
+ urldate = {2020-11-15}
+}
