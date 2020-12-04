@@ -59,14 +59,14 @@ __global__ void cross_corr(
 	
 	for (esize_t i = 0; i < batch_size; ++i)
 	{
-		esize_t x_end = shift.x < 0 ? size.x : size.x - shift.x;
-		esize_t y_end = shift.y < 0 ? size.y : size.y - shift.y;
+		esize_t x_end = min(size.x - shift.x, size.x);// shift.x < 0 ? size.x : size.x - shift.x;
+		esize_t y_end = min(size.y - shift.y, size.y);//shift.y < 0 ? size.y : size.y - shift.y;
 
 		//control flow divergency in following fors??
 		RES sum = 0;
-		for (esize_t y = shift.y >= 0 ? 0 : -shift.y; y < y_end; ++y)
+		for (esize_t y = max(-shift.y, 0); y < y_end; ++y)
 		{
-			for (esize_t x = shift.x >= 0 ? 0 : -shift.x; x < x_end; ++x)
+			for (esize_t x = max(-shift.x, 0); x < x_end; ++x)
 			{
 				int x_shifted = x + shift.x;
 				int y_shifted = y + shift.y;
