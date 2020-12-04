@@ -195,7 +195,7 @@ To compute non--circular cross--correlation using this method, we use the follow
 The circular cross--correlation of zero--padded series results in a series $\{c_n\} = \mathbf{x} \star_N \mathbf{y}$ of $2N$ numbers. The numbers in the series have the following interpretation: $c_0, \cdots, c_{N-1}$ are the values of non--circular cross--correlation with shifts $0, 1, \cdots, N$ and $c_{N+1}, c_{N+2}, \cdots, c_{2N-1}$ represent the shifts $(-N+1), (-N+2), \cdots, -2, -1$. $c_{N}$ is always zero and does not have any interpretation.
 
 \subsubsection{Two--dimensional discrete Fourier transform}
-
+\label{two-dim-ft}
 In order to use the described method in our implementation, we need to expand it to work on two--dimensional inputs.
 
 Let $N, M \in \mathbb{N}$, $\mathbf{x} \in \mathbb{C}^{N\times M}$. Then $\mathbf{X} \in \mathbb{C}^{N\times M}$ is the Fourier transform of x, if the following holds for each item of the matrix $\mathbb{X}$:
