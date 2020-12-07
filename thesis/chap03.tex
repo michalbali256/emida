@@ -26,6 +26,8 @@ There are further parameters to the algorithm explained in the \cref{chap1}. \Cr
 \footnotetext[1]{\url{https://www.edax.com/products/ebsd/digiview-ebsd-camera}}
 \footnotetext{\url{https://www.eden-instruments.com/en/download/hikari-ebsd-camera-series/}}
 
+Once we have described the most important parts of the algorithm, we explain how they are used together to implement our algorithm. We can divide it into 2 major parts: preprocessing of the images prior to cross--correlation that includes loading the image from disk and subtracting sums of the subregions.  and processing of its result, which includes search of the maximum position and finding the maximum within each neighborhood.
+
 \if{false}
 From a high--level point of view, the algorithm first loads reference pattern from disk. Then it goes through a list of file names of deformed images and does 3 steps with each:
 \begin{enumerate}
@@ -148,22 +150,17 @@ We need to cross--correlate a reference and a deformed image. Recall that it can
 
 We use cuFFT functions described in previous section to perform steps 2 and 4. The step 3 requires a custom kernel. The first and the last step depend on the remaining ones and we show how to optimize them out below.
 
-We have only one reference image that is cross--correlated with all the deformed ones. So we can prepare the reference subregions by executing the first two steps only once and just read from the prepared buffer in step 3 during processing of all the deformed images. \Cref{fft-impl} shows the steps with illustration of used buffers.
+We have only one reference image that is cross--correlated with all the deformed ones. So we can prepare the reference subregions by executing the first two steps only once and just read from the prepared buffer in step 3 during processing of all the deformed images. 
 
 The cuFFT functions have both an in--place version, which is used when the input and output buffers are the same, and out--of--place version, which is used for different input and output buffers. Using the out--of--place has the disadvantage if allocating multiple buffers --- one for input zero--padded data, one for transformed matrix and one for the output. However there are two advantages: first, the out--of--place versions of the cuFFT functions proved to be slightly faster. Second, it is possible to preserve the zero padding created by the first step when using the out--of--place version. The zero--padding can be written only once for the first image and then every time we load a new image (prior to the cross--correlation computation), we overwrite the same portion of the buffer with new deformed subregion. All the subregions are of the same size, so the same portion of the buffer is used every time. Since memory consumption is not an issue with our implementation, we can afford to allocate more buffers so we consider the out--of--place version better.
 
-For the step 3, we implemented a kernel that does the element--wise multiplication between the complex conjugate of the Fourier--transformed reference subregion and the Fourier transform of deformed subregion. The result of the multiplication is outputted to the buffer with Fourier transform of the deformed subregions, since we do not need it any more.
+For the step 3, we implemented a kernel that does the element--wise multiplication between the complex conjugate of the Fourier--transformed reference subregion and the Fourier transform of deformed subregion. The result of the multiplication can be outputted to the buffer with Fourier transform of the deformed subregions, since we do not need it any more. Implementation of the kernel is quite straightforward, each thread loads two complex numbers, multiplies them and writes them back. \XX{It can benefit from the batch parameter --- since we process several deformed subregions in one kernel call, we can load the complex number from reference subregion only once and use it multiple times.}
 
-zopar slov o tom ako nakodit toho hadamarda
 
-popis obrazku, velkost bufferov?
 
 Then we compute the inverse Fourier transformation using the \texttt{C2R} function from the cuFFT library. The result is the cross--correlation, but with extra row and column of zeros and swapped quadrants as described in \cref{two-dim-ft}.
 
-We could start a kernel that swaps the quadrants and thus finalizes the cross--correlation, but it is not necessary. Instead, we can modify the rest of the implementation, so it accesses the data in corresponding way. \XX{The arg max kernel stays the same and outputs the position of maximum, which then has to be interpreted correctly by the extract neighborhood kernel and results finalization function.} This trick removes the overhead of running the extra kernel at the cost of more complicated, but only slightly more demanding data address calculation.
-
-
- %Recall that we cross--correlate a deformed subregion with a reference, both with size $W_s \times H_s$. The preparation kernel extracts the data from the input pattern and outputs it directly into a zero--padded buffer with size $2W_s \times 2H_s$. Then, we use the \texttt{R2C} function from the cuFFT library to compute Fourier transform of the padded deformed subregion. The result is another buffer with size $(W_s + 1) \times 2H$ of complex numbers, which is the same as $(2W_s+2) \times 2H_s$ of real numbers.
+\Cref{fft-impl} shows all the steps with illustration of used buffers. The input image has size $W_s \times H_s$, but it has to be inside a buffer with size $2W_s \times 2H_s$ to accommodate the zero padding. The transformed image has the size $(W_s+1) \times 2H_s$ complex numbers, which is the same as  $(2W_s+2) \times 2H_s$ of real numbers. The same--sized buffer is needed after the multiplication. Then we perform the inverse Fourier transform to get the cross--correlation with swapped quadrants (as described in \cref{two-dim-ft}).
 
 \begin{figure}
 	\centering
@@ -172,14 +169,66 @@ We could start a kernel that swaps the quadrants and thus finalizes the cross--c
 	\label{fft-impl}
 \end{figure}
 
-
-
-
-
+The last step to get the cross--correlation is to swap the quadrants of the result. The most straightforward solution is to start a kernel which does just that and thus finalizes the cross--correlation. Such kernel moves a considerable amount of data around and thus is relatively expensive. Instead, we can modify the rest of the implementation, so it accesses the data in corresponding way. In the next steps, we need to find the position of the maximal value in the cross--correlation and then process the neighborhood of the maximum. It can be easily modified to work with incomplete cross--correlation with swapped quadrants. The search of maximum stays the same and outputs the position of maximum, which then has to be interpreted correctly when fetching the neighborhoods to process them. This trick removes the overhead of running the extra kernel at the cost of more complicated, but only slightly more demanding data address calculation. Moreover, it works with much less amount of data, as the neighborhoods are only a small part of the cross--correlation.
 
 \vspace{5px}
 
 To sum up, we have described two ways to compute cross--correlation. The first one is based on the definition, the second one uses the Fourier transform which makes it possible to achieve better asymptotic time complexity. However for smaller input sizes, the definition--based approach is faster --- we measure that in chapter 3.
+
+
+\section{Sum computation}
+\label{sums}
+
+Computation of sum is a textbook example of parallel reduction. In \cite{parallelReduction}, Justin Luitjens explains how to implement it on modern GPUs. Since it is very expensive to communicate between arbitrary threads during computation, the reduction is separated into three steps: first, each thread loads several values and computes their sum, then we reduce the data within each block individually and finally we synchronize single value for each block. The major difference for our case is that we compute a sum for each of several subregions, instead of reducing over the whole input data. The problem is that we cannot load values of two different subregions into one block. We solve this by assigning whole blocks to the subregions rather than just assigning threads to pixels.
+
+Let $K$ be number of values that each thread loads, $B$ denote one block size and $P$ total number of pixels in one subregion, respectively. Then we use a group of $S_1~=~\ceil{\frac{P}{KB}}$ blocks for reduction of each subregion. If $P$ is not divisible by $KB$, then the last block in each group is not fully utilized, and processes only $K - 1$ values because there are no more pixels in the subregion.
+
+\XX{For We measure the impact of the parameter in section ??. The problem is that half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread (using shuffle instruction) which does the actual sum. So instead of loading only one value, each thread loads $N$ values and all the threads are utilized in the first part of the algorithm. It also means that we need $N$ times less blocks which may cause that for too high $N$, there will not be enough blocks to utilize the GPU.}
+
+Once each thread loads its data, it is possible to reduce them fast within each block. We use warp--level shuffle instructions, which allows the threads in one warp to exchange data in registers. \Cref{warp_reduce} shows how it is possible to get sum of values in 8 threads. It can be expanded to size of warp, i.e. 32 threads. To reduce the whole block, we use the warp reduction in two steps:
+\begin{enumerate}
+	\item We perform the reduction within each warp and save the values into shared memory.
+	\item One warp loads the values from the shared memory and reduces them using warp--level reduction again
+\end{enumerate}
+Maximum number of threads in one block is 1024 in CUDA and warp size is 32 so we get at most $1024/32 = 32$ values in the first step. That means one warp is enough to reduce them into one resulting value in the second step.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\textwidth]{img/warp_reduce}
+	\caption{An example of warp--level reduction for 8 threads \cite{parallelReduction}. \emph{warpId} is a number of thread within its warp.}
+	\label{warp_reduce}
+\end{figure}
+
+After the reduction within each block, we need to update the resulting values in global memory. If $S_1$ is equal to $1$, thus every subregion is processed by exactly one block, then there is no synchronization needed between the blocks. Otherwise, we can use \emph{atomic add}. The solution is feasible for us, since it is safe to assume that not many blocks access the same value. The worst case size of one subregion is $250 \times 250$ which is the total of 62500 pixels. \XX{ For $K = 1$ and $B = 1024$ (there is no reason not to use the maximal possible value --- no register or shared memory pressure), then 63 blocks compute the sum of one subregion.}. 
+
+
+\section{Arg max computation}
+The cross--correlated data are further processed to find the position of maximum for each subregion by using parallel reduction. The computation is very similar to the sums reduction explained in \cref{sums} we use warp--level shuffle instructions and shared memory to reduce the values loaded to each block. The difference compared to sum reduction is that we need to find the maximum and its position at the same time. So throughout the algorithm, we operate on the pair of value and its position. Every time we compare two values and choose the higher one, we propagate its position as well.
+
+Otherwise the reduction within one block is analogous to the sum reduction. In each step we shuffle down the current value and its position (that means two shuffles per one step). Then we compare the received and current value and save the greater one with its position for the next step. We need five these steps to reduce one warp, then each warp saves its result to the shared memory. Finally, one warp reduces the items in the shared memory to get the result of one block reduction.
+
+In the sums reduction kernel, we used built-in atomic add to update the global memory with the result of block reduction. No such function exists for arg max, since we need to atomically compare two values and then update the position as well. There are several ways how do the update without the atomic operation.
+
+\begin{description}
+	\item[Launch second kernel] The first kernel does no synchronization between the blocks and each block just writes its reduced result to its reserved place in global memory. Then, we start second kernel which reduces the results of the first one. In the second kernel, all the values from one subregion are reduced by one block, so there is no synchronization needed anymore. 
+	\item[One block reduces one whole subregion] We increase the number of values that each thread loads before the reduction, so only one block is needed to find the maximum of each subregion. Therefore, no synchronization across blocks is needed. Depending on the number of subregions, there is a possibility that this approach does not spawn enough blocks to fully utilize the GPU.
+	\item[Atomic compare and swap (float data only)] We can use the atomic compare and swap (CAS) instruction to update the global memory atomically. There are not many blocks that would compete over the same piece of memory, so it is a viable solution. However, it can only be done when we compute the cross--correlation in single precision floating point type, since modern GPUs only support atomic CAS for 8 bytes. A double precision number is 8 bytes long itself, and we need to update the pair of value and its position. 
+\end{description}
+
+The different approaches are compared in chapter 3.
+
+
+
+\section{Subregions preprocessing}
+Once we have described the most important parts of the algorithm, we explain how they are used together. In the following section, we outline the preprocessing that is needed before we can cross--correlate the subregions. It incorporates several steps:
+\begin{enumerate}
+	\item Load an image from disk
+	\item Transfer the image from host memory to GPU memory
+	\item Split the image into subregions
+	\item Compute the sums of subregions
+	\item Subtract the respective sums from subregions
+\end{enumerate}
+
 
 
 
@@ -244,30 +293,6 @@ We also partially take advantage of the fact that GPUs are able to run a kernel,
 
 In the following sections, we describe the implementation details of each individual kernel.
 
-\section{Sum computation}
-\label{sums}
-
-Computation of sum is a textbook example of parallel reduction. In \cite{parallelReduction}, Justin Luitjens explains how to implement it on modern GPUs. Since it is very expensive to communicate between arbitrary threads during computation, the reduction is separated into two steps: first, we reduce the data within each block individually and only then we synchronize single value for each block.
-
-The major difference for our case is that we compute a sum for each subregion, instead of computing a sum for the whole input data. The problem is that we cannot load values of two different subregions into one block. We solve this by assigning whole blocks to the subregions rather than just assigning threads to pixels. Let $B$ and $P$ denote one block size and total number of pixels in one subregion, respectively. Then we use a group of $S_1~=~\ceil{\frac{P}{B}}$ blocks for reduction of each subregion. Inside each block, we assign one thread per pixel in row-major order, so adjacent threads access adjacent data. It also means that the last block in each group is not fully utilized, because there is no more pixels in the subregion.
-
-Once each thread loads its data, it is possible to reduce them fast within each block. We use warp--level shuffle instructions, which allows the threads in one warp to exchange data in registers. \Cref{warp_reduce} shows how it is possible to get sum of values in 8 threads. It can be expanded to size of warp, i.e. 32 threads. To reduce the whole block, we use the warp reduction in two steps:
-\begin{enumerate}
-	\item We perform the reduction within each warp and save the values into shared memory.
-	\item One warp loads the values from the shared memory and reduces them using warp--level reduction again
-\end{enumerate}
-Maximum number of threads in one block is 1024 in CUDA and warp size is 32 so we get at most $1024/32 = 32$ values in the first step. That means one warp is enough to reduce them into one resulting value in the second step.
-
-\begin{figure}
-	\centering
-	\includegraphics[width=0.7\textwidth]{img/warp_reduce}
-	\caption{An example of warp--level reduction for 8 threads \cite{parallelReduction}. \emph{warpId} is a number of thread within its warp.}
-	\label{warp_reduce}
-\end{figure}
-
-After reduction within each block, we need to update the resulting values in global memory, which requires more blocks working with the same value, possibly in parallel. On modern hardware, we solve such situations with atomic operations --- in our case of computing the sums it is \emph{atomic add}. The solution is feasible for us, since it is safe to assume that not many blocks access the same value. The typical size of one subregion is $100 \times 100$ which is the total of 10000 pixels. If we set the block size to 1024 (there is no reason not to use the maximal possible value --- no register or shared memory pressure), then only 10 blocks compute the sum of one subregion.
-
-It is possible to further optimize the described technique by increasing the number of values each thread loads before the reduction begins. The problem is that half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread (using shuffle instruction) which does the actual sum. So instead of loading only one value, each thread loads $N$ values and all the threads are utilized in the first part of the algorithm. It also means that we need $N$ times less blocks which may cause that for too high $N$, there will not be enough blocks to utilize the GPU. We measure the impact of the parameter in section ??.
 
 \section{Prepare kernel}
 Once the sums are computed, we need to subtract them from each pixel of respective subregion. We use the \emph{prepare} kernel to do that and to copy the subregions from the pattern so they are stored continuously in one buffer. If some subregions are overlapping, we copy some of the data twice, but then we subtract different means from them in general, so the result does not have any duplicities.
@@ -275,20 +300,7 @@ Once the sums are computed, we need to subtract them from each pixel of respecti
 The kernel is fairly straightforward, we assign one thread to each pixel in each subregion. The threads compute the position of their pixel in the pattern using the buffer with the positions of the subregions, then compute mean using the sums buffer, subtract it and finally write the value to the output buffer.
 
 
-\section{Arg max computation}
-The cross--correlated data are further processed to find the position of maximum for each subregion by using parallel reduction. The computation is very similar to the sums reduction explained in \cref{sums} we use warp--level shuffle instructions and shared memory to reduce the values loaded to each block. The difference compared to sum reduction is that we need to find the maximum and its position at the same time. So throughout the algorithm, we operate on the pair of value and its position. Every time we compare two values and choose the higher one, we propagate its position as well.
 
-Otherwise the reduction within one block is analogous to the sum reduction. In each step we shuffle down the current value and its position (that means two shuffles per one step). Then we compare the received and current value and save the greater one with its position for the next step. We need five these steps to reduce one warp, then each warp saves its result to the shared memory. Finally, one warp reduces the items in the shared memory to get the result of one block reduction.
-
-In the sums reduction kernel, we used built-in atomic add to update the global memory with the result of block reduction. No such function exists for arg max, since we need to atomically compare two values and then update the position as well. There are several ways how do the update without the atomic operation.
-
-\begin{description}
-	\item[Launch second kernel] The first kernel does no synchronization between the blocks and each block just writes its reduced result to its reserved place in global memory. Then, we start second kernel which reduces the results of the first one. In the second kernel, all the values from one subregion are reduced by one block, so there is no synchronization needed anymore. 
-	\item[One block reduces one whole subregion] We increase the number of values that each thread loads before the reduction, so only one block is needed to find the maximum of each subregion. Therefore, no synchronization across blocks is needed. Depending on the number of subregions, there is a possibility that this approach does not spawn enough blocks to fully utilize the GPU.
-	\item[Atomic compare and swap (float data only)] We can use the atomic compare and swap (CAS) instruction to update the global memory atomically. There are not many blocks that would compete over the same piece of memory, so it is a viable solution. However, it can only be done when we compute the cross--correlation in single precision floating point type, since modern GPUs only support atomic CAS for 8 bytes. A double precision number is 8 bytes long itself, and we need to update the pair of value and its position.
-\end{description}
-
-The different approaches are compared in chapter 3.
 
 \section{Extract neighbors kernel}
 
