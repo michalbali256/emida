@@ -401,7 +401,7 @@ That means we can precompute the constant part of the least squares formula for 
 
 
 \subsection{Maximum of fitted function}
-
+\label{max-fitted}
 The last step in the algorithm is to find the maximum of the quadratic function. We do that using standard methods of mathematical analysis: we find where are the partial derivations of the function equal to zero.
 
 The partial derivations of the quadratic function are:
@@ -410,7 +410,7 @@ The partial derivations of the quadratic function are:
 \frac{\partial f}{\partial y}(x,y) &= ex + 2fy + c.
 \end{align*}
 
-If the function has an extreme, then it is located at the point where the partial derivations are both zero. That implies the a linear system of equations with the following solution:
+If the function has an extreme, then it is located at the point where the partial derivations are both zero. That implies a linear system of equations with the following solution:
 \begin{align*}
 x_m &= \frac{2bf - ce}{e^2 - 4df}\\
 y_m &= \frac{2cd - be}{e^2 - 4df}

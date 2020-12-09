@@ -263,17 +263,21 @@ This kernel works with very small amount of data compared to other kernels, sinc
 
 
 \subsection{Offsets finalization}
-When we have the positions of maxima and their neighborhoods lined up in two buffers,
+When we have the positions of maxima and their neighborhoods lined up in two buffers, we use the least squares method to fit a quadratic function to the neighborhoods and find the maximum of the resulting continuous function. As shown in \cref{estimation} and \cref{max-fitted}, it all comes down to one matrix--vector multiplication and then solving a simple two variable linear system.
 
+The amount of data processed in this stage of computation is much smaller compared to the rest of the algorithm. In the worst case, i.e. the biggest size of neighborhood $F \times F = 9 \times 9$ that we consider and the smallest size of subregion $W_s \times H_s = 5 \times 50$, the neighborhoods are 30 times smaller than whole subregions. In addition, the offset finalization is not particularly computationally demanding and we empirically measured that in the worst case it takes less than 1\% of the whole algorithm run time. Moreover, it is possible to perform the stage on the CPU in parallel with GPU computation, thus removing its impact on the total time whatsoever, as explained below in \cref{task-paralelization}. Those are the reasons we decided it is pointless to implement it for GPU. However in case the range of considered parameters change in the future, the addition of GPU implementation would not be a problem.
 
- we transfer them to the host memory, since the finalization of the offsets takes place on the CPU. We compute the locations of maxima of the neighborhoods with subpixel accuracy as explained in \cref{subpixel-peak}. With the precomputed least squares matrix, the estimation of the quadratic function coefficients is a matter of one matrix--vector multiplication. Then, we compute the location of maximum of the quadratic function using two simple formulas. That gives us the location of the maximum relative to each neighborhood. In the final step, we combine the location of neighborhoods transfered from the GPU with the relative subpixel location of maxima within the neighborhoods and write out the resulting offset.
+So when we have the positions of maxima and their neighborhoods, we transfer them to the host memory, since the finalization of the offsets takes place on the CPU. Next step is to fit a quadratic function to each neighborhood. As explained in \cref{subpixel-peak}, we have precomputed the matrix $(A^TA)^{-1}A^T$ for each considered $F \in \{3, 5, 7, 9\}$. Then we multiply the neighborhood as a vector with this precomputed matrix using standard matrix multiplication. That results in 6 coefficients of the quadratic function.
 
-
-The last part of the algorithm fits a continuous quadratic function to the neighborhood and then finds its maximum. We did not implement it for GPU, because it is not computationally demanding. It processes only a small neighborhood compared to the expected size of subregions. That also makes it cheap to transfer the maxima and neighborhoods from GPU to finish the computation on CPU and write the results to the output.
+Then we use the formulas from \cref{max-fitted} to compute the maximum of the continuous function given by the 6 coefficients, which gives us offset of the maximum from the middle of each neighborhood. In the final step, we combine the location of neighborhoods transfered from the GPU with the relative offsets and write out the result.
 
 
 \section{Data flow}
-The image is represented as an array of all the pixels in row--major order. Each pixel is an unsigned integer. 
+
+\Cref{overview} summarizes the whole algorithm and shows all the used kernels and buffers (apart from additional buffers that are used to compute the cross--correlation).
+
+
+The image is represented as an array of all the pixels in row--major order. Each pixel is an unsigned integer.
 
 \begin{figure}
 	\centering
@@ -305,7 +309,7 @@ The \cref{buftypes} also shows the data types stored in the buffers. The input i
 
 
 \subsection{Task parallelization}
-
+\label{task-paralelization}
 Since some parts of the algorithm are done on CPU and some on GPU (see color distinction in \cref{overview}), it is possible to parallelize them. There are 3 parts separated by data transfers between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and never waits for the CPU.
 
 \begin{figure}
