@@ -2,20 +2,18 @@
 
 In this chapter we analyze the algorithm used to process EBSD data and explain how to implement it effectively for GPUs. We use the CUDA platform, which is currently the most popular technology for general purpose computing on graphics cards.
 
-\todo{CUDA summary?}
-
 The input for the algorithm consists of one reference and many deformed backscatter patterns which are captured in greyscale images. There may be up to tens of thousands of them. In general, the format of the pictures is not important, as long as it is possible to load them from disk quickly. For example, our testing data consists of 15000 images saved in TIFF format without any compression. Each picture has resolution of approximately $900 \times 900$ pixels and each pixel is represented by a 16 bit unsigned integer --- the higher the integer, the higher is the luminosity of the pixel.
 
 The result of the algorithm is a list of two--dimensional vectors that we write to the standard output.
 
-There are further parameters to the algorithm explained in the \cref{chap1}. \Cref {params} summarizes them along with the range of values that we consider.
+There are further parameters to the algorithm explained in the \cref{chap1}. \Cref {params} summarizes them along with the range of values that we consider. The size of input pattern range is based on the resolution of commonly accessible EBSD cameras \cite{digiview-ebsd-camera} \cite{hikari-ebsd-camera}. Our testing data resolution is also within this range. The range of rest of the parameters is based on consultation with physicists from Department of Physics of Material in Charles University in Prague.
 
 \begin{table}[]
 	\centering
 	\begin{tabular}{@{}lll@{}}
 		\toprule
 		Parameter                  & Label            &    Value range  \\ \midrule
-		Size of input pattern      & $W_p \times H_p$ & $640 \times 480$\footnotemark  -- $1400 \times 1000$ \footnotemark  \\
+		Size of input pattern      & $W_p \times H_p$ & $640 \times 480$ -- $1400 \times 1000$  \\
 		Number of subregions       & $S$              &               10 -- 100 \\
 		Size of a subregion        & $W_r \times H_r$ & $50 \times 50$ -- $250 \times 250$ \\
 		Diameter of a neighborhood & $F$              &                3,5,7,9 \\ \bottomrule
@@ -23,37 +21,10 @@ There are further parameters to the algorithm explained in the \cref{chap1}. \Cr
 	\caption{Summary of algorithm parameters with example values that show their order of magnitude.}
 	\label{params}
 \end{table}
-\footnotetext[1]{\url{https://www.edax.com/products/ebsd/digiview-ebsd-camera}}
-\footnotetext{\url{https://www.eden-instruments.com/en/download/hikari-ebsd-camera-series/}}
 
-Once we have described the most important parts of the algorithm, we explain how they are used together to implement our algorithm. We can divide it into 2 major parts: preprocessing of the images prior to cross--correlation that includes loading the image from disk and subtracting sums of the subregions.  and processing of its result, which includes search of the maximum position and finding the maximum within each neighborhood.
+In the following sections, we first explain the computation of cross--cor\-re\-la\-ti\-on, sum and arg max on the GPU. Then, algorithm, we explain how they are used together to implement the algorithm outlined in chapter 1. We can divide it into 2 major parts: first, preprocessing of the images prior to cross--correlation that includes loading the image from disk and subtracting sums of the subregions, which is addressed in \cref{preprocessing}. Second part, described in \cref{cross-processing}, consists of processing of its result, which includes search of the maximum position and finding the maximum within each neighborhood.
 
-\if{false}
-From a high--level point of view, the algorithm first loads reference pattern from disk. Then it goes through a list of file names of deformed images and does 3 steps with each:
-\begin{enumerate}
-	\item Load a deformed pattern from disk.
-	\item Compare the deformed and reference patterns.
-	\item Write the resulting offsets to standard output.
-\end{enumerate}
-While the steps 1 and 3 have to be done by the CPU, the second step is suitable for execution on a GPU.
-
-As explained in the previous chapter, the comparison of two patterns is done by cross--correlating several subregions of the images and then finding the offset for which the correlation is maximal. Location, size and number of the subregions is a parameter for the algorithm; we expect that there will be tens of subregions with size in the order of $100 \times 100$ pixels. All the subregions in all the images are processed independently from each other, providing a great opportunity to utilize data parallelism.
-
-
-
-The processing of each subregion is done in several steps:
-\begin{enumerate}
-	\item Normalize the pixels of the subregion --- compute its mean and subtract it from each pixel
-	\item Cross--correlate deformed region with the reference one
-	\item Find the position of the maximum (argmax) in the cross--correlation
-	\item Use the neighborhood of the maximum to ``interpolate'' and find the most probable offset of the subregion with subpixel accuracy
-\end{enumerate}
-
-These steps can be executed in parallel for all the subregions of one pattern. So every time we start a kernel, it executes the step for all the subregions of the pattern. We can go even further and process the subregions of several patterns, i.e., a batch of patterns, at the same time. This approach can help to increase the GPU utilization, especially when there are only few subregions in each pattern. In the rest of the chapter, we mostly describe the algorithm for one pattern only, because it is not very hard to expand it for batches of patterns.
-
-\fi
-
-
+The most important feature of the algorithm upon which we build our GPU implementation is the fact that all the subregions are completely independent from each other. So every kernel described in the following sections processes all the subregions of a pattern in parallel (we also implemented batch parameter described in \cref{batch-param}, which allows processing more images at once). This way, we can make sure we utilize the whole GPU. 
 
 \section{Cross--correlation}
 We start by analyzing the core of the algorithm --- cross--correlation, which is also the most computationally demanding part. The input for cross--correlation are two images, in our case it is a deformed and a reference subregion. More precisely, there are several pairs of subregions, but since they are completely independent, we explain the algorithm for one pair only. With respect to the definition in \cref{cross-corr-def}, we cross--correlate the reference with deformed subregion, i.e. $reference \star deformed$, not the other way around. Also, both subregions are of the same size, which simplifies some aspects of the algorithm.
@@ -224,6 +195,7 @@ The different approaches are compared in chapter 3.
 
 
 \section{Subregions preprocessing}
+\label{preprocessing}
 Once we have described the most important parts of the algorithm, we explain how they are used together. In the following section, we outline the preprocessing that is needed before we can cross--correlate the subregions. It incorporates several steps:
 \begin{enumerate}
 	\item Load an image of pattern from disk
@@ -248,7 +220,7 @@ The implementation kernel that computes sums is described in \cref{sums}. The im
 
 
 \section{Cross--correlation processing}
-
+\label{cross-processing}
 After the cross--correlation is finished, we analyze the result --- we find where is the maximum of each subregion using parallel reduction, which is explained in \cref{arg-max}. The result is an array of coordinates of the maximum values (we are not interested in the values themselves). The next kernel then extracts a square shaped neighborhood of each maximum into one continuous buffer, so it can be transferred to the CPU memory together with the positions of the maxima.
 
 \subsection{Extract neighbors kernel}
@@ -286,7 +258,8 @@ The image is represented as an array of all the pixels in row--major order. Each
 	\label{overview}
 \end{figure}
 
-To illustrate the data flow better and reason about it, \cref{params} summarizes parameters of the algorithm and \cref{buftypes} shows all buffers used on GPU with their sizes. The kernels that compute sums and normalize the subregions both work with $W_r \cdot H_r \cdot S$ items (i.e. all subregions). The cross--correlation has nearly four times as big output, which is then processed by the arg max kernel. After the maximum reduction, the buffers that are transferred to the CPU memory are quite small.
+\Cref{buftypes} shows all buffers used on GPU with their sizes. The kernels that compute sums and normalize the subregions both work with $W_r \cdot H_r \cdot S$ items (i.e. all subregions). The cross--correlation has nearly four times as big output, which is then processed by the arg max kernel. So the cross--correlation and the arg max kernel work with the largest amount of data, while the buffers that are transferred to the CPU memory are quite small.
+
 
 \begin{table}[]
 	\begin{tabular}{@{}lll@{}}
@@ -305,11 +278,15 @@ To illustrate the data flow better and reason about it, \cref{params} summarizes
 	\label{buftypes}
 \end{table}
 
-The \cref{buftypes} also shows the data types stored in the buffers. The input image consists of unsigned 16 bit integers, so 4 byte unsigned integer is enough to hold the sums of its subregions of expected size. Once the means are subtracted, we use single or double floating point type --- when computing with 4 byte float, the implementation is substantially faster, however we are not sure whether it is precise enough, so we leave the choice as a parameter for our implementation.
+
+
+The \cref{buftypes} also shows the data types stored in the buffers. The input image consists of unsigned 16 bit integers --- that is simply the way the t so 4 byte unsigned integer is enough to hold the sums of its subregions of expected size. Once the means are subtracted, we use single or double floating point type --- when computing with 4 byte float, the implementation is substantially faster, however we are not sure whether it is precise enough, so we leave the choice as a parameter for our implementation.
 
 
 \subsection{Task parallelization}
 \label{task-paralelization}
+
+
 Since some parts of the algorithm are done on CPU and some on GPU (see color distinction in \cref{overview}), it is possible to parallelize them. There are 3 parts separated by data transfers between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and never waits for the CPU.
 
 \begin{figure}
@@ -326,6 +303,6 @@ In the following sections, we describe the implementation details of each indivi
 
 
 \subsection{Image batch processing}
-
+\label{batch-param}
 
 
