@@ -137,6 +137,7 @@ Both of the functions use an important property of Fourier transform: A series $
 It also makes it possible to store the Fourier transform in roughly the same array as the input and thus perform in--place transforms. The output consists of complex numbers, which are represented by two real numbers, i.e., one element takes twice as much bytes. But at the same time, we only need $W/2 + 1$ columns (we can remove the floor operator, because $W$ is always even in our context as we double the size of a subregion with zero padding). The result is that we save the input in a real matrix with size $(W+2) \times H$, with the two extra columns unused. That is the same amount of space that we need for the transformed complex matrix with size $W/2 + 1 \times H$.
 
 \subsection{Using cuFFT to compute cross--correlation}
+\label{FFT-cross-corr-impl}
 
 We need to cross--correlate a reference and a deformed image. Recall that it can be computed in several steps explained in \cref{two-dim-ft}:
 
@@ -183,7 +184,7 @@ Computation of sum is a textbook example of parallel reduction. In \cite{paralle
 
 Let $K$ be number of values that each thread loads, $B$ denote one block size and $P$ total number of pixels in one subregion, respectively. Then we use a group of $S_1~=~\ceil{\frac{P}{KB}}$ blocks for reduction of each subregion. If $P$ is not divisible by $KB$, then the last block in each group is not fully utilized, and processes only $K - 1$ values because there are no more pixels in the subregion.
 
-\XX{For We measure the impact of the parameter in section ??. The problem is that half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread (using shuffle instruction) which does the actual sum. So instead of loading only one value, each thread loads $N$ values and all the threads are utilized in the first part of the algorithm. It also means that we need $N$ times less blocks which may cause that for too high $N$, there will not be enough blocks to utilize the GPU.}
+
 
 Once each thread loads its data, it is possible to reduce them fast within each block. We use warp--level shuffle instructions, which allows the threads in one warp to exchange data in registers. \Cref{warp_reduce} shows how it is possible to get sum of values in 8 threads. It can be expanded to size of warp, i.e. 32 threads. To reduce the whole block, we use the warp reduction in two steps:
 \begin{enumerate}
@@ -201,8 +202,11 @@ Maximum number of threads in one block is 1024 in CUDA and warp size is 32 so we
 
 After the reduction within each block, we need to update the resulting values in global memory. If $S_1$ is equal to $1$, thus every subregion is processed by exactly one block, then there is no synchronization needed between the blocks. Otherwise, we can use \emph{atomic add}. The solution is feasible for us, since it is safe to assume that not many blocks access the same value. The worst case size of one subregion is $250 \times 250$ which is the total of 62500 pixels. \XX{ For $K = 1$ and $B = 1024$ (there is no reason not to use the maximal possible value --- no register or shared memory pressure), then 63 blocks compute the sum of one subregion.}. 
 
+We measure the impact of the parameters in section ??. Higher $K$ helps utilize the threads better, because they manage to do more work before the reduction phase. For $K = 1$, half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread (using shuffle instruction) which does the actual sum. On the other side, setting $N$ and $B$ such that only one block processes one subregion can lead to not being able to utilize whole gpu, if there are not enough subregions.
+
 
 \section{Arg max computation}
+\label{arg-max}
 The cross--correlated data are further processed to find the position of maximum for each subregion by using parallel reduction. The computation is very similar to the sums reduction explained in \cref{sums} we use warp--level shuffle instructions and shared memory to reduce the values loaded to each block. The difference compared to sum reduction is that we need to find the maximum and its position at the same time. So throughout the algorithm, we operate on the pair of value and its position. Every time we compare two values and choose the higher one, we propagate its position as well.
 
 Otherwise the reduction within one block is analogous to the sum reduction. In each step we shuffle down the current value and its position (that means two shuffles per one step). Then we compare the received and current value and save the greater one with its position for the next step. We need five these steps to reduce one warp, then each warp saves its result to the shared memory. Finally, one warp reduces the items in the shared memory to get the result of one block reduction.
@@ -222,17 +226,54 @@ The different approaches are compared in chapter 3.
 \section{Subregions preprocessing}
 Once we have described the most important parts of the algorithm, we explain how they are used together. In the following section, we outline the preprocessing that is needed before we can cross--correlate the subregions. It incorporates several steps:
 \begin{enumerate}
-	\item Load an image from disk
+	\item Load an image of pattern from disk
 	\item Transfer the image from host memory to GPU memory
-	\item Split the image into subregions
+	\item Extract the subregions of interest from the image
 	\item Compute the sums of subregions
-	\item Subtract the respective sums from subregions
+	\item Compute a mean for each subregion and subtract it
 \end{enumerate}
+In the end, all the image subregions specified by the user are organized one after another in the output buffer on the GPU. In case of cross--correlation implemented by FFT, the subregions are organized in a 4 times larger buffer with zero padding, so that it can be used by the forward Fourier transformation (see \cref{FFT-cross-corr-impl}).
+
+It is not immediately clear, in what order we should perform these steps and which ones should be executed on the GPU. Naturally, load of the image from disk must come first and computation of sums must come before they are subtracted. Also, the image has to be loaded from the disk using CPU, while the rest can be implemented on GPU (the transfer step is of course special in this regard).
+
+First, we decide whether we transfer the whole image and then extract subregions on the GPU, or extract using CPU and transfer only the subregions. If there are only few subregions, the latter approach may transfer less data, since some areas of the pattern are never used. On the other hand, if there are many subregions, they are likely to overlap, which means we could transfer more data than needed. That said, the difference of amount of data transferred does not really matter, since empirical testing showed the time needed to copy the data from host memory to GPU is marginal compared to the rest of the algorithm. However what matters is, that we can utilize GPU for subregion extraction when we, so we have chosen that approach.
+
+The most straightforward GPU implementation of the preprocessing is to write three kernels which first extract the subregions from the image, then compute their sums and finally subtract the means them. We can optimize it by merging the first and the final step --- we first compute the sums by reading the subregions directly from the image of pattern. Then, in the second kernel called \emph{prepare kernel}, we load the pixels of subregions from the image again, compute the mean of respective subregion and subtract it from each pixel. Finally, we write it to proper place in the output buffer. This approach saves us the overhead of starting one kernel
+
+The output of the kernel are the normalized subregions stored in one buffer that is prepared to be cross--correlated. In case of using cross--cor\-re\-la\-ti\-on implementation based on the definition, the subregions are stored continuously side by side. In case of the FFT implementation, the subregions are stored in a continuous buffer of matrices with size $2W_s \times 2H_s$ (one subregion has the size $W_s \times H_s$), each subregion taking the left upper part of the matrix. The rest of the matrices are used for zero padding.
+
+If some subregions are overlapping, we copy some of the data twice, but then we subtract different means from them in general, so the result does not have any duplicities.
+
+The implementation kernel that computes sums is described in \cref{sums}. The implementation of the prepare kernel is fairly straightforward, we assign one thread to each pixel in each subregion. The threads compute the position of their pixel in the pattern using the buffer with the positions of the subregions, then compute mean using the sums buffer, subtract it and finally write the value to the output buffer.
 
 
+\section{Cross--correlation processing}
+
+After the cross--correlation is finished, we analyze the result --- we find where is the maximum of each subregion using parallel reduction, which is explained in \cref{arg-max}. The result is an array of coordinates of the maximum values (we are not interested in the values themselves). The next kernel then extracts a square shaped neighborhood of each maximum into one continuous buffer, so it can be transferred to the CPU memory together with the positions of the maxima.
+
+\subsection{Extract neighbors kernel}
+
+Once we compute the position of cross--correlation maximum for each subregion, we need to transfer the maxima and their neighborhoods from GPU to main memory so that the CPU can finalize and output the offsets. The maxima are already ready to transfer as a result of the arg max kernel, but we need to start another kernel to copy the neighborhoods from the cross--correlation into its own buffer, so we do not have to transfer the whole cross--correlation.
+
+Recall that $F$ denotes the size of the square neighborhood. Given a maximum $[x_m, y_m]$, its neighborhood are the points $\{x_m - \frac{F-1}{2}, \cdots, x_m, \cdots, x_m + \frac{F-1}{2}\} \times \{y_m - \frac{F-1}{2}, \cdots, y_m, \cdots, y_m + \frac{F-1}{2}\}$ of cross--correlation. $F$ is always an odd number, so that the maximum is in the middle of the neighborhood. So the output buffer has size $F^2 \cdot S$, because each neighborhood has $F \cdot F$ points and there are $S$ subregions.
+
+In the kernel, we assign one thread to each point of the neighborhood. Each thread computes the address of its point and copies it from the cross--correlation buffer to the neighborhoods buffer.
+
+This kernel works with very small amount of data compared to other kernels, since $F$ is expected to be less than 10. Therefore the running time of this kernel is marginal and does not offer much space for improving overall running time.
 
 
-\section{Implementation overview}
+\subsection{Offsets finalization}
+When we have the positions of maxima and their neighborhoods lined up in two buffers,
+
+
+ we transfer them to the host memory, since the finalization of the offsets takes place on the CPU. We compute the locations of maxima of the neighborhoods with subpixel accuracy as explained in \cref{subpixel-peak}. With the precomputed least squares matrix, the estimation of the quadratic function coefficients is a matter of one matrix--vector multiplication. Then, we compute the location of maximum of the quadratic function using two simple formulas. That gives us the location of the maximum relative to each neighborhood. In the final step, we combine the location of neighborhoods transfered from the GPU with the relative subpixel location of maxima within the neighborhoods and write out the resulting offset.
+
+
+The last part of the algorithm fits a continuous quadratic function to the neighborhood and then finds its maximum. We did not implement it for GPU, because it is not computationally demanding. It processes only a small neighborhood compared to the expected size of subregions. That also makes it cheap to transfer the maxima and neighborhoods from GPU to finish the computation on CPU and write the results to the output.
+
+
+\section{Data flow}
+The image is represented as an array of all the pixels in row--major order. Each pixel is an unsigned integer. 
 
 \begin{figure}
 	\centering
@@ -240,20 +281,6 @@ Once we have described the most important parts of the algorithm, we explain how
 	\caption{Processing of one deformed pattern.}
 	\label{overview}
 \end{figure}
-
-\Cref{overview} shows the data flow of the implementation and its decomposition into kernels. The processing starts with loading an image of a pattern from disk and its transfer to GPU. We transfer the whole pattern, as opposed to transferring only the subregions of interest.  Although we may end up copying data that the GPU never uses, this approach turned out to be better, because then we can utilize GPU when copying the subregions from the pattern. Moreover, we expect the regions to overlap in typical use case, so transferring the whole pattern copies less data.
-
-The image is represented as an array of all the pixels in row--major order. Each pixel is an unsigned integer. 
-
-Next, we need to prepare the data for cross--correlation --- copy the subregions from the image of deformed pattern and normalize them by subtracting the respective means. It is done in two kernels: \emph{sums} kernel and \emph{prepare} kernel. The sums kernel computes the sum of pixels of each subregion using parallel reduction. The prepare kernel extracts the subregions from the pattern, so that they are organized one after another in the output buffer: first, there all the pixels of the first subregion in row--major order, then all the pixels from the second and so on. Moreover, the kernel uses the sums from the first kernel to compute the mean for each region and subtracts it from each pixel of respective subregion.
-
-The following part cross--correlates the normalized deformed subregions with reference ones. Since each deformed pattern is compared to the same reference, we pre-compute it (i.e., subtract the means from its subregions) and store it in a buffer on the GPU before loading the first deformed pattern.
-
-Then, we analyze the result of the cross--correlation --- we find where is the maximum of each subregion using parallel reduction (\emph{arg max} kernel). The result is an array of coordinates of the maximum values (we are not interested in the values themselves). The next kernel then extracts a square shaped neighborhood of each maximum into one continuous buffer, so it can be transferred to the CPU memory together with the positions of the maxima.
-
-The last part of the algorithm fits a continuous quadratic function to the neighborhood and then finds its maximum. We did not implement it for GPU, because it is not computationally demanding. It processes only a small neighborhood compared to the expected size of subregions. That also makes it cheap to transfer the maxima and neighborhoods from GPU to finish the computation on CPU and write the results to the output.
-
-The decomposition into kernels is mostly determined by the need of global barriers. Both finding of sum and arg max use parallel reduction, which has to fully finish before any of its results are complete. The kernel that extracts the subregions from the pattern is necessary to simplify the cross--correlation and allow usage of third party libraries (see \cref{fft}, where the implementation of cross--correlation is explained).
 
 To illustrate the data flow better and reason about it, \cref{params} summarizes parameters of the algorithm and \cref{buftypes} shows all buffers used on GPU with their sizes. The kernels that compute sums and normalize the subregions both work with $W_r \cdot H_r \cdot S$ items (i.e. all subregions). The cross--correlation has nearly four times as big output, which is then processed by the arg max kernel. After the maximum reduction, the buffers that are transferred to the CPU memory are quite small.
 
@@ -276,6 +303,7 @@ To illustrate the data flow better and reason about it, \cref{params} summarizes
 
 The \cref{buftypes} also shows the data types stored in the buffers. The input image consists of unsigned 16 bit integers, so 4 byte unsigned integer is enough to hold the sums of its subregions of expected size. Once the means are subtracted, we use single or double floating point type --- when computing with 4 byte float, the implementation is substantially faster, however we are not sure whether it is precise enough, so we leave the choice as a parameter for our implementation.
 
+
 \subsection{Task parallelization}
 
 Since some parts of the algorithm are done on CPU and some on GPU (see color distinction in \cref{overview}), it is possible to parallelize them. There are 3 parts separated by data transfers between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and never waits for the CPU.
@@ -290,28 +318,10 @@ Since some parts of the algorithm are done on CPU and some on GPU (see color dis
 \Cref{pipeline} shows how the work can be can be parallelized using a pipeline-like design. We use 2 worker CPU threads. While the GPU processes $i$-th pattern, one CPU thread already loads pattern $i+1$ and the second thread finalizes pattern $i-1$. The CPU work still takes much less time, so it is enough to start the load of pattern $i$ once processing of pattern $i-2$ finishes (and processing $i-1$ starts). That way, we do not need queues to pass work (like in the common pipeline pattern), we just need 2 buffers: one for writing the processed/prepared data and one for reading data to process. In the next iteration, we just swap the buffers.
 
 We also partially take advantage of the fact that GPUs are able to run a kernel, copy data from and to memory at the same time. Actually, all transfers run in parallel with kernel execution. The host--device copy of input takes place right after the CPU loads the pattern from disk. Similarly, once the maxima and neighborhoods are prepared on the GPU, we start asynchronous transfer of the results and GPU starts computing the next pattern immediately. Unfortunately, this optimization does not affect performance much, since the copying between GPU and CPU memory takes only a marginal fraction of overall time.
-
 In the following sections, we describe the implementation details of each individual kernel.
 
 
-\section{Prepare kernel}
-Once the sums are computed, we need to subtract them from each pixel of respective subregion. We use the \emph{prepare} kernel to do that and to copy the subregions from the pattern so they are stored continuously in one buffer. If some subregions are overlapping, we copy some of the data twice, but then we subtract different means from them in general, so the result does not have any duplicities.
-
-The kernel is fairly straightforward, we assign one thread to each pixel in each subregion. The threads compute the position of their pixel in the pattern using the buffer with the positions of the subregions, then compute mean using the sums buffer, subtract it and finally write the value to the output buffer.
+\subsection{Image batch processing}
 
 
 
-
-\section{Extract neighbors kernel}
-
-Once we compute the position of cross--correlation maximum for each subregion, we need to transfer the maxima and their neighborhoods from GPU to main memory so that the CPU can finalize and output the offsets. The maxima are already ready to transfer as a result of the arg max kernel, but we need to start another kernel to copy the neighborhoods from the cross--correlation into its own buffer, so we do not have to transfer the whole cross--correlation.
-
-Recall that $F$ denotes the size of the square neighborhood. Given a maximum $[x_m, y_m]$, its neighborhood are the points $\{x_m - \frac{F-1}{2}, \cdots, x_m, \cdots, x_m + \frac{F-1}{2}\} \times \{y_m - \frac{F-1}{2}, \cdots, y_m, \cdots, y_m + \frac{F-1}{2}\}$ of cross--correlation. $F$ is always an odd number, so that the maximum is in the middle of the neighborhood. So the output buffer has size $F^2 \cdot S$, because each neighborhood has $F \cdot F$ points and there are $S$ subregions.
-
-In the kernel, we assign one thread to each point of the neighborhood. Each thread computes the address of its point and copies it from the cross--correlation buffer to the neighborhoods buffer.
-
-This kernel works with very small amount of data compared to other kernels, since $F$ is expected to be less than 10. Therefore the running time of this kernel is marginal and does not offer much space for improving overall running time.
-
-\section{Offsets finalization}
-
-When we have the positions of maxima and their neighborhoods lined up in two buffers, we transfer them to the CPU memory, since the finalization of the offsets takes place on the CPU. We compute the locations of maxima of the neighborhoods with subpixel accuracy as explained in \cref{subpixel-peak}. With the precomputed least squares matrix, the estimation of the quadratic function coefficients is a matter of one matrix--vector multiplication. Then, we compute the location of maximum of the quadratic function using two simple formulas. That gives us the location of the maximum relative to each neighborhood. In the final step, we combine the location of neighborhoods transfered from the GPU with the relative subpixel location of maxima within the neighborhoods and write out the resulting offset.
