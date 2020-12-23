@@ -11,6 +11,7 @@
 #include "slice_picture.hpp"
 #include "draw_tiff.hpp"
 #include "args_parser.hpp"
+#include "concurrent_queue.hpp"
 
 namespace emida
 {
@@ -24,8 +25,6 @@ struct file
 
 struct offs_job
 {
-	uint16_t * deformed_raster;
-	std::atomic<bool> loaded = false;
 	esize_t batch_files;
 	esize_t c;
 };
@@ -35,7 +34,6 @@ struct fin_job
 {
 	data_index<T> * maxes_i;
 	T * neighbors;
-	std::atomic<bool> ready = false;
 	esize_t batch_files;
 	esize_t c;
 };
@@ -71,25 +69,12 @@ class file_processor
 	gpu_offset<T, uint16_t> offs;
 	std::vector<file> work;
 	stopwatch sw;
-	std::mutex mtx_offs;
-	std::condition_variable cond_compute_offs;
-
-	std::mutex mtx_fin_finished;
-	std::condition_variable cond_fin_finished;
-	std::atomic<bool> fin_finished = true;
-
-	offs_job job1;
-	offs_job job2;
 
 	fin_job<T> fin_job1;
 	fin_job<T> fin_job2;
-	std::atomic<bool> offs_done = true;
-	std::atomic<bool> end_comp_offs = false;
-	std::atomic<bool> end_comp_fin = false;
 
-	
-	std::mutex mtx_fin;
-	std::condition_variable cond_fin;
+	concurrent_queue<offs_job> load_queue;
+	concurrent_queue<fin_job<T>*> fin_queue;
 
 public:
 	file_processor(params par) : a(std::move(par)), sw(true, 3)
@@ -115,15 +100,11 @@ public:
 		offs = gpu_offset<T, uint16_t>(pic_size, &slice_begins, a.slice_size, a.cross_size, a.batch_size, a.cross_pol, a.fitting_size);
 		offs.allocate_memory(initial_raster.data());
 
-		
-		//job1.deformed_raster.resize(pic_size.area() * a.batch_size);
-		//job2.deformed_raster.resize(pic_size.area() * a.batch_size);
+		uint16_t* deformed_raster1 = cuda_malloc_host<uint16_t>(pic_size.area() * a.batch_size);
+		uint16_t* deformed_raster2 = cuda_malloc_host<uint16_t>(pic_size.area() * a.batch_size);
 
-		job1.deformed_raster = cuda_malloc_host<uint16_t>(pic_size.area() * a.batch_size);
-		job2.deformed_raster = cuda_malloc_host<uint16_t>(pic_size.area() * a.batch_size);
-
-		offs_job* job = &job1;
-		offs_job* job_next = &job2;
+		uint16_t* deformed_raster = deformed_raster1;
+		uint16_t* deformed_raster_next = deformed_raster2;
 
 		esize_t total_slices = (esize_t)a.slice_mids.size() * a.batch_size;
 
@@ -134,7 +115,13 @@ public:
 		fin_job2.neighbors = cuda_malloc_host<T>(total_slices * a.fitting_size * a.fitting_size);
 
 		work = load_work(a.deformed_list_file_name);
-	
+		
+		if (work.size() == 0)
+		{
+			std::cerr << "The deformed list is empty.\n";
+			return;
+		}
+
 		std::thread comp_offs_thr(&file_processor::compute_offsets_thread, this);
 		std::thread finalize_thr(&file_processor::finalize_thread, this);
 		sw.zero();
@@ -142,93 +129,80 @@ public:
 		{
 			esize_t batch_files = c + a.batch_size > (esize_t)work.size() ? (esize_t)work.size() - c : a.batch_size;
 			bool OK = true;
-			uint16_t * next = job->deformed_raster;
+			stopwatch swa;
+			uint16_t* next = deformed_raster;
+			swa.zero();
 			for (esize_t i = c; i < c + batch_files; ++i)
 			{
 				OK &= load_tiff(work[i].fname, next, pic_size);
 				next += pic_size.area();
-			}//sw.tick("Load tiff: ", 2);
+			}//swa.tock("Load tiff: ");
 
 			if (!OK)
 				continue;
-
-			offs.transfer_pic_to_device_async(job->deformed_raster);
-
-			std::unique_lock lck(mtx_offs);
-			job->batch_files = batch_files;
-			job->c = c;
-			job->loaded = true;
 			
-			//compute_offsets(*job);
-			cond_compute_offs.wait(lck, [&]() {return offs_done.load(); });
-			std::swap(job, job_next);
-			offs_done = false;
+			//swa.zero();
+			//auto v = get_pics<uint16_t>(job->deformed_raster, pic_size, slice_begins, a.slice_size);
+			//swa.tick("GET PICS TEST BLA");
+
+			offs.transfer_pic_to_device_async(deformed_raster);
+
+			offs_job job = { batch_files, c };
+			
+			load_queue.push(job);
+			
+			std::swap(deformed_raster, deformed_raster_next);
+			
 
 			//sw.tick("ONE: ", 1);
 		}
-		end_comp_offs = true;
 		comp_offs_thr.join();
 		finalize_thr.join();
 
 		sw.total();
-		/*if (a.analysis)
-		{
-			std::cerr << "Total pics: " << stopwatch::global_stats.total_pics << "\n";
-			stopwatch::global_stats.write_histogram();
-		}*/
 	}
 
 	void compute_offsets_thread()
 	{
-		offs_job* job = &job1;
-		offs_job* job_next = &job2;
-
 		fin_job<T>* fjob = &fin_job1;
 		fin_job<T>* fjob_next = &fin_job2;
 		for (;;)
 		{
-			while (!job->loaded && !end_comp_offs);
-			if (end_comp_offs)
-			{
-				end_comp_fin = true;
-				cond_fin.notify_one();
-				return;
-			}
+			load_queue.wait_for_data();
+
 			cudaStreamSynchronize(offs.in_stream);
 
-			std::unique_lock lck(mtx_fin_finished);
-			cond_fin_finished.wait(lck, [&]() {return fin_finished.load(); });
-			fin_finished = false;
+			auto job = load_queue.front();
+			
 			offs.get_offset_core(fjob->maxes_i, fjob->neighbors);
 
-			fjob->c = job->c;
-			fjob->batch_files = job->batch_files;
-			fjob->ready = true;
-			cond_fin.notify_one();
+			load_queue.pop();
 
-			offs_done = true;
-			job->loaded = false;
-			cond_compute_offs.notify_one();
-			std::swap(job, job_next);
+			fjob->c = job.c;
+			fjob->batch_files = job.batch_files;
+
+			fin_queue.push(fjob);
+			
+			if (fjob->c + a.batch_size >= work.size())
+				break;
+
 			std::swap(fjob, fjob_next);
+
+			
 		}
 	}
 
 	void finalize_thread()
 	{
-		fin_job<T>* fjob = &fin_job1;
-		fin_job<T>* fjob_next = &fin_job2;
-		while(!end_comp_fin)
+		for (;;)
 		{
-			std::unique_lock lck(mtx_fin);
-			cond_fin.wait(lck, [&]() {return fjob->ready.load() || end_comp_fin.load(); });
-			if (end_comp_fin)
-				return;
-			fjob->ready = false;
-			finalize_offsets(*fjob);
-			fin_finished = true;
-			cond_fin_finished.notify_one();
-			std::swap(fjob, fjob_next);
+			fin_queue.wait_for_data();
+			
+			finalize_offsets(*fin_queue.front());
+
+			if (fin_queue.front()->c + a.batch_size >= work.size())
+				break;
+			fin_queue.pop();
 		}
 	}
 

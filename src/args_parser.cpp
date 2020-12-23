@@ -153,8 +153,6 @@ bool params::parse(int argc, char** argv)
 	{
 		slice_size = parsed["slicesize"]->get_value<size2_t>();
 		slice_size = slice_size * 2;
-		if (parsed["slicepos"])
-			std::cerr << "Warning: --slicesize will be overriden by the first line of --slicepos file.";
 	}
 
 	if (parsed["slicepos"])
@@ -167,7 +165,10 @@ bool params::parse(int argc, char** argv)
 
 		auto [size, loaded] = load_slice_begins(parsed["slicepos"]->get_value<std::string>());
 		slice_mids = loaded;
-		slice_size = { (esize_t) size * 2U, (esize_t)size * 2U };
+		if (parsed["slicesize"])
+			std::cerr << "Warning: size written in --slicepos file will be overriden by --slicesize.\n";
+		else
+			slice_size = { (esize_t) size * 2U, (esize_t)size * 2U };
 
 		for (auto m : slice_mids)
 		{

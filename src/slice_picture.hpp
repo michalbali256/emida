@@ -11,8 +11,9 @@ template<typename T, typename RES>
 inline void copy_submatrix(const T* __restrict__ src, RES* __restrict__ dst, size2_t src_size, size2_t begin, size2_t size)
 {
 	for (esize_t y = 0; y < size.y; ++y)
-		for (esize_t x = 0; x < size.x; ++x)
-			dst[y * size.x + x] = src[src_size.x * (y + begin.y) + x + begin.x];
+		memcpy(dst + y * size.x, src + src_size.x * (y + begin.y) + begin.x, size.x * sizeof(T));
+		//for (esize_t x = 0; x < size.x; ++x)
+		//	dst[y * size.x + x] = src[src_size.x * (y + begin.y) + x + begin.x];
 }
 
 template<typename T, typename RES>
