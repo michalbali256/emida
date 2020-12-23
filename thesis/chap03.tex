@@ -38,7 +38,7 @@ There are also libraries that can leverage GPUs to compute cross--cor\-re\-la\-t
 \subsection{Definition--based algorithm}
 We first describe a naive algorithm designed directly from the definition. Then we explain another one that uses discrete Fourier transform. The reason why we implement two versions is that although the Fourier transform based algorithm has better asymptotic complexity, the subregions may not be big enough to reflect it.
 
-A serial algorithm for cross--correlation is shown in Algorithm \ref{crossAlgo}. It is directly based on the definition. It iterates over all possible shifts between the images (subregions), i.e. $\forall [shiftX, shiftY] \in (-W_s, W_s) \times (-H_s, H_s)$. For each of the shifts $[shiftX, shiftY]$, we sum over the products of pixels that overlap when we shift the deformed subregion by shiftX pixels horizontally and by shiftY vertically.
+A serial algorithm for cross--correlation is shown in Algorithm \ref{crossAlgo}. It is directly based on the definition. It iterates over all possible shifts between the images (subregions), i.e. $\forall [shiftX, shiftY] \in [-W_s+1, W_s-1] \times (-H_s, H_s)$. For each of the shifts $[shiftX, shiftY]$, we sum over the products of pixels that overlap when we shift the deformed subregion by shiftX pixels horizontally and by shiftY vertically.
 
 
 \begin{algorithm}
@@ -90,7 +90,7 @@ A serial algorithm for cross--correlation is shown in Algorithm \ref{crossAlgo}.
 
 The inner two loops of the algorithm iterate through all pixels of the reference image. However that is not necessary for all shifts, since for most of them only smaller parts of the images overlap (the only shift that requires iteration through all points is $[0,0]$). The if statement then filters out the pixels that do not overlap for specific shift. For performance reasons, we can get rid of the if statement, if we rewrite the two inner loops to always stay within the boundaries of the images.
 
-We will only reason about $shiftX$, since the same argumentation applies to $shiftY$. So we need to find out for which $x \in [0, W_s)$ holds that $(x + shiftX) \in [0, W_s)$, if $shiftX \in (-W_s, W_s)$. The result is the following interval:
+We will only reason about $shiftX$, since the same argumentation applies to $shiftY$. So we need to find out for which $x \in [0, W_s - 1]$ holds that $(x + shiftX) \in [0, W_s-1]$, if $shiftX \in [-W_s+1, W_s-1]$. The result is the following interval:
 \[
 x \in [max(-shiftX, 0), min(W_s - shiftX, W_s) - 1].
 \]
@@ -126,7 +126,7 @@ We have only one reference image that is cross--correlated with all the deformed
 
 The cuFFT functions have both an in--place version, which is used when the input and output buffers are the same, and out--of--place version, which is used for different input and output buffers. Using the out--of--place has the disadvantage if allocating multiple buffers --- one for input zero--padded data, one for transformed matrix and one for the output. However there are two advantages: first, the out--of--place versions of the cuFFT functions proved to be slightly faster. Second, it is possible to preserve the zero padding created by the first step when using the out--of--place version. The zero--padding can be written only once for the first image and then every time we load a new image (prior to the cross--correlation computation), we overwrite the same portion of the buffer with new deformed subregion. All the subregions are of the same size, so the same portion of the buffer is used every time. Since memory consumption is not an issue with our implementation, we can afford to allocate more buffers so we consider the out--of--place version better.
 
-For the step 3, we implemented a kernel that does the element--wise multiplication between the complex conjugate of the Fourier--transformed reference subregion and the Fourier transform of deformed subregion. The result of the multiplication can be outputted to the buffer with Fourier transform of the deformed subregions, since we do not need it any more. Implementation of the kernel is quite straightforward, each thread loads two complex numbers, multiplies them and writes them back. \XX{It can benefit from the batch parameter --- since we process several deformed subregions in one kernel call, we can load the complex number from reference subregion only once and use it multiple times.}
+For the step 3, we implemented a kernel that does the element--wise multiplication between the complex conjugate of the Fourier--transformed reference subregion and the Fourier transform of deformed subregion. The result of the multiplication can be outputted to the buffer with Fourier transform of the deformed subregions, since we do not need it any more. Implementation of the kernel is quite straightforward, each thread loads two complex numbers, multiplies them and writes them back. It can benefit from the batch parameter (see \cref{batch-param}) --- since we process several deformed subregions in one kernel call, we can load the complex number from reference subregion only once and use it multiple times.
 
 
 
@@ -183,13 +183,14 @@ The cross--correlated data are further processed to find the position of maximum
 Otherwise the reduction within one block is analogous to the sum reduction. In each step we shuffle down the current value and its position (that means two shuffles per one step). Then we compare the received and current value and save the greater one with its position for the next step. We need five these steps to reduce one warp, then each warp saves its result to the shared memory. Finally, one warp reduces the items in the shared memory to get the result of one block reduction.
 
 In the sums reduction kernel, we used built-in atomic add to update the global memory with the result of block reduction. No such function exists for arg max, since we need to atomically compare two values and then update the position as well. There are several ways how do the update without the atomic operation.
-
+\XX{
 \begin{description}
 	\item[Launch second kernel] The first kernel does no synchronization between the blocks and each block just writes its reduced result to its reserved place in global memory. Then, we start second kernel which reduces the results of the first one. In the second kernel, all the values from one subregion are reduced by one block, so there is no synchronization needed anymore. 
 	\item[One block reduces one whole subregion] We increase the number of values that each thread loads before the reduction, so only one block is needed to find the maximum of each subregion. Therefore, no synchronization across blocks is needed. Depending on the number of subregions, there is a possibility that this approach does not spawn enough blocks to fully utilize the GPU.
 	\item[Atomic compare and swap (float data only)] We can use the atomic compare and swap (CAS) instruction to update the global memory atomically. There are not many blocks that would compete over the same piece of memory, so it is a viable solution. However, it can only be done when we compute the cross--correlation in single precision floating point type, since modern GPUs only support atomic CAS for 8 bytes. A double precision number is 8 bytes long itself, and we need to update the pair of value and its position. 
 \end{description}
-
+}
+\todo{atomicMax + CAS pristup, ktory by mal fungovat vo vsetkych pripadoch}
 The different approaches are compared in chapter 3.
 
 
@@ -216,7 +217,9 @@ The output of the kernel are the normalized subregions stored in one buffer that
 
 If some subregions are overlapping, we copy some of the data twice, but then we subtract different means from them in general, so the result does not have any duplicities.
 
-The implementation kernel that computes sums is described in \cref{sums}. The implementation of the prepare kernel is fairly straightforward, we assign one thread to each pixel in each subregion. The threads compute the position of their pixel in the pattern using the buffer with the positions of the subregions, then compute mean using the sums buffer, subtract it and finally write the value to the output buffer.
+The load of the image is implemented using the C library libTIFF \cite{libtiff}. Although TIFF format offers more options for encoding pictures and even compression, the testing images we received (that were produced by an EBSD camera) use simple layout without any compression which is preferable from the performance point of view. The specific testing images are divided into strips of 4 rows, which is roughly 7 kilobytes. Within the strip, the pixels are organized in row-major order, each pixel is represented by an unsigned 16 bit integer. Thus, we are able to load the strips one by one to the host memory without any major performance penalty.
+
+The implementation of kernel that computes sums is described in \cref{sums}. The implementation of the prepare kernel is fairly straightforward, we assign one thread to each pixel in each subregion. The threads compute the position of their pixel in the pattern using the buffer with the positions of the subregions, then compute mean using the sums buffer, subtract it and finally write the value to the output buffer.
 
 
 \section{Cross--correlation processing}
@@ -235,6 +238,7 @@ This kernel works with very small amount of data compared to other kernels, sinc
 
 
 \subsection{Offsets finalization}
+\label{offsets-finalization}
 When we have the positions of maxima and their neighborhoods lined up in two buffers, we use the least squares method to fit a quadratic function to the neighborhoods and find the maximum of the resulting continuous function. As shown in \cref{estimation} and \cref{max-fitted}, it all comes down to one matrix--vector multiplication and then solving a simple two variable linear system.
 
 The amount of data processed in this stage of computation is much smaller compared to the rest of the algorithm. In the worst case, i.e. the biggest size of neighborhood $F \times F = 9 \times 9$ that we consider and the smallest size of subregion $W_s \times H_s = 5 \times 50$, the neighborhoods are 30 times smaller than whole subregions. In addition, the offset finalization is not particularly computationally demanding and we empirically measured that in the worst case it takes less than 1\% of the whole algorithm run time. Moreover, it is possible to perform the stage on the CPU in parallel with GPU computation, thus removing its impact on the total time whatsoever, as explained below in \cref{task-paralelization}. Those are the reasons we decided it is pointless to implement it for GPU. However in case the range of considered parameters change in the future, the addition of GPU implementation would not be a problem.
@@ -247,9 +251,6 @@ Then we use the formulas from \cref{max-fitted} to compute the maximum of the co
 \section{Data flow}
 
 \Cref{overview} summarizes the whole algorithm and shows all the used kernels and buffers (apart from additional buffers that are used to compute the cross--correlation).
-
-
-The image is represented as an array of all the pixels in row--major order. Each pixel is an unsigned integer.
 
 \begin{figure}
 	\centering
@@ -280,10 +281,11 @@ The image is represented as an array of all the pixels in row--major order. Each
 
 
 
-The \cref{buftypes} also shows the data types stored in the buffers. The input image consists of unsigned 16 bit integers --- that is simply the way the t so 4 byte unsigned integer is enough to hold the sums of its subregions of expected size. Once the means are subtracted, we use single or double floating point type --- when computing with 4 byte float, the implementation is substantially faster, however we are not sure whether it is precise enough, so we leave the choice as a parameter for our implementation.
+The \cref{buftypes} also shows the data types stored in the buffers. The input image consists of unsigned 16 bit integers, since that is the format of our testing images. Four byte unsigned integer is then enough to hold the sums of its subregions of expected size.
 
+Once the means are subtracted, the pixels are not integers in general, so we need to use a floating point type. We implemented the algorithm for both single or double floating point types, since the single precision version is substantially faster, but we are not sure whether its precision is sufficient. The result of the algorithm is further processed and the resulting rotation of the pattern is expressed in quite small numbers (in the order of $10^{-4}$), thus small imprecisions introduced by smaller floating point types might matter. That is also why we did not implement the algorithm for half float, but if the 4 byte float proves sufficient, half float may be worth implementing in the future.
 
-\subsection{Task parallelization}
+\section{Task parallelization}
 \label{task-paralelization}
 
 
@@ -298,11 +300,19 @@ Since some parts of the algorithm are done on CPU and some on GPU (see color dis
 
 \Cref{pipeline} shows how the work can be can be parallelized using a pipeline-like design. We use 2 worker CPU threads. While the GPU processes $i$-th pattern, one CPU thread already loads pattern $i+1$ and the second thread finalizes pattern $i-1$. The CPU work still takes much less time, so it is enough to start the load of pattern $i$ once processing of pattern $i-2$ finishes (and processing $i-1$ starts). That way, we do not need queues to pass work (like in the common pipeline pattern), we just need 2 buffers: one for writing the processed/prepared data and one for reading data to process. In the next iteration, we just swap the buffers.
 
+As argued in \cref{offsets-finalization}, the offsets finalization phase works with little data and always takes much less time than the processing on the GPU. On the other hand, that might not be always the case with the load of image phase which can be limited by the throughput of disk. When we tested our implementation, a HDD proved to be the bottleneck of the whole pipeline --- GPU was waiting for loaded patterns during majority of the run. When using an SSD the load of the image is fast enough to fully utilize the GPU. We measure the impact of different disks on the performance in chapter 3.
+
 We also partially take advantage of the fact that GPUs are able to run a kernel, copy data from and to memory at the same time. Actually, all transfers run in parallel with kernel execution. The host--device copy of input takes place right after the CPU loads the pattern from disk. Similarly, once the maxima and neighborhoods are prepared on the GPU, we start asynchronous transfer of the results and GPU starts computing the next pattern immediately. Unfortunately, this optimization does not affect performance much, since the copying between GPU and CPU memory takes only a marginal fraction of overall time.
-In the following sections, we describe the implementation details of each individual kernel.
 
-
-\subsection{Image batch processing}
+\section{Image batch processing}
 \label{batch-param}
+
+The algorithm we explained so far in this chapter processes the patterns one by one, never processing subregions from different images in parallel. However that can be changed to reduce the overhead of launching kernels and ensure that the GPU is fully utilized even when we process a small number of subregions in each image. We implemented a parameter that specifies number of patterns that are processed in batch in parallel. In this section, we describe how it changes the already described implementation.
+
+The load of images from disk does not change, we just need to load several images in a row. The sum and prepare kernels have to be slightly changed, because they have to use the specification of subregion locations multiple times --- once for each image.
+
+\todo{dopad na cross-correlation, inak }
+
+
 
 
