@@ -191,6 +191,7 @@ public:
 			if (end_comp_offs)
 			{
 				end_comp_fin = true;
+				cond_fin.notify_one();
 				return;
 			}
 			cudaStreamSynchronize(offs.in_stream);
@@ -220,7 +221,9 @@ public:
 		while(!end_comp_fin)
 		{
 			std::unique_lock lck(mtx_fin);
-			cond_fin.wait(lck, [&]() {return fjob->ready.load(); });
+			cond_fin.wait(lck, [&]() {return fjob->ready.load() || end_comp_fin.load(); });
+			if (end_comp_fin)
+				return;
 			fjob->ready = false;
 			finalize_offsets(*fjob);
 			fin_finished = true;
