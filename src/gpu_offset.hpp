@@ -271,8 +271,9 @@ public:
 	offsets_t<double> finalize(data_index<T>* maxes_i, T* neighbors)
 	{
 		CUCH(cudaStreamSynchronize(out_stream));
-
-		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors, s, total_slices_); sw.tick("Subpixel max: ");
+		stopwatch swf;
+		swf.zero();
+		auto [subp_offset, coefs] = subpixel_max_serial<T>(neighbors, s, total_slices_); swf.tick("Subpixel max: ");
 
 		std::vector<vec2<double>> res(total_slices_);
 
@@ -286,7 +287,7 @@ public:
 			res[i].x = -((int)max_pos.x - ((int)cross_size_.x / 2) - r + subp_offset[i].x);
 			res[i].y = -((int)max_pos.y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
 		}
-		sw.tick("Offsets finalisation: ");
+		swf.tick("Offsets finalisation: ");
 		sw.total();
 		return { res, coefs };
 	}

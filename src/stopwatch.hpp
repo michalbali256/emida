@@ -3,6 +3,7 @@
 #include <chrono>
 #include <array>
 #include <unordered_map>
+#include <mutex>
 
 #include "common.hpp"
 
@@ -106,6 +107,7 @@ private:
 	std::chrono::high_resolution_clock c;
 	bool active_;
 	int bonus_indent_;
+	static inline std::mutex times_mutex;
 
 	std::array<std::string, 6> indentation_ = {
 		"",
@@ -121,9 +123,9 @@ private:
 	{
 		auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 		//std::cerr << indentation_[level < 0 ? 0 : level + bonus_indent_] << label << std::to_string(dur.count() / 1000.0) << " ms" << "\n";
+		std::lock_guard lock(times_mutex);
 		times_[label].first += dur.count() / 1000.0;
 		++times_[label].second;
-
 	}
 };
 

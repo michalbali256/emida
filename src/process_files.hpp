@@ -136,7 +136,7 @@ public:
 			{
 				OK &= load_tiff(work[i].fname, next, pic_size);
 				next += pic_size.area();
-			}//swa.tock("Load tiff: ");
+			}swa.tick("Load tiff: ");
 
 			if (!OK)
 				continue;
