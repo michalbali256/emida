@@ -4,6 +4,7 @@ In this chapter, we measure the performance of our implementation. We quantify t
 
 All the data was measured using an NVIDIA RTX 3080 graphics card with Intel i5 6600K processor. We used an M.2 SSD disk.
 
+\todo{methodology? Each value presented in this chapter is a mean of several runs of the algorithm. }
 
 \section{Relative performance of individual parts}
 
@@ -17,7 +18,11 @@ All the data was measured using an NVIDIA RTX 3080 graphics card with Intel i5 6
 We begin with an overview of all the kernels used in the implementation. \Cref{individual-parts} shows how much time the implementation spends in individual kernels. We can see, that the most demanding parts are loading of the TIFF and the cross--correlation, which is computed using the multiply kernel and the Fourier transforms. 
 
 \section{Cross--correlation}
-First, we measure the difference between the cross--correlation algorithms.
+First, we measure the performance of cross--correlation when computed using Fourier transform. We show the dependence between running time and size and number of subregions. Since the cross--correlation is computed using three parts, we analyze them one by one.
+
+
+\subsection{Fourier transforms}
+In the figure xx, we can see the dependence betwee
 
 (Do jedneho grafu vsetky velkosti )
 
@@ -28,6 +33,8 @@ First, we measure the difference between the cross--correlation algorithms.
 
 
 \section{Speedup compared to original python implementation}
+
+\section{Memory consumption}
 
 overall performance - compare with python
 
