@@ -10,16 +10,21 @@ All the data was measured using an NVIDIA RTX 3080 graphics card with Intel i5 6
 \begin{figure}
 	\centering
 	\includegraphics[width=\textwidth]{img/eval/individual-parts}
-	\caption{Relative performance of individual parts of the algorithm. The data was measured from a run of the algorithm with a configuration of 90 subregions with size $100 \times 100$.}
+	\caption{Relative performance of individual parts of the algorithm. The data was measured from a run of the algorithm with a configuration of 90 subregions with size $120 \times 120$. The size of the neigborhood was set to maximal value 9. }
 	\label{individual-parts}
 \end{figure}
 
-We begin with an overview of all the kernels used in the implementation. \Cref{individual-parts} shows how much time the implementation spends in individual kernels. We can see, that the most demanding parts are loading of the TIFF and the cross--correlation, which is computed using the multiply kernel and the Fourier transforms. 
+We begin with an overview of all the kernels used in the implementation. \Cref{individual-parts} shows how much time the implementation spends in individual kernels. We can see, that the most demanding parts are loading of the TIFF and the cross--correlation, which is computed using the multiply kernel and the Fourier transforms.
+
+The figure is mentioned here only to get general idea about the performance. It captures relative performance of the kernels for 90 subregions with size $120 \times 120$, which is roughly in the middle of the range of expected values. Different parts depend on different parameters, so for some other input size, the relative performance would look dissimilar. The load TIFF subroutine depends only on the size of the TIFF, while the rest of the algorithm depends on the number of subregion. So, for instance, it is possible to find a configuration that makes load TIFF the longest part. 
 
 \section{Cross--correlation}
 First, we measure the difference between the cross--correlation algorithms.
 
 (Do jedneho grafu vsetky velkosti )
+
+\section{Load TIFF}
+
 
 
 \section{Float versus double}
@@ -28,6 +33,8 @@ First, we measure the difference between the cross--correlation algorithms.
 
 
 \section{Speedup compared to original python implementation}
+
+
 
 overall performance - compare with python
 
