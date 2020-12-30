@@ -115,6 +115,11 @@ add_executable(emida
 )
 target_link_libraries(emida emida_lib)
 
+add_executable(multiply_test
+    src/multiply_test.cpp
+)
+target_link_libraries(multiply_test emida_lib)
+
 
 add_executable(emida_test
     ${TEST_SOURCES}

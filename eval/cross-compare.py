@@ -4,8 +4,10 @@ import numpy as np
 import json
 import sys
 
-with open("out-graph-BIG.json","r") as fh:
-    data = json.load(fh)
+with open("out-graph-compare-brute.json","r") as fh:
+    data_brute = json.load(fh)
+with open("out-graph-compare-fft.json","r") as fh:
+    data_fft = json.load(fh)
 
 part = sys.argv[1]
 
@@ -14,7 +16,7 @@ ax = fig.add_subplot(1, 1, 1)
 
 
 yerr = []
-data = data["10"]
+data = data_brute["7"]
 for roi_size in data:
     roi_data = data[roi_size]
     xdata = []
@@ -22,9 +24,19 @@ for roi_size in data:
     for size in roi_data:
         parts = roi_data[size]
         xdata.append(size)
-        ydata.append(parts[part]["mean"]/int(roi_size))
-        yerr.append(parts[part]["stdev"])
-    ax.plot(xdata, ydata, label='S = {x}'.format(x=roi_size))
+        ydata.append(parts[part]["mean"])
+    ax.plot(xdata, ydata)
+    
+data = data_fft["7"]
+for roi_size in data:
+    roi_data = data[roi_size]
+    xdata = []
+    ydata = []
+    for size in roi_data:
+        parts = roi_data[size]
+        xdata.append(size)
+        ydata.append(parts["R2C"]["mean"] + parts["C2R"]["mean"] + parts["Multiply"]["mean"])
+    ax.plot(xdata, ydata)
 #print(xdata)
 #print(ydata)
 # plot the data
@@ -36,6 +48,6 @@ for roi_size in data:
 #ax.set_ylim([0, 10])
 
 ax.set_title('Cross correlation')
-plt.legend()
+
 # display the plot
 plt.show()

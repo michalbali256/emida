@@ -14,17 +14,16 @@ ax = fig.add_subplot(1, 1, 1)
 
 
 yerr = []
-data = data["10"]
-for roi_size in data:
-    roi_data = data[roi_size]
+data = data["7"]
+for size in range(20,90,10):
     xdata = []
     ydata = []
-    for size in roi_data:
-        parts = roi_data[size]
-        xdata.append(size)
-        ydata.append(parts[part]["mean"]/int(roi_size))
+    for roi_size in data:
+        parts = data[roi_size][str(size)]
+        xdata.append(roi_size)
+        ydata.append(parts[part]["mean"])
         yerr.append(parts[part]["stdev"])
-    ax.plot(xdata, ydata, label='S = {x}'.format(x=roi_size))
+    ax.plot(xdata, ydata, label='size = {x}'.format(x=size))
 #print(xdata)
 #print(ydata)
 # plot the data

@@ -14,17 +14,17 @@ ax = fig.add_subplot(1, 1, 1)
 
 
 yerr = []
-data = data["10"]
-for roi_size in data:
-    roi_data = data[roi_size]
+
+for size in range(25, 90, 5):
     xdata = []
     ydata = []
-    for size in roi_data:
-        parts = roi_data[size]
-        xdata.append(size)
-        ydata.append(parts[part]["mean"]/int(roi_size))
-        yerr.append(parts[part]["stdev"])
-    ax.plot(xdata, ydata, label='S = {x}'.format(x=roi_size))
+    for batch_size in data:
+        #print(data[batch_size]["30"]["30"])
+        parts = data[batch_size]["90"][str(size)]
+        xdata.append(batch_size)
+        ydata.append(parts[part]["mean"]/float(batch_size))
+    ax.plot(xdata, ydata, label=str(size))
+
 #print(xdata)
 #print(ydata)
 # plot the data

@@ -122,25 +122,25 @@ if __name__ == "__main__":
     
     stats = run_emida(args, 2)
     plot = {}
-    for batch_size in range(1, 11):
+    for batch_size in range(7, 8):
         plot[batch_size] = {}
-        for roi_count in range(10, 111, 20):
+        for roi_count in range(110, 120, 30):
             print("roi_count:", roi_count)
             plot[batch_size][roi_count] = {}
             write_roi(tmp_roi_file_name, s, pos, roi_count)
             
-            for size in range (20,90):
+            for size in range (20,113):
                 args = ["--batchsize", str(batch_size),
                         "--crosspolicy", "fft",
-                        "--precision","double",
+                        "--precision","float",
                         "--slicesize","{x:d},{x:d}".format(x=size),
-                        "-f","9"]
+                        "-f","3"]
                 args.extend(static_args)
                 print("\n", size, end='', sep='')
-                stats = run_emida(args, 7)
+                stats = run_emida(args, 5)
                 #plot.append(stats["multiply"])
                 #print(stats)
                 plot[batch_size][roi_count][size] = stats
     
-    with open("out-graph.txt","w") as fh:
+    with open("out-graph.json","w") as fh:
         json.dump(plot, fh, indent=4)
