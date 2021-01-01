@@ -107,18 +107,18 @@ if(TIFF_FROM_SOURCE)
     add_dependencies(emida_lib tiff_project)
 endif()
 
-target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_60,code=compute_60 --generate-line-info>)
+target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_86,code=compute_86 --generate-line-info>)
 
 
 add_executable(emida
-    src/main.cpp
+    ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 target_link_libraries(emida emida_lib)
 
 add_executable(multiply_test
-    src/multiply_test.cpp
-)
+    ${CMAKE_SOURCE_DIR}/multiply_test/multiply_test.cpp)
 target_link_libraries(multiply_test emida_lib)
+target_include_directories(multiply_test PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 
 add_executable(emida_test

@@ -4,7 +4,7 @@ import numpy as np
 import json
 import sys
 
-with open("out-graph-BIG.json","r") as fh:
+with open("out-graph-roi-count.json","r") as fh:
     data = json.load(fh)
 
 part = sys.argv[1]
@@ -15,7 +15,7 @@ ax = fig.add_subplot(1, 1, 1)
 
 yerr = []
 data = data["7"]
-for size in range(20,90,10):
+for size in range(20,113,10):
     xdata = []
     ydata = []
     for roi_size in data:
@@ -34,7 +34,17 @@ for size in range(20,90,10):
 #ax.set_xlim([0, 100])
 #ax.set_ylim([0, 10])
 
-ax.set_title('Cross correlation')
-plt.legend()
+# the x coords of this transformation are data, and the
+
+ax.set_title('Performance of Fourier transform with different\nsizes and number of subregions (batch = 7)')
+ax.set_xlabel('number of subregions')
+ax.set_ylabel('time (ms)')
+
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+# y coord are axes
 # display the plot
 plt.show()
+fig.savefig('fourier-transform-roi-count.pdf')

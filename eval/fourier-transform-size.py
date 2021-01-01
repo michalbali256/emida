@@ -20,8 +20,6 @@ ydata = []
 for size in data:
     parts = data[size]
     xdata.append(size)
-    #ydata.append(parts["R2C"]["mean"] + parts["C2R"]["mean"] + parts["Multiply"]["mean"])
-    #yerr.append(parts["R2C"]["stdev"] + parts["C2R"]["stdev"] + parts["Multiply"]["stdev"])
     ydata.append(parts[part]["mean"])
     yerr.append(parts[part]["stdev"])
 #ax.plot(xdata, ydata, label='S = {x}'.format(x=roi_size))

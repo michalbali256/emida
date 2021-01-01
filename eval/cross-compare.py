@@ -9,10 +9,7 @@ with open("out-graph-compare-brute.json","r") as fh:
 with open("out-graph-compare-fft.json","r") as fh:
     data_fft = json.load(fh)
 
-part = sys.argv[1]
-
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
+fig, ax = plt.subplots(figsize=(8,4))
 
 
 yerr = []
@@ -24,8 +21,8 @@ for roi_size in data:
     for size in roi_data:
         parts = roi_data[size]
         xdata.append(size)
-        ydata.append(parts[part]["mean"])
-    ax.plot(xdata, ydata)
+        ydata.append(parts["Run cross corr"]["mean"])
+    ax.plot(xdata, ydata, label='Definition-based, S = {x}'.format(x=roi_size), dashes=[6, 2])
     
 data = data_fft["7"]
 for roi_size in data:
@@ -36,18 +33,20 @@ for roi_size in data:
         parts = roi_data[size]
         xdata.append(size)
         ydata.append(parts["R2C"]["mean"] + parts["C2R"]["mean"] + parts["Multiply"]["mean"])
-    ax.plot(xdata, ydata)
-#print(xdata)
-#print(ydata)
-# plot the data
+    ax.plot(xdata, ydata, label='FFT, S = {x}'.format(x=roi_size))
 
-#ax.bar(xdata, ydata, color='tab:blue', yerr=yerr)
+i = 0
+for label in ax.xaxis.get_ticklabels():
+    if i%2 != 0:
+        label.set_visible(False)
+    i += 1
 
-# set the limits
-#ax.set_xlim([0, 100])
-#ax.set_ylim([0, 10])
 
-ax.set_title('Cross correlation')
+ax.set_title('FFT implementation versus definition--based implementation')
+ax.set_xlabel('size of subregion')
+ax.set_ylabel('time (ms)')
 
+plt.legend()
 # display the plot
 plt.show()
+fig.savefig('cross-compare.pdf')

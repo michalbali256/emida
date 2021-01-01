@@ -4,7 +4,7 @@ import numpy as np
 import json
 import sys
 
-with open("out-graph.json","r") as fh:
+with open("out-graph-float.json","r") as fh:
     data = json.load(fh)
 
 part = sys.argv[1]

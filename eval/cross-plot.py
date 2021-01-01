@@ -4,7 +4,7 @@ import numpy as np
 import json
 import sys
 
-with open("out-graph-BIG.json","r") as fh:
+with open("out-graph.json","r") as fh:
     data = json.load(fh)
 
 part = sys.argv[1]
@@ -14,7 +14,7 @@ ax = fig.add_subplot(1, 1, 1)
 
 
 yerr = []
-data = data["10"]
+data = data["7"]
 for roi_size in data:
     roi_data = data[roi_size]
     xdata = []
@@ -22,7 +22,7 @@ for roi_size in data:
     for size in roi_data:
         parts = roi_data[size]
         xdata.append(size)
-        ydata.append(parts[part]["mean"]/int(roi_size))
+        ydata.append(parts[part]["mean"])
         yerr.append(parts[part]["stdev"])
     ax.plot(xdata, ydata, label='S = {x}'.format(x=roi_size))
 #print(xdata)
