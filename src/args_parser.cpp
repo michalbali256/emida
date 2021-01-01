@@ -1,4 +1,5 @@
 #include "args_parser.hpp"
+#include "args_parser.hpp"
 
 #include <array>
 #include <fstream>
@@ -8,6 +9,7 @@
 #include "slice_picture.hpp"
 #include "stopwatch.hpp"
 #include "subpixel_max.hpp"
+#include "load_tiff.hpp"
 
 namespace mbas {
 template<std::size_t max>
@@ -128,10 +130,11 @@ bool params::parse(int argc, char** argv)
 		("f,fitsize", "Specifies size of neighbourhood that is used to fitting and finding subpixel maximum. Allowed values: 3, 5, 7, 9", value_type<int>(), "SIZE")
 		("crosspolicy", "Specified whether to use FFT to compute cross correlation. Allowed values: brute, fft.", value_type<std::string>(), "brute|fft")
 		("batchsize", "Specifies how many files are processed in one batch", value_type<int>(), "NUMBER")
+		("loadworkers", "Specifies number of workers that load input patterns simultaneously", value_type<int>(), "NUMBER")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 	
 	auto parsed = cmd.parse(argc, argv);
-
+	
 	if (!parsed.parse_ok())
 	{
 		std::cerr << "Argument parsing error." << "\n";
@@ -170,6 +173,10 @@ bool params::parse(int argc, char** argv)
 		else
 			slice_size = { (esize_t) size * 2U, (esize_t)size * 2U };
 
+		slice_begins = slice_mids;
+		for (auto& o : slice_begins)
+			o = o - (slice_size / 2);
+
 		for (auto m : slice_mids)
 		{
 			size2_t begin = m - slice_size / 2;
@@ -186,20 +193,6 @@ bool params::parse(int argc, char** argv)
 		cross_size = parsed["crosssize"]->get_value<size2_t>();
 	else
 		cross_size = slice_size * 2 - 1;
-
-
-
-	/*else
-	{
-		size2_t step = { 32, 32 };
-		if (parsed["slicestep"])
-			step = parsed["slicestep"]->get_value<size2_t>();
-		
-		slice_mids = get_slice_begins(pic_size, slice_size, step);
-		for (auto& o : slice_mids)
-			o = o + (slice_size / 2);
-	
-	}*/
 
 	if (cross_size.x > slice_size.x * 2 - 1 || cross_size.y > slice_size.y * 2 - 1)
 	{
@@ -266,13 +259,27 @@ bool params::parse(int argc, char** argv)
 		}
 	}
 
+	if (parsed["loadworkers"])
+	{
+		int val = parsed["loadworkers"]->get_value<int>();
+		if (val > 0)
+			load_workers = val;
+		else
+		{
+			std::cerr << "Error: loadworkers must be greater than 0.";
+			return 1;
+		}
+	}
+
 
 	analysis = parsed["analysis"] ? true : false;
 	write_coefs = parsed["writecoefs"] ? true : false;
 	stopwatch::global_activate = analysis;
+
+	if (!get_size(initial_file_name, pic_size))
+		return false;
+
 	return true;
 }
-
-
 
 }

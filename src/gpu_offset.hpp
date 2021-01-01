@@ -1,5 +1,7 @@
 #pragma once
 
+#include<atomic>
+
 #include "host_helpers.hpp"
 #include "subpixel_max.hpp"
 #include "kernels.cuh"
@@ -17,7 +19,7 @@ std::vector<typename complex_trait<T>::type> get_fft_shift(esize_t N, esize_t sh
 	std::vector<typename complex_trait<T>::type> res;
 	res.resize(N);
 
-	for(esize_t i = 0; i < N; ++i)
+	for (esize_t i = 0; i < N; ++i)
 		res[i] = { (T)1, (T)0 };
 	//res[i] = { (T)cos(2 * PI / N * i * shift), (T)sin(2 * PI / N * i * shift) };
 
@@ -32,7 +34,10 @@ private:
 	using complex_t = typename complex_trait<T>::type;
 	using sums_t = typename sums_trait<IN>::type;
 
-	IN* cu_pic_in_;
+	std::vector<IN*> cu_in_buffers_;
+	std::atomic<size_t> in_buffers_i_ = 0;
+
+	//IN* cu_pic_in_;
 	IN* cu_temp_in_;
 	T* cu_pic_;
 	T* cu_temp_;
@@ -83,16 +88,18 @@ public:
 		size2_t cross_size,
 		esize_t batch_size,
 		cross_policy policy = CROSS_POLICY_BRUTE,
-		int s = 3)
-		: src_size_(src_size)
+		int s = 3,
+		size_t in_buffers_size = 1)
+		: cu_in_buffers_(in_buffers_size)
+		, src_size_(src_size)
 		, begins_(begins)
 		, slice_size_(slice_size)
 		, cross_in_size_(policy == CROSS_POLICY_BRUTE ? slice_size : size2_t{ slice_size.x * 2, slice_size.y * 2 })
-		, fft_work_size_(policy == CROSS_POLICY_BRUTE ? slice_size : size2_t{slice_size.x * 2 + 2, slice_size.y * 2})
+		, fft_work_size_(policy == CROSS_POLICY_BRUTE ? slice_size : size2_t{ slice_size.x * 2 + 2, slice_size.y * 2 })
 		, cross_size_(policy == CROSS_POLICY_BRUTE ? cross_size : slice_size * 2 - 1)
-		, total_slices_((esize_t)begins->size() * batch_size)
+		, total_slices_((esize_t)begins->size()* batch_size)
 		, batch_size_(batch_size)
-		, neigh_size_(s * s * total_slices_)
+		, neigh_size_(s* s* total_slices_)
 		, maxarg_one_pic_blocks_(div_up(cross_size_.area(), maxarg_block_size_))
 		, maxarg_maxes_size_(maxarg_one_pic_blocks_* total_slices_)
 		, sw(true, 2, 2)
@@ -107,13 +114,14 @@ public:
 		CUCH(cudaStreamCreate(&in_stream));
 		CUCH(cudaStreamCreate(&out_stream));
 
-		cu_pic_in_ = cuda_malloc<IN>(src_size_.area() * batch_size_);
+		for (auto& buf : cu_in_buffers_)
+			buf = cuda_malloc<IN>(src_size_.area() * batch_size_);
 		cu_temp_in_ = cuda_malloc<IN>(src_size_.area());
-		
+
 		//Enforce alignment by allocating cufft complex types
 		//Result we also need to allocate one row more because that is the size of ff-transpformed result
-		cu_pic_ = (T*) cuda_malloc<complex_t>(cross_in_size_.area() / 2 * total_slices_);
-		cu_temp_ = (T*) cuda_malloc<complex_t>(fft_work_size_.area() / 2 * begins_->size());
+		cu_pic_ = (T*)cuda_malloc<complex_t>(cross_in_size_.area() / 2 * total_slices_);
+		cu_temp_ = (T*)cuda_malloc<complex_t>(fft_work_size_.area() / 2 * begins_->size());
 
 
 
@@ -173,7 +181,7 @@ public:
 
 		run_sum(cu_temp_in_, cu_sums_temp_, cu_begins_, src_size_, slice_size_, (esize_t)begins_->size(), 1);
 		CUCH(cudaDeviceSynchronize());
-		
+
 		run_prepare_pics(cu_temp_in_, cu_temp_,
 			cu_hann_x_, cu_hann_y_, cu_sums_temp_, cu_begins_,
 			src_size_, slice_size_, fft_work_size_, (esize_t)begins_->size(), 1);
@@ -193,79 +201,74 @@ public:
 		}
 	}
 
-	void transfer_pic_to_device_async(IN* pic)
+	size_t transfer_pic_to_device_async(IN* pic)
 	{
-		sw.zero();
-		copy_to_device_async(pic, src_size_.area() * batch_size_, cu_pic_in_, in_stream);
-		sw.tick("Pic to device: ");
+		auto i = in_buffers_i_.fetch_add(1) % cu_in_buffers_.size();
+		copy_to_device_async(pic, src_size_.area() * batch_size_, cu_in_buffers_[i], in_stream);
+		return i;
 	}
 
 	offsets_t<double> get_offset(IN* pic)
 	{
 		sw.zero();
-		copy_to_device(pic, src_size_.area() * batch_size_, cu_pic_in_);
+		copy_to_device(pic, src_size_.area() * batch_size_, cu_in_buffers_[0]);
 		sw.tick("Pic to device: ");
 
 		std::vector<data_index<T>> maxes_i(total_slices_);
 		std::vector<T> neighbors(neigh_size_);
-		get_offset_core(maxes_i.data(), neighbors.data());
+		get_offset_core(maxes_i.data(), neighbors.data(), 0);
 
 		return finalize(maxes_i.data(), neighbors.data());
 	}
-
+#define TICK(sw, label) CUCH(cudaGetLastError()); CUCH(cudaDeviceSynchronize()); sw.tick(label);
+#define TICK(sw, label)
 	//gets two pictures with size cols x rows and returns subpixel offset between them
-	void get_offset_core(data_index<T>* maxes_i, T * neighbors)
-	{	
+	void get_offset_core(data_index<T>* maxes_i, T* neighbors, size_t cu_pic_index)
+	{
 		sw.zero();
-		run_sum(cu_pic_in_, cu_sums_pic_, cu_begins_, src_size_, slice_size_, (esize_t)begins_->size(), batch_size_);
+		run_sum(cu_in_buffers_[cu_pic_index], cu_sums_pic_, cu_begins_, src_size_, slice_size_, (esize_t)begins_->size(), batch_size_);
 
-		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run sums: ");
+		TICK(sw, "Run sums: ")
 
-		run_prepare_pics(cu_pic_in_, cu_pic_,
-			cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_,
-			src_size_, slice_size_, cross_in_size_, (esize_t)begins_->size(), batch_size_);
+			run_prepare_pics(cu_in_buffers_[cu_pic_index], cu_pic_,
+				cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_,
+				src_size_, slice_size_, cross_in_size_, (esize_t)begins_->size(), batch_size_);
 
-		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run prepare: ");
+		TICK(sw, "Run prepare: ")
+
+			if (cross_policy_ == CROSS_POLICY_BRUTE)
+			{
+				run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, (esize_t)begins_->size(), batch_size_);
+				//run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
+			}
+			else
+				cross_corr_fft();
+
+		TICK(sw, "Run cross corr: ")
+
+			T* cu_neighbors = cu_neighbors_;
 
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
-		{
-			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, (esize_t)begins_->size(), batch_size_);
-			//run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
-		}
-		else
-			cross_corr_fft();
-
-		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run cross corr: ");
-
-		
-
-		T* cu_neighbors = cu_neighbors_;
-		
-		if(cross_policy_ == CROSS_POLICY_BRUTE)
 			run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
 		else
 			run_maxarg_reduce<T>(cu_cross_res_, cu_maxes_, cu_maxes_i_, { cross_size_.x + 1, cross_size_.y + 1 }, maxarg_block_size_, total_slices_);
 
-		CUCH(cudaGetLastError());
-		CUCH(cudaDeviceSynchronize()); sw.tick("Run maxarg: ");
+		CUCH(cudaDeviceSynchronize());
+		TICK(sw, "Run maxarg: ")
 
-		copy_from_device_async<data_index<T>>(cu_maxes_i_, maxes_i, total_slices_, out_stream); sw.tick("Maxes transfer: ");
+			copy_from_device_async<data_index<T>>(cu_maxes_i_, maxes_i, total_slices_, out_stream);
+
+		sw.zero();
 
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 			run_extract_neighbors<T>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
 		else
 			run_extract_neighbors<T, cross_res_pos_policy_fft>(cu_cross_res_, cu_maxes_i_, cu_neighbors, s, cross_size_, total_slices_);
 
-		CUCH(cudaGetLastError());
-		CUCH(cudaStreamSynchronize(out_stream)); sw.tick("Run extract neigh: ");
+		CUCH(cudaDeviceSynchronize());
+		TICK(sw, "Run extract neigh: ")
 
-		
-		copy_from_device_async(cu_neighbors, neighbors, neigh_size_, out_stream); sw.tick("Transfer neighbors: ");
-
-
+			copy_from_device_async(cu_neighbors, neighbors, neigh_size_, out_stream); sw.tick("Transfer neighbors: ");
 	}
 
 	offsets_t<double> finalize(data_index<T>* maxes_i, T* neighbors)
@@ -295,23 +298,23 @@ public:
 	inline void cross_corr_fft() const
 	{
 		fft_real_to_complex(plan_, cu_pic_, (complex_t*)cu_fft_res_);
-		CUCH(cudaDeviceSynchronize()); sw.tick("R2C: ");
+		TICK(sw, "R2C: ")
 
-		//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
-		//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * total_slices_);
+			//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
+			//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * total_slices_);
 
-		run_hadamard((complex_t*)cu_fft_res_, (complex_t*)cu_temp_,
-			{ fft_work_size_.x / 2, fft_work_size_.y },
-			(esize_t)begins_->size(), batch_size_);
-		CUCH(cudaDeviceSynchronize()); sw.tick("Multiply: ");
+			run_hadamard((complex_t*)cu_fft_res_, (complex_t*)cu_temp_,
+				{ fft_work_size_.x / 2, fft_work_size_.y },
+				(esize_t)begins_->size(), batch_size_);
+		TICK(sw, "Multiply: ");
 
-		
+
 		//auto vec2 = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
 
 		//auto out = cuda_malloc<T>(cross_in_size_.area());
 
 		fft_complex_to_real(inv_plan_, (complex_t*)cu_fft_res_, cu_cross_res_);
-		CUCH(cudaDeviceSynchronize()); sw.tick("C2R: ");
+		TICK(sw, "C2R: ");
 
 		//run_finalize_fft(cu_pic_, cu_cross_res_, cross_size_, total_slices_);
 		//CUCH(cudaDeviceSynchronize()); sw.tick("finalize: ");

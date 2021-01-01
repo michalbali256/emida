@@ -11,79 +11,81 @@ template<typename T>
 class concurrent_queue
 {
 private:
-    std::queue<T> data;
-    mutable std::mutex the_mutex;
-    std::condition_variable con_empty;
-    std::condition_variable con_full;
+	std::queue<T> data;
+	mutable std::mutex the_mutex;
+	std::condition_variable con_empty;
+	std::condition_variable con_full;
 
-    constexpr static size_t MAX_SIZE = 1;
+	const size_t max_size;
 
 public:
 
-    void wait_for_data()
-    {
-        std::unique_lock lock(the_mutex);
-        while (data.empty())
-        {
-            con_empty.wait(lock);
-        }
-    }
+	concurrent_queue(size_t capacity = 1) : max_size(capacity) {}
 
-    void push(const T& item)
-    {
-        std::unique_lock lock(the_mutex);
+	void wait_for_data()
+	{
+		std::unique_lock lock(the_mutex);
+		while (data.empty())
+		{
+			con_empty.wait(lock);
+		}
+	}
 
-        con_full.wait(lock, [&]() {return data.size() < MAX_SIZE; });
+	void push(const T& item)
+	{
+		std::unique_lock lock(the_mutex);
 
-        data.push(item);
+		con_full.wait(lock, [&]() {return data.size() < max_size; });
 
-        lock.unlock();
+		data.push(item);
 
-        con_empty.notify_one();
-        
-    }
+		lock.unlock();
 
-    void wait_and_pop(T& popped_value)
-    {
-        std::unique_lock lock(the_mutex);
-        while (data.empty())
-        {
-            con_empty.wait(lock);
-        }
+		con_empty.notify_one();
 
-        popped_value = data.front();
-        data.pop();
+	}
 
-        lock.unlock();
+	void wait_and_pop(T& popped_value)
+	{
+		std::unique_lock lock(the_mutex);
+		while (data.empty())
+		{
+			con_empty.wait(lock);
+		}
 
-        con_full.notify_one();
-    }
+		popped_value = data.front();
+		data.pop();
 
-    bool empty() const
-    {
-        std::lock_guard lock(the_mutex);
-        return data.empty();
-    }
+		lock.unlock();
 
-    T& front()
-    {
-        std::lock_guard lock(the_mutex);
-        return data.front();
-    }
+		con_full.notify_one();
+	}
 
-    const T& front() const
-    {
-        std::lock_guard lock(the_mutex);
-        return data.front();
-    }
+	bool empty() const
+	{
+		std::lock_guard lock(the_mutex);
+		return data.empty();
+	}
 
-    void pop()
-    {
-        std::unique_lock lock(the_mutex);
-        data.pop();
-        lock.unlock();
-        con_full.notify_one();
-    }
+	T& front()
+	{
+		std::lock_guard lock(the_mutex);
+		return data.front();
+	}
+
+	const T& front() const
+	{
+		std::lock_guard lock(the_mutex);
+		return data.front();
+	}
+
+	void pop()
+	{
+		std::unique_lock lock(the_mutex);
+		data.pop();
+		lock.unlock();
+		con_full.notify_one();
+	}
 
 
 };

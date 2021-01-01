@@ -51,7 +51,7 @@ inline bool load_tiff(const std::string & file_name, uint16_t * raster, size2_t 
 	return true;
 }
 
-bool get_size(const std::string & file_name, size2_t& size)
+inline bool get_size(const std::string & file_name, size2_t& size)
 {
 	TIFF* tif = TIFFOpen(file_name.c_str(), "r");
 	if (!tif)
