@@ -60,7 +60,7 @@ The dependence of inverse Fourier transform on size of subregions looks very sim
 
 \Cref{fourier-transform-roi-count} shows how the the Fourier transform performs with different sizes and number of subregions. \Cref {fourier-transform-roi-count:basic} shows absolute time it takes to compute the Fourier transform. As expected, the time scales roughly linearly with the number of subregions in each image.
 
-\Cref {fourier-transform-roi-count:scaled} shows the same dependence, but the times are scaled with respect to number of subregions, so the y axis shows the average time needed to compute the Fourier transform of one subregion of respectable size. We can see that regardless of the size of subregions the library needs less time per subregion with increasing number of subregions. It is most likely caused by overhead of each CUDA kernel call --- with more subregions, the same overhead is spread over more of them, thus the computation of each subregion is cheaper. That is also the reason why we introduced the batch parameter --- to process more subregions in each run of kernel. We evaluate the impact of the batch parameter to the whole algorithm in \cref{batch-param}.
+\Cref {fourier-transform-roi-count:scaled} shows the same dependence, but the times are scaled with respect to number of subregions, so the y axis shows the average time needed to compute the Fourier transform of one subregion of respectable size. We can see that regardless of the size of subregions the library needs less time per subregion with increasing number of subregions. It is most likely caused by overhead of each CUDA kernel call --- with more subregions, the same overhead is spread over more of them, thus the computation of each subregion is cheaper. That is also the reason why we introduced the batch parameter --- to process more subregions in each run of kernel. We evaluate the impact of the batch parameter to the whole algorithm in \cref{batch-param-eval}.
 
 \subsection{The complex matrix multiplication}
 \begin{figure}
@@ -110,11 +110,15 @@ Recall, that we described two implementations of cross--correlation: first one b
 
 More workers
 
+
+
+which can be limited by the throughput of disk. When we tested our implementation, a HDD proved to be the bottleneck of the whole pipeline --- GPU was waiting for loaded patterns during majority of the run. When using an SSD the load of the image is fast enough to fully utilize the GPU. We measure the impact of different disks on the performance in chapter 3.
+
 \section{Float versus double}
 
 
 \section{Batch parameter}
-\label{batch-param}
+\label{batch-param-eval}
 
 
 \section{Speedup compared to original python implementation}

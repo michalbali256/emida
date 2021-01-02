@@ -1,3 +1,4 @@
+% !TeX encoding = UTF-8
 \chapter{Analysis and Implementation}
 
 In this chapter we analyze the algorithm used to process EBSD data and explain how to implement it effectively for GPUs. We use the CUDA platform, which is currently the most popular technology for general purpose computing on graphics cards.
@@ -285,25 +286,6 @@ The \cref{buftypes} also shows the data types stored in the buffers. The input i
 
 Once the means are subtracted, the pixels are not integers in general, so we need to use a floating point type. We implemented the algorithm for both single or double floating point types, since the single precision version is substantially faster, but we are not sure whether its precision is sufficient. The result of the algorithm is further processed and the resulting rotation of the pattern is expressed in quite small numbers (in the order of $10^{-4}$), thus small imprecisions introduced by smaller floating point types might matter. That is also why we did not implement the algorithm for half float, but if the 4 byte float proves sufficient, half float may be worth implementing in the future.
 
-\section{Task parallelization}
-\label{task-paralelization}
-
-
-Since some parts of the algorithm are done on CPU and some on GPU (see color distinction in \cref{overview}), it is possible to parallelize them. There are 3 parts separated by data transfers between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and never waits for the CPU.
-
-\begin{figure}
-	\centering
-	\includegraphics[width=\textwidth]{img/CPUGPUparal}
-	\caption{Parallelization of GPU and CPU work.}
-	\label{pipeline}
-\end{figure}
-
-\Cref{pipeline} shows how the work can be can be parallelized using a pipeline-like design. We use 2 worker CPU threads. While the GPU processes $i$-th pattern, one CPU thread already loads pattern $i+1$ and the second thread finalizes pattern $i-1$. The CPU work still takes much less time, so it is enough to start the load of pattern $i$ once processing of pattern $i-2$ finishes (and processing $i-1$ starts). That way, we do not need queues to pass work (like in the common pipeline pattern), we just need 2 buffers: one for writing the processed/prepared data and one for reading data to process. In the next iteration, we just swap the buffers.
-
-As argued in \cref{offsets-finalization}, the offsets finalization phase works with little data and always takes much less time than the processing on the GPU. On the other hand, that might not be always the case with the load of image phase which can be limited by the throughput of disk. When we tested our implementation, a HDD proved to be the bottleneck of the whole pipeline --- GPU was waiting for loaded patterns during majority of the run. When using an SSD the load of the image is fast enough to fully utilize the GPU. We measure the impact of different disks on the performance in chapter 3.
-
-We also partially take advantage of the fact that GPUs are able to run a kernel, copy data from and to memory at the same time. Actually, all transfers run in parallel with kernel execution. The host--device copy of input takes place right after the CPU loads the pattern from disk. Similarly, once the maxima and neighborhoods are prepared on the GPU, we start asynchronous transfer of the results and GPU starts computing the next pattern immediately. Unfortunately, this optimization does not affect performance much, since the copying between GPU and CPU memory takes only a marginal fraction of overall time.
-
 \section{Image batch processing}
 \label{batch-param}
 
@@ -311,7 +293,25 @@ The algorithm we explained so far in this chapter processes the patterns one by 
 
 The load of images from disk does not change, we just need to load several images in a row. The sum and prepare kernels have to be slightly changed, because they have to use the specification of subregion locations multiple times --- once for each image.
 
-\todo{dopad na cross-correlation, inak }
+The complex matrix multiplication kernel, that works with the reference subregions, benefit from processing more images at once, since each of them is multiplied with the same reference. Each thread is now able to load the value from reference image only once and then use it multiple times.
+
+\section{Task parallelization}
+\label{task-paralelization}
+
+
+Since some parts of the algorithm are executed by CPU and some by GPU, it is possible to parallelize them. There are 3 parts separated by data transfers between the main and the GPU memory: CPU first loads a pattern, GPU processes it, and then CPU does the finalization of results. It is desirable that we parallelize those tasks, so that GPU is fully utilized and never waits for the CPU. See also the color distinction in \cref{overview}.
+
+We use a three stage pipeline to accomplish the parallelization. The first stage loads the TIFF images of patterns. The second one processes them on the GPU and the third CPU one finalizes the results and writes them to the output. All of the stages run in parallel, using two queues to synchronize.
+
+Since all the stages run in parallel, the whole pipeline will have the performance of the slowest stage. As argued in \cref{offsets-finalization}, the offsets finalization phase works with little data compared to the rest of the algorithm and in our empirical testing it was never a bottleneck. The two remaining stages are a bottleneck depending on the parameters.
+
+Duration of the stages depend on different things. The GPU stage duration depends on the size and number of subregions and obviously the performance of the GPU chip. On the other hand, the loading stage depends on the size of loaded images (but not on the subregions that we compare), performance of the disk and also the CPU. So for high number of big subregions per image, the GPU will be most likely the bottleneck, while for high--end GPUs and smaller subregions, the disk throughput is the bottleneck. 
+
+Moreover, we found a scenario in which one CPU thread is unable to fully utilize the disk. Therefore we implemented the possibility to load several images in parallel in more threads. Overall design of the pipeline stays the same, just the first stage is multiplied. The threads still add the loaded images to the same queue.
+
+We also partially take advantage of the fact that GPUs are able to run a kernel, copy data from and to memory at the same time. Actually, all transfers run in parallel with kernel execution. The host--device copy of input takes place right after the CPU loads the pattern from disk. Similarly, once the maxima and neighborhoods are prepared on the GPU, we start asynchronous transfer of the results and GPU starts computing the next pattern immediately. Unfortunately, this optimization does not affect performance much, since the copying between GPU and CPU memory takes only a marginal fraction of overall time.
+
+
 
 
 
