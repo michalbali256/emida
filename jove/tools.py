@@ -117,8 +117,11 @@ class DataSet:
                         print(".", end="", flush=True)
                         data = np.asarray([ (j,i,xp,yp,*q) for (j,i), (cor, xp, yp, q) in zip(self.roi.positions, self.get_cor(fname, fit_size=fit_size)) ], dtype=float)
                         data.tofile(fh)
+            dur = time.time()-started
             print()
+            
             print(time.time()-started)
+            return dur
 
     def run_gpu(dset, output, fit_size=3):
         with open("emida-work.txt", "w") as fh:

@@ -6,22 +6,27 @@ import sys
 
 part = sys.argv[1]
 #with open("out-graph-load-tiff-float.json","r") as fh:
-with open("out-graph-loadworkers.json","r") as fh:
+with open("out-graph-loadworkers-float.json","r") as fh:
+    dataf = json.load(fh)
+with open("out-graph-loadworkers-double.json","r") as fh:
     data = json.load(fh)
 
 fig, ax = plt.subplots(figsize=(12,6))
 
-
-
-for roi_size in data["1"]:
-    for size in range(20, 110, 30):
-        xdata = []
-        ydata = []
-        for lw in data:
-            parts = data[lw][roi_size][str(size)]
-            xdata.append(lw)
-            ydata.append(parts[part]["mean"])
-        ax.plot(xdata, ydata, label='size = {a}, S = {S}'.format(S=roi_size, a=size))
+data = dataf
+lab = ["double", "float"]
+rend = 80
+for x in range(1):
+    for roi_size in range(20, 110, 30):
+        for size in range(20, 110, 30):
+            xdata = []
+            ydata = []
+            for lw in data:
+                parts = data[lw][str(roi_size)][str(size)]
+                xdata.append(lw)
+                ydata.append(parts[part]["mean"])
+            ax.plot(xdata, ydata, label=lab[x] + ', size = {a}, S = {S}'.format(S=roi_size, a=size))
+    data = dataf
 #print(xdata)
 #print(ydata)
 # plot the data
