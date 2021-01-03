@@ -70,11 +70,12 @@ def run_emida(args = [], repeat_times = 10):
         vals = total_times[k]
         stats[k] = {}
         stats[k]['mean'] = stat.mean(vals)
-        stats[k]['stdev'] = stat.stdev(vals)
-        if stat.mean(vals) == 0:
-            stats[k]['stdev%'] = 0
-        else:
-            stats[k]['stdev%'] = stat.stdev(vals) / stat.mean(vals)
+        if(len(vals) > 1):
+            stats[k]['stdev'] = stat.stdev(vals)
+            if stat.mean(vals) == 0:
+                stats[k]['stdev%'] = 0
+            else:
+                stats[k]['stdev%'] = stat.stdev(vals) / stat.mean(vals)
         stats[k]['min'] = min(vals)
         stats[k]['max'] = max(vals)
     
@@ -120,24 +121,25 @@ if __name__ == "__main__":
             "-f","3"]
     args.extend(static_args)
     
-    stats = run_emida(args, 2)
+    #stats = run_emida(args, 2)
     plot = {}
-    for batch_size in range(7, 8, 2):
+    for batch_size in range(7, 8, 1):
         plot[batch_size] = {}
-        for roi_count in range(110, 111, 10):
+        for roi_count in range(20, 111, 30):
             print("roi_count:", roi_count)
             plot[batch_size][roi_count] = {}
             write_roi(tmp_roi_file_name, s, pos, roi_count)
             
-            for size in range (40,41, 1):
+            for size in range (20, 113, 1):
                 args = ["--batchsize", str(batch_size),
+                        "--loadworkers", "3",
                         "--crosspolicy", "fft",
                         "--precision","double",
                         "--slicesize","{x:d},{x:d}".format(x=size),
                         "-f","3"]
                 args.extend(static_args)
-                print("\n", batch_size, roi_count, size, end='')
-                stats = run_emida(args, 8)
+                print("\n", batch_size, roi_count, size, end='', flush=True)
+                stats = run_emida(args, 5)
                 #plot.append(stats["multiply"])
                 #print(stats)
                 plot[batch_size][roi_count][size] = stats
