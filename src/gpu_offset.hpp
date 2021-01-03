@@ -10,6 +10,14 @@
 #include "slice_picture.hpp"
 #include "cufft_helpers.hpp"
 
+
+
+#ifdef MEASURE_KERNELS
+#	define TICK(sw, label) CUCH(cudaGetLastError()); CUCH(cudaDeviceSynchronize()); sw.tick(label);
+#else
+#	define TICK(sw, label)
+#endif
+
 namespace emida
 {
 
@@ -35,7 +43,7 @@ private:
 	using sums_t = typename sums_trait<IN>::type;
 
 	std::vector<IN*> cu_in_buffers_;
-	std::atomic<size_t> in_buffers_i_ = 0;
+	std::atomic<esize_t> in_buffers_i_ = 0;
 
 	//IN* cu_pic_in_;
 	IN* cu_temp_in_;
@@ -201,9 +209,9 @@ public:
 		}
 	}
 
-	size_t transfer_pic_to_device_async(IN* pic)
+	esize_t transfer_pic_to_device_async(IN* pic)
 	{
-		auto i = in_buffers_i_.fetch_add(1) % cu_in_buffers_.size();
+		auto i = in_buffers_i_.fetch_add(1) % (esize_t)cu_in_buffers_.size();
 		copy_to_device_async(pic, src_size_.area() * batch_size_, cu_in_buffers_[i], in_stream);
 		return i;
 	}
@@ -220,8 +228,7 @@ public:
 
 		return finalize(maxes_i.data(), neighbors.data());
 	}
-#define TICK(sw, label) CUCH(cudaGetLastError()); CUCH(cudaDeviceSynchronize()); sw.tick(label);
-#define TICK(sw, label)
+
 	//gets two pictures with size cols x rows and returns subpixel offset between them
 	void get_offset_core(data_index<T>* maxes_i, T* neighbors, size_t cu_pic_index)
 	{
@@ -291,7 +298,6 @@ public:
 			res[i].y = -((int)max_pos.y - ((int)cross_size_.y / 2) - r + subp_offset[i].y);
 		}
 		swf.tick("Offsets finalisation: ");
-		sw.total();
 		return { res, coefs };
 	}
 

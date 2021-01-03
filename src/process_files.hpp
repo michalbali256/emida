@@ -74,7 +74,7 @@ class file_processor
 	concurrent_queue<offs_job> load_queue;
 	concurrent_queue<fin_job<T>*> fin_queue;
 
-	std::atomic<size_t> current_file = 0;
+	std::atomic<esize_t> current_file = 0;
 public:
 	file_processor(params par)
 		: a(std::move(par))
@@ -89,7 +89,7 @@ public:
 			rast = cuda_malloc_host<uint16_t>(a.pic_size.area() * a.batch_size);
 
 		size_t def_raster_i = 0;
-		size_t c;
+		esize_t c;
 		while ((c = current_file.fetch_add(a.batch_size)) < work.size())
 		{
 			esize_t batch_files = c + a.batch_size > (esize_t)work.size() ? (esize_t)work.size() - c : a.batch_size;
