@@ -119,9 +119,43 @@ In the \cref{load-plot}, we can also see which stage of the pipeline is the bott
 
 \subsection{Impact of using more load image threads}
 
+\begin{figure}
+	\begin{subfigure}{\textwidth}
+		\centering
+		\includegraphics[width=0.8\linewidth]{img/eval/loadworkers-load-tiff}
+		\caption{}
+		\label{loadworkers-load-tiff}
+	\end{subfigure}
+
+	\begin{subfigure}{\textwidth}
+		\centering
+		\includegraphics[width=0.8\linewidth]{img/eval/loadworkers-offset-wait}
+		\caption{}
+		\label{loadworkers-offset-wait}
+	\end{subfigure}
+	\caption{The average time it takes to load image and the average time the GPU stage waits for loaded patterns, all for different number of load threads.}
+	\label{loadworkers}
+\end{figure}
+
+
+
 To utilize the system better, we use several threads to load more patterns simultaneously. 
 
 which can be limited by the throughput of disk. When we tested our implementation, a HDD proved to be the bottleneck of the whole pipeline --- GPU was waiting for loaded patterns during majority of the run. When using an SSD the load of the image is fast enough to fully utilize the GPU. We measure the impact of different disks on the performance in chapter 3.
+
+
+\begin{table}[]
+	\centering
+	\begin{tabular}{@{}l|rrrr@{}}
+		S/size & 20      & 50     & 80     & 110     \\ \midrule
+		20    & 11710.0 & 2362.8 & 1213.5 & 471.4   \\
+		50    & 6469.3  & 1041.5 & 534.9  & 195.4   \\
+		80    & 4856.7  & 684.6  & 341.7  & 123.3  \\
+		110   & 3765.3  & 515.1  & 251.4  & 90.0   \\
+	\end{tabular}
+	\caption{Disk throughput needed to fully utilize the tested GPU for different sizes and number of subregions. All the values are in megabytes per second.}
+	\label{loadworkers-table}
+\end{table}
 
 \section{Float versus double}
 
