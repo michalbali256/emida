@@ -2,7 +2,7 @@
 
 In this chapter, we measure the performance of our implementation. We quantify the impact of different input size and algorithm parameters. In the end, we compare our implementation with an original python implementation of the algorithm.
 
-All the data was measured using an NVIDIA RTX 3080 graphics card with Intel i5 6600K processor. We used an M.2 SSD disk.
+All the data was measured using an NVIDIA RTX 3080 graphics card with Intel i5 6600K processor. We used an M.2 SSD AData SX8200 Pro.
 
 \todo{methodology? Each value presented in this chapter is a mean of several runs of the whole algorithm. Every time, we start the whole computation and measure runs of all kernels and take average from all the runs of kernels within one run of application. We repeat the process several times with the same parameters and take the average, then start over with different set of parameters.}
 
@@ -26,6 +26,7 @@ First, we measure the performance of cross--correlation when computed using Four
 
 
 \subsection{Fourier transforms}
+\label{FFT-eval}
 \begin{figure}
 	\centering
 	\includegraphics[width=\textwidth]{img/eval/Fourier-transform-size}
@@ -96,21 +97,29 @@ Moreover, we tried to measure the performance of the multiplication kernel indiv
 	\label{cross-compare}
 \end{figure}
 
-Recall, that we described two implementations of cross--correlation: first one based on the Fourier transform and second one based on the definition. \Cref{cross-compare} shows comparison between them --- for the FFT version, it shows the sum of average times of the Fourier transforms and complex multiplication. For the definition--based implementation, it shows the average run time of respective kernel. They are roughly the same for very small subregion sizes, but for sizes bigger than 25 the FFT implementation clearly wins. That is the minimal size of subregions that we consider useful for practical application. The conclusion is that the definition--based implementation is not useful for our application and it is always better to use the FFT implementation.
+Recall that we described two implementations of cross--correlation: first one based on the Fourier transform and second one based on the definition. \Cref{cross-compare} shows comparison between them --- for the FFT version, it shows the sum of average times of the Fourier transforms and complex multiplication. For the definition--based implementation, it shows the average run time of respective kernel. They are roughly the same for very small subregion sizes, but for sizes bigger than 25 the FFT implementation clearly wins. That is the minimal size of subregions that we consider useful for practical application. The conclusion is that the definition--based implementation is not useful for our application and it is always better to use the FFT implementation. Therefore we use only the FFT implementation in the rest of this chapter.
 
 
-\section{Load TIFF}
+\section{Pipeline benchmarks}
 
-\begin{figure}[h]
+\begin{figure}
 	\centering
-	\includegraphics[width=0.8\textwidth]{img/eval/load-plot}
+	\includegraphics[width=\textwidth]{img/eval/load-plot}
 	\caption{}
-	\label{load-wait}
+	\label{load-plot}
 \end{figure}
 
-More workers
+disk cache
 
+In the following section we benchmark the pipeline parallelization of pattern loading and GPU processing described in \cref{task-paralelization}. The duration if the image load is simply a linear in number of pixels being loaded, or quadratic function of the width of the image. We show its performance in comparison with the GPU processing time in \cref{load-plot}. There are three black lines which represent the duration of image loading for three different sizes of patterns. They are horizontal, since pattern load does not depend on size of subregions. It was measured using only one CPU thread.
 
+Additionally, there are lines that represent the duration of the GPU processing for different number of subregions and floating precision. The GPU processing incorporates all the steps that are implemented for GPU including cross--correlation. For different sizes, we can see the spikes for sizes with primes in their factorization that are explained in \cref{FFT-eval}. Otherwise, the time is increasing with increasing size and number of subregions, as expected.
+
+In the \cref{load-plot}, we can also see which stage of the pipeline is the bottleneck for different parameters. Since the pattern loading and GPU processing are executed simultaneously, whichever of them takes longer is the bottleneck. It is clear that for considerable number of configurations, the amount of data that one thread can load from the disk is insufficient to fully utilize the GPU in the testing computer (it is worth noting that the GPU used is both more expensive and much newer than the CPU). The throughput of the load of images with size $873\times873$ was roughly 500 MB/s, which means we did not fully utilize the used M.2 SSD either.
+
+\subsection{Impact of using more load image threads}
+
+To utilize the system better, we use several threads to load more patterns simultaneously. 
 
 which can be limited by the throughput of disk. When we tested our implementation, a HDD proved to be the bottleneck of the whole pipeline --- GPU was waiting for loaded patterns during majority of the run. When using an SSD the load of the image is fast enough to fully utilize the GPU. We measure the impact of different disks on the performance in chapter 3.
 

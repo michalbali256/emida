@@ -121,7 +121,7 @@ public:
 
 	inline void process_files()
 	{
-		stopwatch sw;
+		stopwatch sw; sw.zero();
 	
 		initial_raster.resize(a.pic_size.area());
 
@@ -147,6 +147,8 @@ public:
 			std::cerr << "The deformed list is empty.\n";
 			return;
 		}
+
+		sw.tick("initialization");
 
 		std::thread comp_offs_thr(&file_processor::compute_offsets_thread, this);
 		std::thread finalize_thr(&file_processor::finalize_thread, this);
