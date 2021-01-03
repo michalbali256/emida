@@ -4,10 +4,15 @@ import numpy as np
 import json
 import sys
 
-with open("out-graph.json","r") as fh:
+with open("out-graph-python-impl.json","r") as fh:
+    datap = json.load(fh)
+
+with open("out-graph-TOTAL.json","r") as fh:
     data = json.load(fh)
 
 fig, ax = plt.subplots(figsize=(12,6))
+
+data = data["7"]
 
 for roi_size in data:
     roi_data = data[roi_size]
@@ -16,7 +21,7 @@ for roi_size in data:
     for size in roi_data:
         parts = roi_data[size]
         xdata.append(size)
-        ydata.append(parts)
+        ydata.append((datap[roi_size][size]*1000)/(parts["TOTAL"]["mean"] + parts["initialization"]["mean"]))
     ax.plot(xdata, ydata, label='S = {x}'.format(x=roi_size))
 #print(xdata)
 #print(ydata)
@@ -30,7 +35,7 @@ for roi_size in data:
 
 ax.set_title('Cross correlation')
 ax.set_xlabel('size of subregion')
-ax.set_ylabel('time (s)')
+ax.set_ylabel('speedup')
 plt.legend()
 # display the plot
 plt.show()

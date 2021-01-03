@@ -152,7 +152,6 @@ public:
 
 		std::thread comp_offs_thr(&file_processor::compute_offsets_thread, this);
 		std::thread finalize_thr(&file_processor::finalize_thread, this);
-		sw.zero();
 		
 		std::vector<std::thread> load_workers;
 		for (size_t i = 0; i < a.load_workers - 1; ++i)
