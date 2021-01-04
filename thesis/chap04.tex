@@ -4,9 +4,11 @@ In this chapter, we measure the performance of our implementation. We quantify t
 
 All the data was measured using an NVIDIA RTX 3080 graphics card with Intel i5 6600K processor. We used an M.2 SSD AData SX8200 Pro.
 
-\todo{methodology? Each value presented in this chapter is a mean of several runs of the whole algorithm. Every time, we start the whole computation and measure runs of all kernels and take average from all the runs of kernels within one run of application. We repeat the process several times with the same parameters and take the average, then start over with different set of parameters.}
+To measure the values presented in this chapter, we used a data set provided by the Department of Physics of Material in Charles University in Prague. It contains roughly 15000 electron backscatter patterns --- each of them is a TIFF picture with resolution $873 \times 873$ with color depth of 16 bits. One image has 1.4 megabytes and the whole dataset has 22.3 gigabytes. Most of the testing was performed using only a small subset of the data, since it is needlessly big for most measurements. The exception is the overall comparison to the python implementation and image loading tests for which we needed to use data bigger than the cache of disk.
 
-We measure only square subregions, because it removes unnecessary complexity from the benchmarks. In theory, whole algorithm works also for rectangle--shaped subregions, but since we analyze the direction in which the subregions are shifted, the square should have the same dimensions in each direction.
+To measure the performance of individual parts of algorithm we edited the implementation to measure that the respective part takes to complete and write out the average after all the input images (a subset of the 15000 patterns) are processed. So the durations of individual parts are measured directly during running of the whole algorithm. Moreover, we started the whole application several times and again took the average. 
+
+Besides the patterns, the most important input to the algorithm is the description of subregions --- their amount and size of each of them. The actual location of subregions does not have an impact on performance. Throughout the chapter, $S$ denotes the number of subregions. Also, we measure only square subregions, because it removes unnecessary complexity from the benchmarks. In theory, whole algorithm works also for rectangle--shaped subregions, but since we analyze the direction in which the subregions are shifted, the square should have the same dimensions in each direction. Moreover, in this whole chapter, the size of a subregion is half of length of the rectangle side. So for size of subregion $A$, the actual subregion is $2A$ wide and $2A$ high. The reason for this is that the subregion positions determine its middle and it is easier to specify the size as the distance between the middle and sides of the squares.
 
 \section{Relative performance of individual parts}
 
@@ -22,7 +24,7 @@ We begin with an overview of all the kernels used in the implementation. \Cref{i
 The figure is mentioned here only to get general idea about the performance. It captures relative performance of the kernels for 90 subregions with size $120 \times 120$, which is roughly in the middle of the range of expected values. Different parts depend on different parameters, so for some other input size, the relative performance would look dissimilar. The load TIFF subroutine depends only on the size of the TIFF, while the rest of the algorithm depends on the number of subregion. So, for instance, it is possible to find a configuration that makes load TIFF the longest part. 
 
 \section{Cross--correlation}
-First, we measure the performance of cross--correlation when computed using Fourier transform. We show the dependence between running time and size and number of subregions. Since the cross--correlation is computed using three parts, we analyze them one by one.
+First, we measure the performance of cross--correlation when computed using Fourier transform. We show the dependence between running time and size and number of subregions. Since the cross--correlation is computed using three parts, we analyze them one by one. Then we compare the FFT and definition--based implementations.
 
 
 \subsection{Fourier transforms}
@@ -109,9 +111,7 @@ Recall that we described two implementations of cross--correlation: first one ba
 	\label{load-plot}
 \end{figure}
 
-disk cache
-
-In the following section we benchmark the pipeline parallelization of pattern loading and GPU processing described in \cref{task-paralelization}. The duration if the image load is simply a linear in number of pixels being loaded, or quadratic function of the width of the image. We show its performance in comparison with the GPU processing time in \cref{load-plot}. There are three black lines which represent the duration of image loading for three different sizes of patterns. They are horizontal, since pattern load does not depend on size of subregions. It was measured using only one CPU thread.
+In the following section, we benchmark the pipeline parallelization of pattern loading and GPU processing described in \cref{task-paralelization}. The duration if the image load is simply a linear in number of pixels being loaded, or quadratic function of the width of the image. We show its performance in comparison with the GPU processing time in \cref{load-plot}. There are three black lines which represent the duration of image loading for three different sizes of patterns. They are horizontal, since pattern load does not depend on size of subregions. It was measured using only one CPU thread on a large amount of data, so we ensured that it was not preloaded in disk cache.
 
 Additionally, there are lines that represent the duration of the GPU processing for different number of subregions and floating precision. The GPU processing incorporates all the steps that are implemented for GPU including cross--correlation. For different sizes, we can see the spikes for sizes with primes in their factorization that are explained in \cref{FFT-eval}. Otherwise, the time is increasing with increasing size and number of subregions, as expected.
 
@@ -120,42 +120,48 @@ In the \cref{load-plot}, we can also see which stage of the pipeline is the bott
 \subsection{Impact of using more load image threads}
 
 \begin{figure}
+	\centering
 	\begin{subfigure}{\textwidth}
 		\centering
-		\includegraphics[width=0.8\linewidth]{img/eval/loadworkers-load-tiff}
+		\includegraphics[width=0.75\linewidth]{img/eval/loadworkers-offset-wait}
+		\caption{}
+		\label{loadworkers-offset-wait}
+	\end{subfigure}
+	
+	\begin{subfigure}{\textwidth}
+		\centering
+		\includegraphics[width=0.75\linewidth]{img/eval/loadworkers-load-tiff}
 		\caption{}
 		\label{loadworkers-load-tiff}
 	\end{subfigure}
 
-	\begin{subfigure}{\textwidth}
-		\centering
-		\includegraphics[width=0.8\linewidth]{img/eval/loadworkers-offset-wait}
-		\caption{}
-		\label{loadworkers-offset-wait}
-	\end{subfigure}
+
 	\caption{The average time it takes to load image and the average time the GPU stage waits for loaded patterns, all for different number of load threads.}
 	\label{loadworkers}
 \end{figure}
 
-
-
-To utilize the system better, we use several threads to load more patterns simultaneously. 
-
-which can be limited by the throughput of disk. When we tested our implementation, a HDD proved to be the bottleneck of the whole pipeline --- GPU was waiting for loaded patterns during majority of the run. When using an SSD the load of the image is fast enough to fully utilize the GPU. We measure the impact of different disks on the performance in chapter 3.
-
-
 \begin{table}[]
 	\centering
 	\begin{tabular}{@{}l|rrrr@{}}
-		S/size & 20      & 50     & 80     & 110     \\ \midrule
-		20    & 11710.0 & 2362.8 & 1213.5 & 471.4   \\
-		50    & 6469.3  & 1041.5 & 534.9  & 195.4   \\
-		80    & 4856.7  & 684.6  & 341.7  & 123.3  \\
-		110   & 3765.3  & 515.1  & 251.4  & 90.0   \\
+		S\textbackslash size &      20 &     50 &     80 &   110 \\ \midrule
+		20                   & 11710.0 & 2362.8 & 1213.5 & 471.4 \\
+		50                   &  6469.3 & 1041.5 &  534.9 & 195.4 \\
+		80                   &  4856.7 &  684.6 &  341.7 & 123.3 \\
+		110                  &  3765.3 &  515.1 &  251.4 &  90.0
 	\end{tabular}
 	\caption{Disk throughput needed to fully utilize the tested GPU for different sizes and number of subregions. All the values are in megabytes per second.}
 	\label{loadworkers-table}
 \end{table}
+
+To utilize the system better, we use several threads to load more patterns simultaneously. The goal is to load the patterns as fast as possible, so that the GPU waits as little as possible. \Cref{loadworkers-offset-wait} shows the average time that the GPU stage waits for the next pattern. We used input images with resolution $873\times873$. We can see that for bigger subregions and bigger number of them, the GPU thread waits less in general. Also, more load workers generally decrease the waiting. And with some of the configurations, more load workers eliminate waiting completely, while the ones with less GPU work cannot fully utilize the GPU even for bigger number of load workers.
+
+To explain the reason why we see two different types of behavior we analyze the throughput of testing system components. \Cref{loadworkers-table} shows the amount of images that the testing GPU is able to process each second in megabytes. To calculate it, we divided the size of one batch of patterns by the measured time it takes to process it by the GPU, which gives us the throughput of loading images that is needed to fully utilize the GPU. To put those numbers in context, a hard disks have read speed of around 100 MB/s, common read speed of SATA SSDs is 500 MB/s and M.2 SSDs can go up to 3500 MB/s. On the testing SSD, we measured read speed of roughly 1500 MB/s when the data was not present in the disk cache.
+
+This information combined with the \cref{loadworkers-table} explains \cref{loadworkers-offset-wait}. For configurations with small number of small subregions (all the configurations with size of 20 and [size = 50, S = 20]), the GPU can process more data than can be loaded from the disk per second. Nevertheless, more load workers allow for better utilization of the disk. For bigger subregions, several load workers are needed to achieve larger disk throughput than the GPU can process and from that point, the GPU does not wait for the image loading anymore.
+
+\Cref{loadworkers-load-tiff} shows the average time that one thread needs to load the image. We can see that for disk--constrained configurations the time each thread needs to load the image increases, as the disk is more loaded. However, at the same time, together they manage to load the images faster. For the GPU--constrained configurations, the load time depends on number of threads needed to utilize the GPU.
+
+All the measured values are, of course, specific to the testing machine. At the same time, it shows that for some configurations, having a fast SSD can be even more important than having a powerful GPU.
 
 \section{Float versus double}
 
@@ -164,8 +170,36 @@ which can be limited by the throughput of disk. When we tested our implementatio
 \label{batch-param-eval}
 
 
+
+
 \section{Speedup compared to original python implementation}
 
+In the following section, we measure the speedup of the GPU implementation compared to a python implementation provided by Jozef Veselý from Department of Physics of Material in Charles University in Prague. At its core, the implementation relies on FFT implemented in python library scipy. It is able to utilize all CPU cores. Besides that, is uses numpy functions like \texttt{mean} and \texttt{argmax} to perform the additional processing. Thus, the most expensive parts use optimized implementations, but otherwise it is limited by being written in python.
+
+\begin{figure}
+	\centering
+	\begin{subfigure}{\textwidth}
+		\centering
+		\includegraphics[width=0.75\linewidth]{img/eval/python-impl-plot-abs}
+		\caption{}
+		\label{python-impl-plot-abs}
+	\end{subfigure}
+	
+	\begin{subfigure}{\textwidth}
+		\centering
+		\includegraphics[width=0.75\linewidth]{img/eval/python-impl-plot-speedup}
+		\caption{}
+		\label{python-impl-plot-speedup}
+	\end{subfigure}
+	
+	
+	\caption{The performance of python implementation and its comparison to the GPU implementation}
+	\label{python-impl}
+\end{figure}
+
+\Cref{python-impl-plot-abs} shows the performance of the python implementation. 
+
+TODO
 
 \section{Memory consumption}
 
