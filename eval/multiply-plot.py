@@ -17,7 +17,8 @@ fig, ax = plt.subplots(figsize=(12,6))
 
 
 yerr = []
-data = data["1"]
+yerrp = []
+data = data["7"]
 
 
 for roi_size in data:
@@ -30,7 +31,11 @@ for roi_size in data:
         #yerr.append(parts["R2C"]["stdev"] + parts["C2R"]["stdev"] + parts["Multiply"]["stdev"])
         ydata.append(parts[part]["mean"])
         yerr.append(parts[part]["stdev"])
+        yerrp.append(parts[part]["stdev%"])
     ax.plot(xdata, ydata, label='S = {x}'.format(x=roi_size))
+
+print(np.mean(yerrp))
+print(np.mean(yerr))
 #print(xdata)
 #print(ydata)
 # plot the data
