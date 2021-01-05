@@ -10,7 +10,7 @@
 #include "slice_picture.hpp"
 #include "cufft_helpers.hpp"
 
-
+#define MEASURE_KERNELS
 
 #ifdef MEASURE_KERNELS
 #	define TICK(sw, label) CUCH(cudaGetLastError()); CUCH(cudaDeviceSynchronize()); sw.tick(label);
@@ -253,8 +253,9 @@ public:
 
 		TICK(sw, "Run cross corr: ")
 
-			T* cu_neighbors = cu_neighbors_;
+		T* cu_neighbors = cu_neighbors_;
 
+		CUCH(cudaMemset(cu_maxes_i_, 0, total_slices_ * sizeof(data_index<T>)));
 		if (cross_policy_ == CROSS_POLICY_BRUTE)
 			run_maxarg_reduce(cu_cross_res_, cu_maxes_, cu_maxes_i_, cross_size_, maxarg_block_size_, total_slices_);
 		else
@@ -263,7 +264,7 @@ public:
 		CUCH(cudaDeviceSynchronize());
 		TICK(sw, "Run maxarg: ")
 
-			copy_from_device_async<data_index<T>>(cu_maxes_i_, maxes_i, total_slices_, out_stream);
+		copy_from_device_async<data_index<T>>(cu_maxes_i_, maxes_i, total_slices_, out_stream);
 
 		sw.zero();
 

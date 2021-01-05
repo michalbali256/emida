@@ -68,29 +68,38 @@ __device__ __inline__ data_index<float> uint64_as_dataindex(uint64_t val)
 }
 
 template<typename T>
-__device__ __inline__ void update_res(const data_index<T>& res, data_index<T>* __restrict__ maxes, esize_t pic_num);
+__device__ __inline__ void update_res(const T* __restrict__ data, const data_index<T>& res, data_index<T>* __restrict__ maxes, esize_t pic_num, size2_t slice_size);
 
 template<>
-__device__ __inline__ void update_res<double>(const data_index<double>& res, data_index<double>* __restrict__ maxes, esize_t pic_num)
+__device__ __inline__ void update_res<double>(const double* __restrict__ data, const data_index<double>& res, data_index<double>* __restrict__ maxes, esize_t pic_num, size2_t slice_size)
 {
-	maxes[blockIdx.x] = res;
+	//maxes[blockIdx.x] = res;
+	esize_t* address_as_ull = &maxes[pic_num].index;
+	esize_t old = *address_as_ull;
+	esize_t assumed;
+
+	do {
+		assumed = old;
+		esize_t i = pic_num * slice_size.area() + assumed;
+		if (data[i] < res.data)
+			old = atomicCAS(address_as_ull, assumed, res.index);
+	} while (assumed != old);
+	
 }
 
 template<>
-__device__ __inline__ void update_res<float>(const data_index<float>& res, data_index<float>* __restrict__ maxes, esize_t pic_num)
+__device__ __inline__ void update_res<float>(const float* __restrict__ data, const data_index<float>& res, data_index<float>* __restrict__ maxes, esize_t pic_num, size2_t slice_size)
 {
 	//maxes[blockIdx.x] = res;
 
-	uint64_t* address_as_ull = (uint64_t *)maxes + pic_num;
+	uint64_t* address_as_ull = (uint64_t*)maxes + pic_num;
 	uint64_t old = *address_as_ull;
 	uint64_t assumed;
 
 	do {
 		assumed = old;
-		if(uint64_as_dataindex(assumed).data < res.data)
+		if (uint64_as_dataindex(assumed).data < res.data)
 			old = atomicCAS(address_as_ull, assumed, dataindex_as_uint64(res));
-
-		// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
 	} while (assumed != old);
 }
 
@@ -122,6 +131,8 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 	esize_t slice_end = (pic_num + 1) * slice_size.area();
 	esize_t i = pic_num * slice_size.area() + slice_tid;
 	
+
+
 	data_index<T> val;
 
 	if (i >= slice_end)
@@ -158,7 +169,7 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 		if(one_pic_blocks == 1)
 			maxes[blockIdx.x] = res;
 		else
-			update_res<T>(res, maxes, pic_num);
+			update_res<T>(data, res, maxes, pic_num, slice_size);
 	}
 }
 
@@ -196,15 +207,10 @@ template<typename T>
 void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, data_index<T>* maxarg, size2_t size, esize_t block_size, esize_t batch_size)
 {	
 	esize_t one_pic_blocks = div_up(size.area(), block_size*N);
-
+	//std::cerr << one_pic_blocks << "\n";
 	esize_t grid_size = one_pic_blocks * batch_size;
-	if(one_pic_blocks == 1 || std::is_same<T, float>::value)
-		maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxarg, size);
-	else
-	{
-		maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>) >>> (data, maxes_red, size);
-		maxarg_reduce2<T> <<<batch_size, 1024, 1024 * sizeof(data_index<T>)>>> (maxes_red, maxarg, one_pic_blocks, size);
-	}
+	
+	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxarg, size);
 }
 
 template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, data_index<double>* maxarg, size2_t size, esize_t block_size, esize_t batch_size);
