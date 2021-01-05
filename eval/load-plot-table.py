@@ -2,7 +2,7 @@ import numpy as np
 import json
 import sys
 
-with open("out-graph-loadworkers-float.json","r") as fh:
+with open("out-graph-load-tiff-float.json","r") as fh:
     data = json.load(fh)
 
 data = data["7"]
@@ -24,4 +24,4 @@ for roi_size in range(20, 112, 30):
         seconds = parts["Offset"]["mean"] / 1000
         throughput_mb_s = batch_size_mb / seconds
         print("{:.1f}".format(throughput_mb_s), "&", sep='', end='')
-    print()
+    print("\\\\")
