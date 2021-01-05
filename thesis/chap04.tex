@@ -166,8 +166,49 @@ All the measured values are, of course, specific to the testing machine. At the 
 
 \section{Float versus double}
 
-podobny graf ako load-plot, ale vsetky krivky
-tabulka 
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{img/eval/float-double-compare}
+	\caption{}
+	\label{float-double-compare}
+\end{figure}
+
+
+
+\Cref{float-double-compare} shows how much time is needed to process the subregions by the GPU. We can see that the plot is very influenced by the performance of the cuFFT library. For sizes with big primes in their factorization, we can see the spikes as explained in the \cref{FFT-eval}. The algorithm performs better in single precision, float version being faster for each size, regardless of number of subregions. More precisely, we measured that the single precision configuration is 4 -- 11 times faster depending on the configuration, 7.27 times on average.
+
+\begin{table}[]
+	\centering
+	\begin{tabular}{@{}l|rrrr@{}}
+		S\textbackslash size &      20 &      50 &     80 &    110  \\ \midrule
+		20                   & 30650.2 & 15497.3 & 7810.9 & 4585.8  \\
+		50                   & 25519.6 &  7929.9 & 3570.0 & 1984.7  \\
+		80                   & 20452.4 &  5378.6 & 2311.6 & 1148.5  \\
+		110                  & 16735.2 &  4049.2 & 1699.2 &  865.1 
+	\end{tabular}
+	\caption{Disk throughput needed to fully utilize the tested GPU for different sizes and number of subregions when processing in single floating precision. All the values are in megabytes per second.}
+	\label{necessary-disk-throughput-float}
+\end{table}
+
+In the previous section, we mentioned \cref{loadworkers-table} that contains the disk throughput required to fully utilize our testing GPU for double precision.  \Cref{necessary-disk-throughput-float} contains the same for single precision floats. We can see, that for most of the configurations, our testing SSD (with the throughput of 1500 MB/s) is not enough to utilize the GPU. That underlines the necessity of fast SSD, should the user of the implementation choose the single precision.
+
+
+
+\begin{table}[]
+	\centering
+	\begin{tabular}{@{}l|r@{}}
+		mean               & 0.005\% \\
+		95-th percentile   & 0.004\% \\
+		99-th percentile   & 0.049\% \\
+		99.9-th percentile & 0.614\% \\
+		99.99-th percentile & 5.578\% \\
+		max                &  12.757\%
+	\end{tabular}
+	\caption{The error of single floating point precision compared to double precision}
+	\label{float-error}
+\end{table}
+
+We also measured how much the results between different precisions varied. On average, the shifts differed by 0.005\%. \Cref{float-error} shows more statical characteristics of the error. Whether the the single precision is sufficient depends on physical interpretation.
 
 
 \section{Batch parameter}
@@ -176,42 +217,33 @@ tabulka
 
 
 
-\section{Speedup compared to original python implementation}
+\section{Speedup compared to reference python implementation}
 
-In the following section, we measure the speedup of the GPU implementation compared to a python implementation provided by Jozef Veselý from Department of Physics of Material in Charles University in Prague. At its core, the implementation relies on FFT implemented in python library scipy. It is able to utilize all CPU cores. Besides that, is uses numpy functions like \texttt{mean} and \texttt{argmax} to perform the additional processing. Thus, the most expensive parts use optimized implementations, but otherwise it is limited by being written in python.
+In the following section, we measure the speedup of the GPU implementation compared to a python implementation provided by Jozef Veselý from Department of Physics of Material in Charles University in Prague. At its core, the implementation relies on FFT implemented in python library scipy, which is able to utilize all CPU cores. Besides that, is uses numpy functions like \texttt{mean} and \texttt{argmax} to perform the additional processing, which offer an optimized single--threaded implementation. Thus, the most expensive part uses multi--threaded implementation, but the rest uses only one thread.
 
-\begin{figure}
+
+
+
+
+\begin{table}[]
 	\centering
-	\begin{subfigure}{\textwidth}
-		\centering
-		\includegraphics[width=0.75\linewidth]{img/eval/python-impl-plot-abs}
-		\caption{}
-		\label{python-impl-plot-abs}
-	\end{subfigure}
-	
-	\begin{subfigure}{\textwidth}
-		\centering
-		\includegraphics[width=0.75\linewidth]{img/eval/python-impl-plot-speedup}
-		\caption{}
-		\label{python-impl-plot-speedup}
-	\end{subfigure}
-	
-	
-	\caption{The performance of python implementation and its comparison to the GPU implementation}
-	\label{python-impl}
-\end{figure}
+	\begin{tabular}{@{}ll|r|rr|rr@{}}
+		size & number of  &                        python & \multicolumn{2}{c|}{GPU, double} & \multicolumn{2}{c}{GPU, float} \\
+		     & subregions & \multicolumn{1}{c|}{time (s)} & time (s) &               speedup & time (s) &             speedup \\ \midrule
+		20   & 20         &                         328.5 &     17.4 &                 18.9x &     18.1 &               18.2x \\
+		20   & 110        &                         922.7 &     16.8 &                 55.0x &     18.1 &               50.9x \\
+		50   & 50         &                         775.5 &     24.6 &                 31.6x &     17.3 &               44.9x \\
+		50   & 80         &                        1124.0 &     36.4 &                 30.8x &     17.4 &               64.5x \\
+		80   & 50         &                        1840.2 &     46.9 &                 39.2x &     17.5 &              105.2x \\
+		110  & 20         &                        1714.4 &     51.4 &                 33.3x &     16.9 &              101.4x \\
+		110  & 110        &                        8181.1 &    254.9 &                 32.1x &     29.9 &              273.5x
+	\end{tabular}
+	\caption{The comparison between python and GPU implementation for different floating precision and subregions description}
+	\label{full-size-table}
+\end{table}
 
-\Cref{python-impl-plot-abs} shows the performance of the python implementation. 
+\Cref{full-size-table} shows the comparison between the python and the GPU implementation. We processed the whole testing dataset of over 15000 patterns to get those durations. Many durations in the table are around the 17 second mark. Those are the configurations that are bottlenecked by the disk throughput. Otherwise, we see roughly 30x to 40x speedup for computing with double precision and up to 270x speedup for large size and number of subregions in floating point precision. All the other configurations in single precision are bottlenecked by the disk.
 
-TODO
-
-\section{Memory consumption}
+In the introduction, we mentioned that modern EBSD cameras can take up to hundreds of pictures per second. When we convert the times from \cref{full-size-table} to processed pictures per second, we get that the GPU implementation can process from 65 to 925 patterns per second depending on the parameters. Thus, the performance of GPU implementation and the speed of modern EBSD cameras are of the same order of magnitude.
 
 
-overall performance - compare with python
-
-batch size for different subregion sizes and count
-
-different subregion sizes and count
-
-sum - compare N to size of one slice, to batch size, to number of slices - how?
