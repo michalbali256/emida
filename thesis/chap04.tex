@@ -208,7 +208,7 @@ In the previous section, we mentioned \cref{loadworkers-table} that contains the
 	\label{float-error}
 \end{table}
 
-We also measured how much the results between different precisions varied. On average, the shifts differed by 0.005\%. \Cref{float-error} shows more statical characteristics of the error. Whether the the single precision is sufficient depends on physical interpretation.
+We also measured how much the results between different precisions varied. On average, the shifts differed by 0.005\%. \Cref{float-error} shows more statical characteristics of the error. Whether the single precision is sufficient depends on physical interpretation.
 
 
 \section{Batch parameter}
@@ -244,6 +244,6 @@ In the following section, we measure the speedup of the GPU implementation compa
 
 \Cref{full-size-table} shows the comparison between the python and the GPU implementation. We processed the whole testing dataset of over 15000 patterns to get those durations. Many durations in the table are around the 17 second mark. Those are the configurations that are bottlenecked by the disk throughput. Otherwise, we see roughly 30x to 40x speedup for computing with double precision and up to 270x speedup for large size and number of subregions in floating point precision. All the other configurations in single precision are bottlenecked by the disk.
 
-In the introduction, we mentioned that modern EBSD cameras can take up to hundreds of pictures per second. When we convert the times from \cref{full-size-table} to processed pictures per second, we get that the GPU implementation can process from 65 to 925 patterns per second depending on the parameters. Thus, the performance of GPU implementation and the speed of modern EBSD cameras are of the same order of magnitude.
+In the introduction, we mentioned that modern EBSD cameras can take up to hundreds of pictures per second. When we convert the times from \cref{full-size-table} to processed pictures per second, we get that the GPU implementation can process from 65 to 925 patterns per second depending on the parameters. Thus, the performance of our GPU implementation and the speed of modern EBSD cameras are of the same order of magnitude.
 
 
