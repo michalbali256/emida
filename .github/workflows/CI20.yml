@@ -10,7 +10,7 @@ jobs:
       
       steps:
       - uses: actions/checkout@v1
-        run: apt-get update
+      - run: apt-get update
       - name: Requirements install
         run: DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-get install -y cmake git libtiff-dev
       - run: cmake --version
