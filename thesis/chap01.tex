@@ -425,7 +425,7 @@ When we multiply the result of the cross--correlation by constant, the result of
 It means that when computing the zero--normalized cross--correlation, we can omit two of its steps --- computation of standard deviation and division by the result, which simplifies the final algorithm.
 
 \section{Summary}
-
+\label{algo-summary}
 Algorithm \ref{algo-whole} summarizes the algorithm described in this chapter. It is clear that all the patterns and even their subregions are processed separately so it is easy to parallelize it. At the same time, there may be thousands of the patterns and tens of subregions in each, so there is enough data to utilize the whole GPU. The most computationally expensive part is the cross--correlation. We explain the implementation details of the algorithm in the next chapter.
 
 \begin{algorithm}

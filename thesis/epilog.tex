@@ -1,13 +1,18 @@
 \chapter*{Conclusion}
 \addcontentsline{toc}{chapter}{Conclusion}
 
-In this thesis
+In this thesis we have described the processing of the Electron backscatter diffraction patterns (\cref{chap1}), including the cross--correlation and how is it computed using the Fourier transform(\cref{fft}). We have shown how is the cross--correlation subsequently processed to obtain estimation of the maximum position with subpixel precision (\cref{subpixel-peak}). The algorithm is summarized in pseudocode in \cref{algo-summary}.
 
-zhrnutie vysledkov z 3. kapitoly 30-300 zrychlenie
+Next, we have analyzed individual parts of the algorithm and described their CUDA implementations (\cref{chap1}). We have used the cuFFT library to compute the cross--correlation (\cref{fft-impl}) and used parallel reduction to implement kernels that find the sum of subregions (\cref{sums}) and the position of their maxima (\cref{arg-max}) --- the building stones of the algorithm. Then we described how to put them together as smoothly as possible and explained that the GPU processing can run in parallel with loading of input patterns {\cref{task-paralelization}}.
 
+Finally, in \cref{chap3}, we have measured the performance of individual parts and compared to a reference python implementation, which runs on CPU and is even partly able utilize more cores (to implement the cross--correlation it uses an optimized multi--threaded Scipy function). We have achieved the speedup of 18 -- 40-times, for double floating precision, which yields the same results as the reference implementation. For single floating precision, we measured speedup of 18 to 270-times. We found out that especially the lower precision version (and the double version for small subregions) is bottlenecked by the throughput of contemporary consumer--grade M.2 SSDs (\cref{load-eval-lw}). Whether the higher performance of single float version is useful is up to physical interpretation of the error introduced by computation in lower precision.
 
-The biggest contribution of the GPU implementation is
+Regardless of the precision, this thesis has the potential to considerably improve the EBSD processing. It improves the performance of EBSD data analysis closer to the speed of EBSD cameras, so now they are in the same order of magnitude at least for some parameters (it depends both on the settings of the camera as well as the analysis). Thus, all the data that the physicists are able to measure can be processed in similar time. Moreover, the improvement makes it possible to process bigger datasets in reasonable time.
 
 \section*{Future work}
 
-There are 
+Although the implementation described in this thesis is useful and improves the EBSD analysis performance, it is only one part of the whole process. In the future, we need to make sure, that subsequent stages are able to efficiently process the subregion shifts produced by the program. It is possible that binary output of the implementation would be beneficial.
+
+We can also see some possibilities to improve the performance of our solution itself. We have shown, that disk throughput, or even the CPU not being able to iterate through rather small chunks of TIFF fast enough, can limit the performance. The main goal of the thesis was the GPU implementation and we used libTIFF to load the patterns. Deeper analysis of the loading part or tighter adjustment for specific EBSD camera may result in better disk utilization
+
+Should the GPU prove to be the bottleneck for chosen parameters, we also see further improvements there. One is to implement the algorithm for more GPUs. It should be pretty straightforward, since it is possible to add one worker to the GPU stage of the pipeline. And if the physicists evaluate, that single float precision is enough, it might be worth to implement the whole algorithm for half (16 bit) floating precision. 

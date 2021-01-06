@@ -104,6 +104,7 @@ Recall that we described two implementations of cross--correlation: first one ba
 
 
 \section{Pipeline benchmarks}
+\label{load-eval}
 
 \begin{figure}
 	\centering
@@ -119,6 +120,7 @@ Additionally, there are lines that represent the duration of the GPU processing 
 In the \cref{load-plot}, we can also see which stage of the pipeline is the bottleneck for different parameters. Since the pattern loading and GPU processing are executed simultaneously, whichever of them takes longer is the bottleneck. It is clear that for considerable number of configurations, the amount of data that one thread can load from the disk is insufficient to fully utilize the GPU in the testing computer. The throughput of the image loading with size $873\times873$ was roughly 500 MB/s, which means we did not fully utilize the used M.2 SSD either.
 
 \subsection{Impact of using more load image threads}
+\label{load-eval-lw}
 
 \begin{figure}
 	\centering
