@@ -99,7 +99,7 @@ __device__ __inline__ void update_res<float>(const float* __restrict__ data, con
 	do {
 		assumed = old;
 		if (uint64_as_dataindex(assumed).data < res.data)
-			old = atomicCAS(address_as_ull, assumed, dataindex_as_uint64(res));
+			old = atomicCAS((unsigned long long int *)address_as_ull, (unsigned long long int) assumed, (unsigned long long int) dataindex_as_uint64(res));
 	} while (assumed != old);
 }
 
