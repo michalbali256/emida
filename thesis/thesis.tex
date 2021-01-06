@@ -86,8 +86,13 @@ Dedication.
 
 % Abstract (recommended length around 80-200 words; this is not a copy of your thesis assignment!)
 \def\Abstract{%
-Electron backscatter diffraction (EBSD) is a common tool used by physicists to examine crystalline materials, which is based on taking pictures of material microstructure using electron microscope. To determine additional characteristics of studied specimen, a specific variant called High resolution EBSD has been proposed (and partially adopted). It takes several subregions of images taken by the EBSD camera and uses cross--correlation to measure deformation of obtained patterns. Usability of this method is limited by its relatively high computational complexity which makes it infeasible to analyze larger surface of specimen.
-In this thesis, we describe the technique used to process the EBSD data in detail, analyze it and implement the most computationally demanding parts using the CUDA technology. Compared to a reference python implementation, we measured a speedup of 30--40-times when using double floating precision and up to 270-times speedup for single precision. 
+Electron backscatter diffraction (EBSD) is a common tool used by physicists to examine crystalline materials, which is based on taking pictures of material microstructure using electron microscope.
+To determine additional characteristics of studied specimen, a specific variant called High resolution EBSD has been proposed (and partially adopted).
+The technique takes several subregions of the images taken by the EBSD camera and uses cross--correlation to measure deformation of obtained patterns. 
+Usability of this method is limited by its relatively high computational complexity, which makes it useless for the analysis of larger specimen surfaces.
+At the same time, processing of individual subregions and images is independent, which makes it appropriate for parallelization provided by modern GPUs.
+In this thesis, we describe the technique used to process the EBSD data in detail, analyze it and implement the most computationally demanding parts using the CUDA technology. 
+Compared to a reference Python implementation, we measured a speedup of 30--40-times when using a double floating precision and up to a 270-times speedup for a single precision. 
 }
 
 % 3 to 5 keywords (recommended), each enclosed in curly braces
