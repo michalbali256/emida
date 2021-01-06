@@ -10,7 +10,7 @@
 
 namespace emida
 {
-
+// Wrapper around the maxarg kernel, used in testing only
 template<typename T>
 class algorithm_maxarg
 {

@@ -9,6 +9,8 @@
 namespace emida
 {
 
+//This file contains typed wrappers around CUDA calls and CUDA error checking.
+
 #define CUCH(status) emida::cuda_check(status, __LINE__, __FILE__, #status)
 
 inline void cuda_check(cudaError_t status, int line, const char* src_filename, const char* line_str = nullptr)

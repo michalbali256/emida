@@ -6,6 +6,8 @@
 namespace emida
 {
 
+// Copies subregions from source pattern using the `begins` - positions of the subregions. Also subtracts the sum of each
+// subregion
 template<typename IN, typename OUT, typename S = OUT>
 __global__ void prepare_pics(
 	const IN* __restrict__ pic,

@@ -70,6 +70,8 @@ __device__ __inline__ data_index<float> uint64_as_dataindex(uint64_t val)
 template<typename T>
 __device__ __inline__ void update_res(const T* __restrict__ data, const data_index<T>& res, data_index<T>* __restrict__ maxes, esize_t pic_num, size2_t slice_size);
 
+// For double, the data_index structure has 12 bytes and it is impossible to update it atomically. Therefore we use atomicCAS
+// to update only the position of maximum and test whether the value at the position is higher
 template<>
 __device__ __inline__ void update_res<double>(const double* __restrict__ data, const data_index<double>& res, data_index<double>* __restrict__ maxes, esize_t pic_num, size2_t slice_size)
 {
@@ -87,6 +89,7 @@ __device__ __inline__ void update_res<double>(const double* __restrict__ data, c
 	
 }
 
+// For float, the data_index structure has 8 bytes so it is possible to update it using atomicCAS
 template<>
 __device__ __inline__ void update_res<float>(const float* __restrict__ data, const data_index<float>& res, data_index<float>* __restrict__ maxes, esize_t pic_num, size2_t slice_size)
 {
@@ -103,7 +106,7 @@ __device__ __inline__ void update_res<float>(const float* __restrict__ data, con
 	} while (assumed != old);
 }
 
-
+// number of values that each thread loads
 constexpr int N = 10;
 
 //        size
@@ -173,6 +176,21 @@ __global__ void maxarg_reduce(const T* __restrict__ data, data_index<T> * __rest
 	}
 }
 
+
+template<typename T>
+void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, data_index<T>* maxarg, size2_t size, esize_t block_size, esize_t batch_size)
+{	
+	esize_t one_pic_blocks = div_up(size.area(), block_size*N);
+	esize_t grid_size = one_pic_blocks * batch_size;
+	
+	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxarg, size);
+}
+
+template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, data_index<double>* maxarg, size2_t size, esize_t block_size, esize_t batch_size);
+template void run_maxarg_reduce<float>(const float* data, data_index<float>* maxes, data_index<float>* maxarg, size2_t size, esize_t block_size, esize_t batch_size);
+
+// Part of alternative implementation, that does not use the atomicCAS to synchronize the blocks but instead runs one more kernel
+// to reduce the results of the first reduction
 template<typename T>
 __global__ void maxarg_reduce2(const data_index<T>* __restrict__ maxes_in, data_index<T>* __restrict__ maxes_out, esize_t one_pic_blocks, size2_t pic_size)
 {
@@ -203,17 +221,5 @@ __global__ void maxarg_reduce2(const data_index<T>* __restrict__ maxes_in, data_
 	}
 }
 
-template<typename T>
-void run_maxarg_reduce(const T* data, data_index<T>* maxes_red, data_index<T>* maxarg, size2_t size, esize_t block_size, esize_t batch_size)
-{	
-	esize_t one_pic_blocks = div_up(size.area(), block_size*N);
-	//std::cerr << one_pic_blocks << "\n";
-	esize_t grid_size = one_pic_blocks * batch_size;
-	
-	maxarg_reduce<T> <<<grid_size, block_size, block_size * sizeof(data_index<T>)>>> (data, maxarg, size);
 }
 
-template void run_maxarg_reduce<double>(const double* data, data_index<double>* maxes, data_index<double>* maxarg, size2_t size, esize_t block_size, esize_t batch_size);
-template void run_maxarg_reduce<float>(const float* data, data_index<float>* maxes, data_index<float>* maxarg, size2_t size, esize_t block_size, esize_t batch_size);
-
-}

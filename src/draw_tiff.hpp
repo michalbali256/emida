@@ -9,6 +9,8 @@
 namespace emida
 {
 
+//Visualizes the vectors of shifts by drawing them into picture.
+
 template <typename T>
 void draw_vector(T* pic, size2_t size, vec2<double> vector, size2_t vector_pos, T color)
 {

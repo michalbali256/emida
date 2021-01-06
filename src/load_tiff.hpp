@@ -10,6 +10,7 @@
 namespace emida
 {
 
+// Loads an image using the libtiff library.
 inline bool load_tiff(const std::string & file_name, uint16_t * raster, size2_t size)
 {
 	TIFF* tif = TIFFOpen(file_name.c_str(), "r");

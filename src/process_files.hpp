@@ -16,6 +16,7 @@
 namespace emida
 {
 
+// Represents one pattern that needs to be processed (one line in --slicepos file)
 struct file
 {
 	double x;
@@ -23,25 +24,35 @@ struct file
 	std::string fname;
 };
 
+// Represents one chunk of data that is loaded and ready (or being transfered) to be processed by the GPU
 struct offs_job
 {
+	// number of files in the chunk (the last one may be shorter than the rest)
 	esize_t batch_files;
+	// index of the first pattern in the work buffer
 	esize_t c;
+	// Index of gpu buffer where the GPU can find the data
 	esize_t buffer_index;
 };
 
+// Represents one chunch of data that is already processed by the GPU and should be finalized and written to the output.
 template<typename T>
 struct fin_job
 {
+	// Pointers to resulting data
 	data_index<T> * maxes_i;
 	T * neighbors;
+
+	// number of files in the chunk (the last one may be shorter than the rest)
 	esize_t batch_files;
+	// index of the first pattern in the work buffer
 	esize_t c;
 };
 
 template<typename T>
 class file_processor
 {
+	// Loads the list of files to be procesed specified by --slicepos 
 	std::vector<file> load_work(std::string fname)
 	{
 		std::vector<file> res;
@@ -82,6 +93,8 @@ public:
 		, load_queue(a.load_workers)
 	{}
 
+	// Function that runs in multiple threads, loads patterns and uses the gpu_offset::transfer_pic_to_device_async to initiate
+	// transfer to the GPU memory. To synchornize with the GPU-stage of pipeline, it pushes jobs into load_queue
 	inline void load_rasters()
 	{
 		std::vector<uint16_t*> deformed_rasters(a.load_workers+1);
@@ -119,6 +132,7 @@ public:
 		}
 	}
 
+	// Entry point into the application that starts multiple threads to load, finalize and process patterns
 	inline void process_files()
 	{
 		stopwatch sw; sw.zero();
@@ -166,11 +180,13 @@ public:
 		sw.total();
 	}
 
+	// Takes jobs from load_queue, processes them on the gpu using gpu_offset and then pushes the results into the fin_queue
 	void compute_offsets_thread()
 	{
 		stopwatch sw;
 		sw.zero();
 
+		//Since there is only one finalization thread, it is enough to use just two buffers
 		fin_job<T>* fjob = &fin_job1;
 		fin_job<T>* fjob_next = &fin_job2;
 		for (;;)
@@ -199,6 +215,7 @@ public:
 		}
 	}
 
+	// Gets the results of processing from fin_queue and writes them out.
 	void finalize_thread()
 	{
 		stopwatch sw;

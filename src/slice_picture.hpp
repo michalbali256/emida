@@ -7,6 +7,8 @@
 namespace emida
 {
 
+// Serial implemntations used to slice the pattern into subregions. Used for testing only.
+
 template<typename T, typename RES>
 inline void copy_submatrix(const T* __restrict__ src, RES* __restrict__ dst, size2_t src_size, size2_t begin, size2_t size)
 {

@@ -14,7 +14,7 @@ enum class precision_type
 	FLOAT,
 	DOUBLE
 };
-
+// Struct that represents all the possible parameters that the user entered as the command line arguments
 struct params
 {
 	bool parse(int argc, char** argv);

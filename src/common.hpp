@@ -12,6 +12,9 @@
 namespace emida
 {
 
+// This file contains common helpers used throughout the project.
+
+// Divides two integers and rounds the result up
 template<typename T, typename U>
 inline __host__ __device__ T div_up(T a, U b)
 {
@@ -34,6 +37,7 @@ inline bool operator==(const data_index<T>& lhs, const data_index<T>& rhs)
 }
 
 
+// Represents a two-dimensional vector, used to pass positions around.
 template<typename T>
 struct vec2
 {

@@ -3,7 +3,7 @@
 
 namespace emida {
 
-
+// Implements simple wrappers around the gpu_offset class, used in testing
 template<typename T>
 inline std::vector<vec2<T>> get_offset(T* pic, T* temp, size2_t size, size2_t cross_size, cross_policy c_policy = CROSS_POLICY_BRUTE)
 {

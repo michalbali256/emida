@@ -8,23 +8,6 @@
 namespace emida
 {
 
-/*  Optimization idea:
-	The amount of work the threads have to do looks like this:
-	64	72	80	88	96	88	80	72	64
-	72	81	90	99	108	99	90	81	72
-	80	90	100	110	120	110	100	90	80
-	88	99	110	121	132	121	110	99	88
-	96	108	120	132	144	132	120	108	96
-	88	99	110	121	132	121	110	99	88
-	80	90	100	110	120	110	100	90	80
-	72	81	90	99	108	99	90	81	72
-	64	72	80	88	96	88	80	72	64
-	Threads near 0 offset do the most work.
-	So some threads in the same warp/block may do much more work than others.
-	Assign pixels to threads in a way that threads from the same thread do
-	the same amount of work?
-*/
-
 template<typename T, typename RES>
 __global__ void cross_corr(
 	const T* __restrict__ pics,
@@ -59,10 +42,9 @@ __global__ void cross_corr(
 	
 	for (esize_t i = 0; i < batch_size; ++i)
 	{
-		esize_t x_end = min(size.x - shift.x, size.x);// shift.x < 0 ? size.x : size.x - shift.x;
-		esize_t y_end = min(size.y - shift.y, size.y);//shift.y < 0 ? size.y : size.y - shift.y;
+		esize_t x_end = min(size.x - shift.x, size.x);
+		esize_t y_end = min(size.y - shift.y, size.y);
 
-		//control flow divergency in following fors??
 		RES sum = 0;
 		for (esize_t y = max(-shift.y, 0); y < y_end; ++y)
 		{
@@ -119,7 +101,9 @@ template void run_cross_corr<float, float>(
 	esize_t,
 	esize_t);
 
+
 //*******************************************************************************************************************************************************
+// Following are experiments with optimization of cross correlation, currently unused
 
 template<int k, typename T, typename RES>
 __device__ __inline__ void compute(const T* __restrict__ pics, const T* __restrict__ ref, RES* __restrict__ res, size2_t size, size2_t res_size, size2_t slice_pos, vec2<int> shift)

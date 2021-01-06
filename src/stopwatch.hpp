@@ -38,6 +38,9 @@ struct stats
 	}
 };
 
+
+// Measures time intervals and saves them into a map labeled by individual parts of algorithm
+// Computes the averages in the end.
 class stopwatch
 {
 public:

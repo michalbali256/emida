@@ -5,6 +5,7 @@
 namespace emida
 {
 
+// A trick to use CUDA shared memory of different types in the same executable.
 template <typename T>
 __device__ T* shared_memory_proxy()
 {

@@ -7,6 +7,9 @@
 namespace emida
 {
 
+
+// Implementation of a thread-safe queue that can be used to pass work between stage of parallel pipeline.
+// Cannot be used with multiple consumers.
 template<typename T>
 class concurrent_queue
 {
@@ -43,22 +46,6 @@ public:
 
 		con_empty.notify_one();
 
-	}
-
-	void wait_and_pop(T& popped_value)
-	{
-		std::unique_lock lock(the_mutex);
-		while (data.empty())
-		{
-			con_empty.wait(lock);
-		}
-
-		popped_value = data.front();
-		data.pop();
-
-		lock.unlock();
-
-		con_full.notify_one();
 	}
 
 	bool empty() const

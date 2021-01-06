@@ -10,7 +10,8 @@
 #include "slice_picture.hpp"
 #include "cufft_helpers.hpp"
 
-#define MEASURE_KERNELS
+// Uncomment to get the measurements of individual kernels
+//#define MEASURE_KERNELS
 
 #ifdef MEASURE_KERNELS
 #	define TICK(sw, label) CUCH(cudaGetLastError()); CUCH(cudaDeviceSynchronize()); sw.tick(label);
@@ -21,18 +22,27 @@
 namespace emida
 {
 
-template<typename T>
-std::vector<typename complex_trait<T>::type> get_fft_shift(esize_t N, esize_t shift)
-{
-	std::vector<typename complex_trait<T>::type> res;
-	res.resize(N);
+// Class, that implements the pattern processing algorithm on gpu by using the kernels from kernels.cuh, allocating memory etc.
+// Processes one batch (several files) at one call.
 
-	for (esize_t i = 0; i < N; ++i)
-		res[i] = { (T)1, (T)0 };
-	//res[i] = { (T)cos(2 * PI / N * i * shift), (T)sin(2 * PI / N * i * shift) };
 
-	return res;
-}
+// The most important functions are:
+// allocate_memory: it is called only once to allocate all the gpu buffers
+// transfer_pic_to_device_async:
+//     copies input pattern(s) from host to gpu memory. It is done asynchronously and can be used by
+//     several load workers at the same time. That is why it uses several input buffers. We use atomic integer to determine the
+//     index of next buffer to use, so two workers never copy data to the same buffer at the same time+
+// gpu_offset_core:
+//     Processes one batch of of input patterns on the gpu. Ends by copying the positions of maxima and their neighborhoods from
+//     the GPU to the host memory
+// finalize:
+//     Processes the maxima and their neighborhoods to get final offsets. Executed on the CPU.
+
+// All the buffers use row-major order of the picters and pixels. In buffers that contain more subregions, the subregions are
+// placed immediately one after another.
+// The same applies for subregions of different patterns when batch_size>1
+// For kernels that operate with the position of subregions, the number of subregions as well as batch_size has to be passed
+// to the kernel, since they have to use the subregion description of each pattern in the batch separately (batch_size-times)
 
 
 template<typename T, typename IN>
@@ -45,7 +55,6 @@ private:
 	std::vector<IN*> cu_in_buffers_;
 	std::atomic<esize_t> in_buffers_i_ = 0;
 
-	//IN* cu_pic_in_;
 	IN* cu_temp_in_;
 	T* cu_pic_;
 	T* cu_temp_;
@@ -78,8 +87,6 @@ private:
 	int fft_size_[2];
 	cufftHandle plan_;
 	cufftHandle inv_plan_;
-	complex_t* cu_fft_shift_x_;
-	complex_t* cu_fft_shift_y_;
 
 	cross_policy cross_policy_;
 
@@ -163,12 +170,6 @@ public:
 
 		if (cross_policy_ == CROSS_POLICY_FFT)
 		{
-			auto fft_shift_x = get_fft_shift<T>(slice_size_.x * 2, slice_size_.x + 1);
-			auto fft_shift_y = get_fft_shift<T>(slice_size_.y * 2, slice_size_.y + 1);
-
-			cu_fft_shift_x_ = vector_to_device(fft_shift_x);
-			cu_fft_shift_y_ = vector_to_device(fft_shift_y);
-
 			FFTCH(cufftPlanMany(&plan_, 2, fft_size_,
 				NULL, 1, 0,
 				NULL, 1, 0,
@@ -237,19 +238,16 @@ public:
 
 		TICK(sw, "Run sums: ")
 
-			run_prepare_pics(cu_in_buffers_[cu_pic_index], cu_pic_,
-				cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_,
-				src_size_, slice_size_, cross_in_size_, (esize_t)begins_->size(), batch_size_);
+		run_prepare_pics(cu_in_buffers_[cu_pic_index], cu_pic_,
+			cu_hann_x_, cu_hann_y_, cu_sums_pic_, cu_begins_,
+			src_size_, slice_size_, cross_in_size_, (esize_t)begins_->size(), batch_size_);
 
 		TICK(sw, "Run prepare: ")
 
-			if (cross_policy_ == CROSS_POLICY_BRUTE)
-			{
-				run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, (esize_t)begins_->size(), batch_size_);
-				//run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, begins_->size(), batch_size_);
-			}
-			else
-				cross_corr_fft();
+		if (cross_policy_ == CROSS_POLICY_BRUTE)
+			run_cross_corr(cu_pic_, cu_temp_, cu_cross_res_, slice_size_, cross_size_, (esize_t)begins_->size(), batch_size_);
+		else
+			cross_corr_fft();
 
 		TICK(sw, "Run cross corr: ")
 
@@ -307,29 +305,14 @@ public:
 		fft_real_to_complex(plan_, cu_pic_, (complex_t*)cu_fft_res_);
 		TICK(sw, "R2C: ")
 
-			//auto pppic = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
-			//auto temp = device_to_vector(cu_temp_, cross_in_size_.area() * total_slices_);
 
-			run_hadamard((complex_t*)cu_fft_res_, (complex_t*)cu_temp_,
-				{ fft_work_size_.x / 2, fft_work_size_.y },
-				(esize_t)begins_->size(), batch_size_);
+		run_hadamard((complex_t*)cu_fft_res_, (complex_t*)cu_temp_,
+			{ fft_work_size_.x / 2, fft_work_size_.y },
+			(esize_t)begins_->size(), batch_size_);
 		TICK(sw, "Multiply: ");
-
-
-		//auto vec2 = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
-
-		//auto out = cuda_malloc<T>(cross_in_size_.area());
 
 		fft_complex_to_real(inv_plan_, (complex_t*)cu_fft_res_, cu_cross_res_);
 		TICK(sw, "C2R: ");
-
-		//run_finalize_fft(cu_pic_, cu_cross_res_, cross_size_, total_slices_);
-		//CUCH(cudaDeviceSynchronize()); sw.tick("finalize: ");
-
-		//auto vec3 = device_to_vector(cu_pic_, cross_in_size_.area() * total_slices_);
-		//auto vec4 = device_to_vector(cu_cross_res_, cross_size_.area() * total_slices_);
-
-		int i = 0;
 	}
 
 	T* get_cu_pic()

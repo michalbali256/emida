@@ -13,6 +13,12 @@ void __syncthreads() {};
 namespace emida
 {
 
+// Contains the declarations of functions that run CUDA kernels.
+
+// pos_policy is needed, because after cross--correlation using the FFT, the result ends up shifted.
+// This has to be taken into account by the extract_neighbors kernel. To implement two versions -
+// one for cross--correlation using FFT and definition based implementation, this policy wraps the
+// different access into the cross--correlation buffer.
 struct cross_res_pos_policy_id
 {
 	static __device__ __inline__ esize_t index(esize_t pic_num, size2_t slice_pos, size2_t slice_size)
@@ -55,6 +61,9 @@ void run_cross_corr(const T* pics,
 	size2_t res_size,
 	esize_t ref_slices,
 	esize_t batch_size);
+
+// Following are several experimental implementations of definition based cross--correlation.
+// None of them are actually used.
 
 template<typename T, typename RES>
 void run_cross_corr_r(const T* pics,
@@ -111,13 +120,9 @@ void run_sum(const T* data, T* sums, esize_t size, esize_t batch_size);
 template<typename T, typename RES>
 void run_sum(const T* data, RES* sums, const size2_t* begins, size2_t src_size, size2_t slice_size, esize_t begins_size, esize_t batch_size);
 
-template<typename T>
-void run_hadamard(T* A, const T* B, const T* shx, const T* shy, size2_t one_size, esize_t ref_slices, esize_t batch_size);
 
 template<typename T>
 void run_hadamard(T* pics, const T* ref, size2_t one_size, esize_t ref_slices, esize_t batch_size);
 
-template<typename T>
-void run_finalize_fft(const T* in, T* out, size2_t out_size, esize_t batch_size);
 
 }

@@ -7,29 +7,7 @@
 namespace emida
 {
 
-template<int s>
-constexpr auto get_matrix()
-{
-	std::array<double, s * s * 6> ret;
-
-	size_t i = 0;
-	for (size_t y = 0; y < s; ++y)
-	{
-		for (size_t x = 0; x < s; ++x)
-		{
-			ret[i * 6] = 1;
-			ret[i * 6 + 1] = (double)x;
-			ret[i * 6 + 2] = (double)y;
-			ret[i * 6 + 3] = (double)x * x;
-			ret[i * 6 + 4] = (double)x * y;
-			ret[i * 6 + 5] = (double)y * y;
-			++i;
-		}
-	}
-
-	return ret;
-}
-
+//Multiplies the a and b matrices and stores the result in c. The size of matrices are as follows:
 //a = m x k
 //b = k x n
 //c = m x n
@@ -50,6 +28,7 @@ void multiply(const F1* a, const F2* b, F3* c, size_t m, size_t n, size_t k)
 	}
 }
 
+// Contains the precomputed matrix used to compute least squares (A^T * A)^-1 * A^T
 template<typename T, int s>
 struct lstsq_matrix
 {

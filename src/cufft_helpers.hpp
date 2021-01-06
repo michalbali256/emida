@@ -5,6 +5,8 @@
 namespace emida
 {
 
+// This file contains cuFFT error checkers and templated wrappers around the cuFFT functions
+
 #define FFTCH(status) emida::fft_check(status, __LINE__, __FILE__, #status)
 
 static const char* cufft_get_error_message(cufftResult error)

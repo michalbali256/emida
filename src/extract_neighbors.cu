@@ -6,6 +6,9 @@
 #include "kernels.cuh"
 namespace emida {
 
+// Copies a rectangle neighborhood with size s around position determined by max_i from each subregion.
+// The pixels of subregions may not be in common row-major order and pos_policy::index is used to get the actual
+// index of the data with specified position in the data buffer.
 template<typename T, typename pos_policy>
 __global__ void extract_neighbors(const T* data, const data_index<T>* max_i, T* neighbors, int s, size2_t src_size, size_t batch_size)
 {

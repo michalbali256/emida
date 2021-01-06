@@ -11,6 +11,7 @@
 namespace emida
 {
 
+// wrapper around the cross--correlation kernel, used for testing purposes
 template<typename T>
 class algorithm_cross_corr
 {

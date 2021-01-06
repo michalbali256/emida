@@ -2,7 +2,7 @@
 
 namespace emida
 {
-
+// Serial implementation, testing only
 template<typename T>
 void subtract_mean(T* pic, size_t one_size, size_t b_size)
 {

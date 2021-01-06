@@ -8,12 +8,8 @@
 namespace emida
 {
 
-//        size
-//      +-------+-------+-------+
-//      +--+--+--+      +--+--+--+
-//              +--+--+--+
-//blockDim2  2 2  2 2  2  2  2  2  
-//block: 1  2  3  4  5  6 7  8  9
+// Unused implemetation that computes the sums of subregions stored in data
+// (the final implementation loads the subregions directly from pattern using their positions)
 template<typename T>
 __global__ void sum(const T* data, T * maxes, esize_t size)
 {
@@ -103,6 +99,13 @@ __inline__ __device__ T blockReduceSum(T val)
 
 constexpr int N = 10;
 
+
+//        size
+//      +-------+-------+-------+
+//      +--+--+--+      +--+--+--+
+//              +--+--+--+
+//blockDim2  2 2  2 2  2  2  2  2  
+//block: 1  2  3  4  5  6 7  8  9
 template<typename T, typename RES>
 __global__ void sum(
 	const T* data,
@@ -112,7 +115,6 @@ __global__ void sum(
 	size2_t slice_size,
 	esize_t begins_size)
 {
-	//RES* sdata = shared_memory_proxy<RES>();
 
 	//number of blocks we need to process one slice
 	esize_t one_slice_blocks = div_up(slice_size.area(), blockDim.x * N);

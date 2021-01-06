@@ -8,6 +8,8 @@
 
 namespace emida
 {
+
+// Represents a matrix, testing purposes only
 template<typename T>
 class matrix
 {
