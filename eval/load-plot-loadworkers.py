@@ -6,15 +6,15 @@ import sys
 
 part = sys.argv[1]
 #with open("out-graph-load-tiff-float.json","r") as fh:
-with open("out-graph-loadworkers-float.json","r") as fh:
+with open("out-graph-loadworkers-double.json","r") as fh:
     dataf = json.load(fh)
 #with open("out-graph-loadworkers-double.json","r") as fh:
 #    data = json.load(fh)
 
 parrts = ["Load tiff", "Offset", "Offset wait"]
-titles = ["The average time needed to load one batch of images for\ndifferent number of load workers (float, batch = 7)",
+titles = ["The average time needed to load one batch of images for\ndifferent number of load workers (double)",
     "Offset",
-    "The average time that the GPU stage of pipeline\nwaits for next loaded pattern (float, batch = 7)"]
+    "The average time that the GPU stage of pipeline\nwaits for next loaded pattern (double)"]
 fnames = ["loadworkers-load-tiff.pdf", "loadworkers-offset.pdf", "loadworkers-offset-wait.pdf"]
 
 sizes = [(20,20),

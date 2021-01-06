@@ -45,7 +45,7 @@ for label in ax.xaxis.get_ticklabels():
 #ax.set_xlim([0, 100])
 #ax.set_ylim([0, 10])
 
-ax.set_title('Performance of Fourier transform with changing size of subregions (S = 110, batch = 7)')
+ax.set_title('Performance of Fourier transform with changing size of subregions')
 ax.set_xlabel('size of subregion')
 ax.set_ylabel('time (ms)')
 #plt.legend()

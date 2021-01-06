@@ -1,1 +1,116 @@
-\chapter{CUDA}
+\subsection*{How to build}
+The project uses the CMake build system.
+
+\vspace{0.3cm}
+\noindent
+Requirements:
+\begin{itemize}
+	\item git
+	\item CMake version at least 3.9
+	\item C++17 compiler (tested on MSVC from Visual Studio 16.8, GCC 8.3 and GCC 9)
+	\item CUDA compute capability: 6.0
+\end{itemize}
+Tested on 2 platforms so far:
+\begin{itemize}
+	\item Windows - Visual Studio 2019, CUDA 10.2
+	\item Linux - GCC 8.3, CUDA 10.2
+\end{itemize}
+
+\subsubsection*{Windows}
+
+\begin{enumerate}
+	\item Open the project folder in Visual Studio. It should detect CMake project and start configuration.
+	\item Choose the x64-Release configuration.
+	\item Build $\rightarrow$ Build all (F6)
+	\item The resulting executable emida.exe is in \texttt{build/x64-Release/bin} folder.
+\end{enumerate}
+You may also run \texttt{build/x64-Release/bin/emida\_test.exe} to verify the build.
+
+\subsubsection*{Linux}
+
+On linux, it is preferred to use system libtiff (it is downloaded and built from source on Windows). Alternatively, there is \texttt{TIFF\_FROM\_SOURCE} switch that enforces building libtiff from source, but ZLIB and LibLZMA packages are still required by the libtiff library. The following steps are an example how to build the project on Ubuntu. We assume that a compatible C++17 compiler is set as default.
+\begin{enumerate}
+	\item Install the libtiff, cmake and git packages: 
+	\begin{verbatim}
+	apt-get install -y cmake git libtiff-dev
+	\end{verbatim}
+	\item Run the following in the terminal from the project folder.
+	\begin{verbatim}
+	mkdir build && cd build
+	cmake ../
+	cmake --build .
+	\end{verbatim}
+	\item The resulting executable emida is in \texttt{build/bin} folder.
+\end{enumerate}
+You may also run \texttt{bin/emida\_test} to verify the build.
+
+\subsection*{How to run}
+
+The application compares one picture of the material patern with images of deformed material. The deformed images are specified by an input file that has lines in following format:
+\begin{verbatim}
+<image_pos_x> <image_pos_y> <image_file_name>
+\end{verbatim}
+Example:
+\begin{verbatim}
+0.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x0y0.tif
+600.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x600y0.tif
+1200.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x1200y0.tif
+1800.0 0.0 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x1800y0.tif
+300.0 519.6152422706632 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x300y519.tif
+900.0 519.6152422706632 E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x900y519.tif
+\end{verbatim}
+Positions and size of regions that are compared in each picture are specified in a configuration file in fillowing format:
+\begin{verbatim}
+<size/2>\n
+<roi_mid_x> <roi_mid_y>\n
+<roi_mid_x> <roi_mid_y>\n
+...
+\end{verbatim}
+The size of each region is specified on the first line. The size is half ("radius") of the compared regions. Then, list of pairs follow, each of them specifies a middle of one subregion.
+
+\subsubsection*{Running emida}
+The \texttt{emida} executable cross-correlates parts of pictures(slices) in specified positions and then computes how much are the deformed picture's slices shifted compared to the initial picture.
+\begin{verbatim}
+emida -i data/FeAl/INITIAL_FeAl -d data/FeAl/DEFORMED_FeAl \
+-o data/FeAl/OUT_FeAl -r 0,0,5,5 -c 25,25 -s 64,64 > offsets.txt
+\end{verbatim}
+Following options are mandatory:
+\begin{itemize}
+	\item \texttt{-i,--initial} specifies path to the reference image
+	\item \texttt{-d,--deformed} specifies path to file with list of the deformed pictures to process. The format of the file is described above.
+	\item \texttt{-b,--slicepos} specifies path to file with positions of regions to be compared in each picture, as descibed above.
+\end{itemize}
+Optional options:
+\begin{itemize}
+	\item \texttt{-s,--slicesize} overrides the size of subregions specified in the subregion description passed by the \texttt{slicepos} parameter.
+	\item \texttt{-q,--writecoefs} In addition to offsets, output also coefficients of parabola fitting.
+	\item  \texttt{--precision} specifies the floating type to be used. Allowed values: \texttt{double}, \texttt{float}.
+	\item \texttt{f,fitsize} specifies the size of neighbourhood that is used to fit the quadratic function to cross--correlation and find subpixel maximum. Allowed values: 3, 5, 7, 9
+	\item \texttt{crosspolicy}, Specifies whether to use FFT to compute cross correlation. Allowed values: brute, fft.
+	\item \texttt{batchsize}, Specifies how many files are processed in one batch in parallel.
+	\item \texttt{loadworkers}, Specifies the number of workers that load input patterns simultaneously.
+	\item \texttt{-a} When specified, the executable measures the duration of selected kernels and parts of processing.
+\end{itemize}
+
+\subsubsection*{Running emida}
+
+The package contains testing data in the \texttt{test\_data} folder. \texttt{test\_data/initial} contains the reference, unmodified pattern. \texttt{test\_data/deformed} contains the deformed patterns. Due to limited options of uploading large attachments, we attached only a subset of original testing data. \texttt{test\_data/def.txt} contains list of the files in the format described above that can be loaded by the executable.
+
+\vspace{0.3cm}
+\noindent
+The deformed images have file names in the following format:
+\begin{verbatim}
+DEFORMED_x<X_position>y<X_position>.tif
+\end{verbatim}
+The \texttt{X\_position} and \texttt{Y\_position} are integers that determine the position where the pattern was measured on the studied specimen.
+
+\vspace{0.3cm}
+\noindent
+The patterns were measured in a triangle raster so the \texttt{X\_position} and \texttt{Y\_position} can be iterated as follows:
+\begin{verbatim}
+x = i*60 + (j % 2) * 60/2
+y = int(j*sqrt(0.75)*60)
+\end{verbatim}
+We have prepared a python script \texttt{TEST\_RUN/run.py}, that runs the executable on the test data. The only required change to the script is to set the correct path to the executable.
+
+We also prepared a script in \texttt{test\_data/expand\_data.py} that copies some of the test files to create a larger dataset. Just set the size of the dataset directly in the script. In order to run the application on the larger dataset, set the same size in \texttt{TEST\_RUN/run.py}.

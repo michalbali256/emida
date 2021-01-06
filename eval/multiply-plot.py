@@ -7,8 +7,8 @@ import sys
 part = sys.argv[1]
 typ = sys.argv[2]
 
-#with open("out-graph-{t}.json".format(t=typ),"r") as fh:
-with open("out-graph-BIG.json","r") as fh:
+with open("out-graph-{t}.json".format(t=typ),"r") as fh:
+#with open("out-graph-BIG.json","r") as fh:
     data = json.load(fh)
 
 
@@ -54,7 +54,7 @@ for label in ax.xaxis.get_ticklabels():
 #ax.set_xlim([0, 100])
 #ax.set_ylim([0, 10])
 
-ax.set_title('Performance of complex matrix multiplication - {t} (batch = 7)'.format(t=typ))
+ax.set_title('Performance of complex matrix multiplication - {t}'.format(t=typ))
 ax.set_xlabel('size of subregion')
 ax.set_ylabel('time (ms)')
 plt.legend()

@@ -7,22 +7,22 @@ All the data was measured using an NVIDIA RTX 3080 graphics card with Intel i5 6
 
 To measure the values presented in this chapter, we used a data set provided by the Department of Physics of Material in Charles University in Prague. It contains roughly 15000 electron backscatter patterns --- each of them is a TIFF picture with resolution $873 \times 873$ with color depth of 16 bits. One image has 1.4 megabytes and the whole dataset has 22.3 gigabytes. Most of the testing was performed using only a small subset of the data, since it is needlessly big for most measurements. The exception is the overall comparison to the python implementation and image loading tests for which we needed to use data bigger than the cache of disk.
 
-To measure the performance of individual parts of algorithm we edited the implementation to measure that the respective part takes to complete and write out the average after all the input images (a subset of the 15000 patterns) are processed. So the durations of individual parts are measured directly during running of the whole algorithm. Moreover, we started the whole application several times and again took the average. 
+To measure the performance of individual parts of algorithm we edited the implementation to measure that the respective part takes to complete and write out the average after all the input images (a subset of the 15000 patterns) are processed. So the durations of individual parts are measured directly during running of the whole algorithm. Moreover, we started the whole application 8 times and again took the average. In order to further avoid results variation, we unplugged the computer from the Internet and reduced number of running processes to minimum. This all resulted in negligible performance differences in the separate runs. All the following results depict the averages.
 
-Besides the patterns, the most important input to the algorithm is the description of subregions --- their amount and size of each of them. The actual location of subregions does not have an impact on performance. Throughout the chapter, $S$ denotes the number of subregions. Also, we measure only square subregions, because it removes unnecessary complexity from the benchmarks. In theory, whole algorithm works also for rectangle--shaped subregions, but since we analyze the direction in which the subregions are shifted, the square should have the same dimensions in each direction. Moreover, in this whole chapter, the size of a subregion is half of length of the rectangle side. So for size of subregion $A$, the actual subregion is $2A$ wide and $2A$ high. The reason for this is that the subregion positions determine its middle and it is easier to specify the size as the distance between the middle and sides of the squares.
+Besides the patterns, the most important input to the algorithm is the description of subregions --- their amount and size of each of them. The actual location of subregions does not have an impact on performance. Throughout the chapter, $S$ denotes the number of subregions. Also, we measure only square subregions, because it removes unnecessary complexity from the benchmarks and it is used with square subregions in practice. Moreover, in this whole chapter, the size of a subregion is half of length of the rectangle side. So for size of subregion $A$, the actual subregion is $2A$ wide and $2A$ high. The reason for this is that the subregion positions determine its middle and it is easier to specify the size as the distance between the middle and sides of the squares.
 
 \section{Relative performance of individual parts}
 
 \begin{figure}
 	\centering
 	\includegraphics[width=0.7\textwidth]{img/eval/individual-parts}
-	\caption{Relative performance of individual parts of the algorithm. The data was measured from a run of the algorithm with a configuration of 90 subregions with size $120 \times 120$. The size of the neigborhood was set to maximal value 9. }
+	\caption{Relative performance of individual parts of the algorithm. The data was measured from a run of the algorithm with a configuration of 90 subregions with size $120 \times 120$.}
 	\label{individual-parts}
 \end{figure}
 
 We begin with an overview of all the kernels used in the implementation. \Cref{individual-parts} shows how much time the implementation spends in individual kernels. We can see, that the most demanding parts are loading of the TIFF and the cross--correlation, which is computed using the multiply kernel and the Fourier transforms.
 
-The figure is mentioned here only to get general idea about the performance. It captures relative performance of the kernels for 90 subregions with size $120 \times 120$, which is roughly in the middle of the range of expected values. Different parts depend on different parameters, so for some other input size, the relative performance would look dissimilar. The load TIFF subroutine depends only on the size of the TIFF, while the rest of the algorithm depends on the number of subregion. So, for instance, it is possible to find a configuration that makes load TIFF the longest part. 
+The figure is mentioned here only to get general idea about the performance. It captures relative performance of the kernels for 90 subregions with size 60, which is roughly in the middle of the range of expected values. Different parts depend on different parameters, so for some other input size, the relative performance would look dissimilar. The load TIFF subroutine depends only on the size of the TIFF, while the rest of the algorithm depends on the number of subregion. So, for instance, it is possible to find a configuration that makes load TIFF the longest part. 
 
 \section{Cross--correlation}
 First, we measure the performance of cross--correlation when computed using Fourier transform. We show the dependence between running time and size and number of subregions. Since the cross--correlation is computed using three parts, we analyze them one by one. Then we compare the FFT and definition--based implementations.
@@ -33,7 +33,7 @@ First, we measure the performance of cross--correlation when computed using Four
 \begin{figure}
 	\centering
 	\includegraphics[width=\textwidth]{img/eval/Fourier-transform-size}
-	\caption{Performance of Fourier transform with changing size of subregions. It was measured from a run of the algorithm with a configuration of 110 subregions. The size on the x axis denotes half of length of one side of subregion.}
+	\caption{Performance of Fourier transform with changing size of subregions. It was measured from a run of the algorithm with a configuration of 110 subregions.}
 	\label{Fourier-transform-size}
 \end{figure}
 
@@ -58,7 +58,7 @@ The dependence of inverse Fourier transform on size of subregions looks very sim
 		\caption{}
 		\label{fourier-transform-roi-count:scaled}
 	\end{subfigure}
-	\caption{Performance of Fourier transform with changing size and number of subregions. The size on the x axis denotes half of length of one side of subregion.}
+	\caption{Performance of Fourier transform with changing size and number of subregions.}
 	\label{fourier-transform-roi-count}
 \end{figure}
 
@@ -81,7 +81,7 @@ The dependence of inverse Fourier transform on size of subregions looks very sim
 		\caption{Double float precision}
 		\label{multiply-plot:double}
 	\end{subfigure}
-	\caption{Performance of complex matrix multiplication with changing size and number of subregions. The size on the x axis denotes half of length of one side of subregion.}
+	\caption{Performance of complex matrix multiplication with changing size and number of subregions.}
 	\label{multiply-plot}
 \end{figure}
 
@@ -96,11 +96,14 @@ Moreover, we tried to measure the performance of the multiplication kernel indiv
 \begin{figure}
 	\centering
 	\includegraphics[width=0.8\textwidth]{img/eval/cross-compare}
-	\caption{Comparison between the FFT and definition--based implementations of cross--correlation. The size on the x axis denotes half of length of one side of subregion.}
+	\caption{Comparison between the FFT and definition--based implementations of cross--correlation.}
 	\label{cross-compare}
 \end{figure}
 
 Recall that we described two implementations of cross--correlation: first one based on the Fourier transform and second one based on the definition. \Cref{cross-compare} shows comparison between them --- for the FFT version, it shows the sum of average times of the Fourier transforms and complex multiplication. For the definition--based implementation, it shows the average run time of respective kernel. They are roughly the same for very small subregion sizes, but for sizes bigger than 25 the FFT implementation clearly wins. That is the minimal size of subregions that we consider useful for practical application. The conclusion is that the definition--based implementation is not useful for our application and it is always better to use the FFT implementation. Therefore we use only the FFT implementation in the rest of this chapter.
+
+
+
 
 
 \section{Pipeline benchmarks}

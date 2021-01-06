@@ -179,7 +179,7 @@ Let $N \in \mathbb{N}$, $\{x_n\} = x_0, x_1, \dots , x_{N-1}$, $\{y_n\} = y_0, y
 \]
 where $\star$ denotes the \emph{complex conjugate} and $\cdot$ denotes element by element multiplication. Complex conjugate of a complex number $a + bi$, where $a, b \in \mathbb{R}$, is the complex number $a - bi$. Complex conjugate of series $\{a_n\}$ is series $\{b_n\}$, where every element $b_n$ is the complex conjugate of the original element $a_n$.
 
-In other words, in order to compute the circular cross--correlation of two series $\{x_n\}$ and $\{y_n\}$, we first compute their Fourier transforms $\{X_n\}$ and $\{Y_n\}$, then multiply corresponding elements of $\{X_n\}$ and the complex conjugate of $\{X_n\}$. Finally, we do an inverse Fourier transform. We do all of this, because we are able to compute both the discrete Fourier transform and its inverse in time $\mathcal{O}(N \log N)$, which gives us the overall asymptotic time $\mathcal{O}(N \log N)$ compared to $\mathcal{O}(N^2)$ when computing the circular cross--correlation from definition.
+In other words, in order to compute the circular cross--correlation of two series $\{x_n\}$ and $\{y_n\}$, we first compute their Fourier transforms $\{X_n\}$ and $\{Y_n\}$, then multiply corresponding elements of the complex conjugate of $\{X_n\}$ and $\{Y_n\}$. Finally, we do an inverse Fourier transform. We do all of this, because we are able to compute both the discrete Fourier transform and its inverse in time $\mathcal{O}(N \log N)$, which gives us the overall asymptotic time $\mathcal{O}(N \log N)$ compared to $\mathcal{O}(N^2)$ when computing the circular cross--correlation from definition.
 
 %To compute non--circular cross--correlation using this method, we use a trick with zero padding. Let $N \in \mathbb{N}$, $f$ and $g$ be two discrete functions, that are non--zero only in the first 
 
@@ -240,17 +240,17 @@ Cross--correlation as we defined it (see \cref{cross-corr-def}) has a major flaw
 	\begin{subfigure}{.49\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{img/normalized_simple_corr}
-		\caption{Simple cross--correlation of the (a) and (b) images}
+		\caption{Simple cross--correlation}
 		\label{normalized-simple-cross}
 	\end{subfigure}
 	\begin{subfigure}{.49\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{img/normalized_corr}
-		\caption{Normalized cross--correlation of the (a) and (b) images}
+		\caption{Normalized cross--correlation}
 		\label{normalized-cross}
 	\end{subfigure}
 	
-	\caption{A comparison between the simple and zero--normalized cross--correlation. An image of backscatter pattern (a) is correlated with its subregion (b). (c) shows that simple cross--correlation is affected by varying brightness in different parts of images. (d) shows that normalization of the images improve the cross--correlation results.}
+	\caption{An image of backscatter pattern is correlated with its subregion, once using simple cross--correlation and once using the normalized cross--correlation.}
 \end{figure}
 
 That is why zero--normalized cross--correlation is used. It is based on subtracting respective means from each image. Normalized cross--correlation of two images $f$ and $g$ is defined as follows:
@@ -326,13 +326,13 @@ We only consider odd $F$, so the maximum is always in the middle.
 
 The estimated two--dimensional quadratic function $f:\mathbb{R} \rightarrow \mathbb{R}$ can be written as as:
 \[
-f(x,y) = a + bx + cy + dx^2 + exy + fy^2,
+f(x,y) = q_1 + q_2x + q_3y + q_4x^2 + q_5xy + q_6y^2,
 \]
-where $a, b, c, d, e, f \in \mathbb{R}$. To estimate such function is to find the 6 coefficients $a \dots f$. From the known points of the neighborhood $N$ of size $F \times F$, it is possible to create the following system of equations:
+where $q_1 \dots q_6 \in \mathbb{R}$. To estimate such function is to find the 6 coefficients $q_1 \dots q_6$. From the known points of the neighborhood $N$ of size $F \times F$, it is possible to create the following system of equations:
 \[
-\forall [x,y] \in \{0,1,\dots , F-1\}^2 : a + xb + yc + x^2d + xye + y^2f = N[x,y],
+\forall [x,y] \in \{0,1,\dots , F-1\}^2 : q_1 + xq_2 + yq_3 + x^2q_4 + xyq_5 + y^2q_6 = N[x,y],
 \]
-where $a \dots f$ are unknown variables.
+where $q_1 \dots q_6$ are unknown variables.
 
 So for each point with coordinates $[x,y]$ in the neighborhood, we create one equation with substituted $x$ and $y$. We have $F^2$ known points, from which we create $s^2$ equations. We have 6 unknown variables and $F$ has to be greater than one and odd, so we have more equations than unknowns. 
 
@@ -364,7 +364,7 @@ N =
 \end{bmatrix}
 \cdot
 \begin{bmatrix}
-a \\ b \\ c \\ d \\ e \\ f
+q_1 \\ q_2 \\ q_3 \\ q_4 \\ q_5 \\ q_6
 \end{bmatrix}
 =
 \begin{bmatrix}
@@ -375,15 +375,15 @@ a \\ b \\ c \\ d \\ e \\ f
 
 Then, the linear system looks like this:
 \begin{align*}
-x=0,y=0 \rightarrow a + 0b + 0c + 0d + 0e + 0f &= N[0,0] = 751 \\
-x=1,y=0 \rightarrow a + 1b + 0c + 1d + 0e + 0f &= N[1,0] = 819 \\
-x=2,y=0 \rightarrow a + 2b + 0c + 4d + 0e + 0f &= N[2,0] = 765 \\
-x=0,y=1 \rightarrow a + 0b + 1c + 0d + 0e + 1f &= N[0,1] = 825 \\
-x=1,y=1 \rightarrow a + 1b + 1c + 1d + 1e + 1f &= N[1,1] = 934 \\
-x=2,y=1 \rightarrow a + 2b + 0c + 4d + 2e + 1f &= N[2,1] = 810 \\
-x=0,y=2 \rightarrow a + 0b + 2c + 0d + 0e + 4f &= N[0,2] = 768 \\
-x=1,y=2 \rightarrow a + 1b + 2c + 1d + 2e + 4f &= N[1,2] = 798 \\
-x=2,y=2 \rightarrow a + 2b + 2c + 4d + 4e + 4f &= N[2,2] = 725 \\
+x=0,y=0 \rightarrow q_1 + 0q_2 + 0q_3 + 0q_4 + 0q_5 + 0q_6 &= N[0,0] = 751 \\
+x=1,y=0 \rightarrow q_1 + 1q_2 + 0q_3 + 1q_4 + 0q_5 + 0q_6 &= N[1,0] = 819 \\
+x=2,y=0 \rightarrow q_1 + 2q_2 + 0q_3 + 4q_4 + 0q_5 + 0q_6 &= N[2,0] = 765 \\
+x=0,y=1 \rightarrow q_1 + 0q_2 + 1q_3 + 0q_4 + 0q_5 + 1q_6 &= N[0,1] = 825 \\
+x=1,y=1 \rightarrow q_1 + 1q_2 + 1q_3 + 1q_4 + 1q_5 + 1q_6 &= N[1,1] = 934 \\
+x=2,y=1 \rightarrow q_1 + 2q_2 + 0q_3 + 4q_4 + 2q_5 + 1q_6 &= N[2,1] = 810 \\
+x=0,y=2 \rightarrow q_1 + 0q_2 + 2q_3 + 0q_4 + 0q_5 + 4q_6 &= N[0,2] = 768 \\
+x=1,y=2 \rightarrow q_1 + 1q_2 + 2q_3 + 1q_4 + 2q_5 + 4q_6 &= N[1,2] = 798 \\
+x=2,y=2 \rightarrow q_1 + 2q_2 + 2q_3 + 4q_4 + 4q_5 + 4q_6 &= N[2,2] = 725 \\
 \end{align*}
 
 The left sides contains the equation of the two--dimensional quadratic function with substituted points from the set $\{0,1,2\}^2$ (for this example, we have chosen the zero point to be the top left corner). The right side contains all the corresponding values from neighborhood $N$.
@@ -406,14 +406,14 @@ The last step in the algorithm is to find the maximum of the quadratic function.
 
 The partial derivations of the quadratic function are:
 \begin{align*}
-\frac{\partial f}{\partial x}(x,y) &= 2dx + ey + b,\\
-\frac{\partial f}{\partial y}(x,y) &= ex + 2fy + c.
+\frac{\partial f}{\partial x}(x,y) &= 2q_4x + q_5y + q_2,\\
+\frac{\partial f}{\partial y}(x,y) &= q_5x + 2q_6y + q_3.
 \end{align*}
 
 If the function has an extreme, then it is located at the point where the partial derivations are both zero. That implies a linear system of equations with the following solution:
 \begin{align*}
-x_m &= \frac{2bf - ce}{e^2 - 4df}\\
-y_m &= \frac{2cd - be}{e^2 - 4df}
+x_m &= \frac{2q_2q_6 - q_3q_5}{q_5^2 - 4q_4q_6}\\
+y_m &= \frac{2q_3q_4 - q_2q_5}{q_5^2 - 4q_4q_6}
 \end{align*}
 
 The point $[x_m, y_m]$ is the maximum of the function fitted to the neighborhood of the cross--correlation maximum.

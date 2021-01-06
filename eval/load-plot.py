@@ -66,7 +66,7 @@ plt.text(0, 32.7, '1200x1200', fontsize=12)
 #ax.set_xlim([0, 100])
 #ax.set_ylim([0, 10])
 
-ax.set_title('Duration of the image loading in comparison with GPU processing stage\nfor different input sizes (batch = 7)')
+ax.set_title('Duration of the image loading in comparison with GPU processing stage\nfor different input sizes')
 ax.set_xlabel('size of subregion')
 ax.set_ylabel('time (ms)')
 plt.legend()

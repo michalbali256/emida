@@ -46,6 +46,8 @@ ax.set_title('FFT implementation versus definition--based implementation')
 ax.set_xlabel('size of subregion')
 ax.set_ylabel('time (ms)')
 
+ax.set_xlim(10, 30)
+
 plt.legend()
 # display the plot
 plt.show()

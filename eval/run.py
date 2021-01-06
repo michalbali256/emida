@@ -98,7 +98,7 @@ if __name__ == "__main__":
     #fmt = "E:/emida/data/FeAl/DEFORMED_FeAl/DEFORMED_x{x:d}y{y:d}.tif"
     
     work = "def.txt"
-    it = hex_pos(7000, 600) # minimal step is 60
+    it = hex_pos(7000, 60) # minimal step is 60
     with open(work, "w") as fh:
         for x,y in it: 
             print(x, y, fmt.format(x=int(x), y=int(y)), file=fh)
@@ -115,24 +115,25 @@ if __name__ == "__main__":
     ]
     
     
-    args = ["--batchsize", "1",
+    args = ["--batchsize", "7",
             "--crosspolicy", "fft",
             "--precision","float",
+            "--loadworkers", "5",
             "-f","3"]
     args.extend(static_args)
     
-    #stats = run_emida(args, 2)
+    #stats = run_emida(args, 1)
     plot = {}
-    for batch_size in range(7, 8, 1):
+    for batch_size in range(3, 4, 1):
         plot[batch_size] = {}
-        for roi_count in range(20, 111, 30):
+        for roi_count in range(50, 81, 30):
             print("roi_count:", roi_count)
             plot[batch_size][roi_count] = {}
             write_roi(tmp_roi_file_name, s, pos, roi_count)
             
-            for size in range (20, 113, 1):
+            for size in range (50, 81, 30):
                 args = ["--batchsize", str(batch_size),
-                        "--loadworkers", "3",
+                        "--loadworkers", "5",
                         "--crosspolicy", "fft",
                         "--precision","double",
                         "--slicesize","{x:d},{x:d}".format(x=size),

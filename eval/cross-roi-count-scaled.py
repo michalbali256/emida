@@ -36,9 +36,9 @@ for size in range(20,113,10):
 
 # the x coords of this transformation are data, and the
 
-ax.set_title('Performance of Fourier transform with different sizes and\n number of subregions scaled to one subregion (batch = 7)')
+ax.set_title('Performance of Fourier transform with different sizes and\n number of subregions scaled to one subregion')
 ax.set_xlabel('number of subregions')
-ax.set_ylabel('time (ms) per one subregion')
+ax.set_ylabel('time per one subregion (ms)')
 
 box = ax.get_position()
 ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
