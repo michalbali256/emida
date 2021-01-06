@@ -151,7 +151,7 @@ __global__ void sum(
 			sums[slice_num] = res;
 		}
 		else
-			atomicAdd(&sums[slice_num], res);
+			atomicAdd((RES *)&sums[slice_num], (RES) res);
 	}
 }
 
