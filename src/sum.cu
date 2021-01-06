@@ -52,7 +52,7 @@ __global__ void sum(const T* data, T * maxes, esize_t size)
 	}
 	
 	if (threadIdx.x == 0)
-		atomicAdd(&maxes[pic_num], sdata[0]);
+		atomicAdd((T*) &maxes[pic_num], (T) sdata[0]);
 }
 
 template<typename T>
