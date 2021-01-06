@@ -1,0 +1,29 @@
+name: CI20
+on: [push, pull_request]
+
+jobs:
+  gnu:
+      name: GNU build
+      runs-on: ubuntu-18.04
+      container:
+        image: 11.1-devel-ubuntu20.04
+      
+      steps:
+      - uses: actions/checkout@v1
+      - name: Requirements install
+        run: apt-get update && apt-get install -y cmake git libtiff-dev
+      - run: cmake --version
+      - name: Configure
+        run: mkdir build && cd build && cmake ../
+      - name: Build
+        run: cd build && cmake --build . -- -j 4
+      - name: Upload Emida
+        uses: actions/upload-artifact@v1
+        with:
+          name: emida
+          path: build/bin/emida
+      - name: Upload emida_test
+        uses: actions/upload-artifact@v1
+        with:
+          name: emida_test
+          path: build/bin/emida_test
