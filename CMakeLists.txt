@@ -109,7 +109,7 @@ if(TIFF_FROM_SOURCE)
     add_dependencies(emida_lib tiff_project)
 endif()
 
-target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: --generate-code=arch=compute_61,code=[compute_61,sm_61] --generate-code=arch=compute_72,code=[compute_72,sm_72] --generate-code=arch=compute_86,code=[compute_86,sm_86] --generate-line-info>)
+target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: --generate-code=arch=compute_61,code=[compute_61,sm_61] --generate-code=arch=compute_72,code=[compute_72,sm_72] --generate-line-info>)
 #set_property(TARGET emida_lib PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH})
 
 
