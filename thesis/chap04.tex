@@ -214,8 +214,33 @@ We also measured how much the results between different precisions varied. On av
 \section{Batch parameter}
 \label{batch-param-eval}
 
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{img/eval/batch-plot}
+	\caption{The impact of the batch parameter on the performance of GPU part}
+	\label{batch-plot}
+\end{figure}
 
 
+
+\Cref{batch-plot} shows the time needed to process one pattern with different values of the batch parameter for selected subregion configuration. With increasing size of batch, the absolute time needed to process it increases (almost) linearly, but we also process less batches. That is why we show the average time needed to process the subregions of one pattern. We can see, that the time improves with the higher values of the parameter.
+
+\begin{table}[]
+	\centering
+	\begin{tabular}{@{}l|rrrrrrrr@{}}
+		S\textbackslash size & \multicolumn{2}{c}{20} & \multicolumn{2}{c}{50} & \multicolumn{2}{c}{80} & \multicolumn{2}{c}{110} \\ \midrule
+		20                   & 34.9\% &             5 & 20.7\% &             6 & 13.7\% &             8 & 7.7\% &               7 \\
+		50                   & 26.1\% &             7 & 12.6\% &             6 &  8.5\% &             6 & 4.7\% &               8 \\
+		80                   & 23.0\% &             5 &  9.3\% &             7 &  6.7\% &             7 & 3.7\% &               7 \\
+		110                  & 28.8\% &             8 &  8.1\% &             8 &  5.5\% &             8 & 3.0\% &               8
+	\end{tabular}
+	\caption{The comparison between the best batch value compared to size of batch equal to one. Both relative improvement and best value are shown.}
+	\label{batch-table}
+\end{table}
+
+\Cref{batch-table} shows the best performing value of batch parameter for selected configurations and relative improvement compared to the size of batch equal to one. We can see, that the best improvements are achieved for smaller number of smaller subregions. The possible reason is that when processing of one pattern takes so little time (less than 0.5 millisecond), the overhead of communicating with the GPU and starting kernels takes up significant portion of that time. Also, it is possible that the amount of data is so small that it is unable to utilize whole GPU.
+
+We have not measured any impact of the batch parameter to loading of the pictures from the disk.
 
 \section{Speedup compared to reference python implementation}
 

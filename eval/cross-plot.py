@@ -4,17 +4,18 @@ import numpy as np
 import json
 import sys
 
-with open("out-graph.json","r") as fh:
+with open("out-graph-BIG.json","r") as fh:
     data = json.load(fh)
 
 part = sys.argv[1]
+batch = sys.argv[2]
 
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
 
 
 yerr = []
-data = data["7"]
+data = data[batch]
 for roi_size in data:
     roi_data = data[roi_size]
     xdata = []
@@ -36,6 +37,8 @@ for roi_size in data:
 #ax.set_ylim([0, 10])
 
 ax.set_title('Cross correlation')
+ax.set_xlabel('size of subregion')
+ax.set_ylabel('time (ms)')
 plt.legend()
 # display the plot
 plt.show()

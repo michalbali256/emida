@@ -20,11 +20,6 @@ for s in sizes:
     roi_size, size = s
     labels.append('size = {}, S = {}'.format(size, roi_size))
 
-
-men_means = [20, 34, 30, 35, 27]
-women_means = [25, 32, 34, 20, 25]
-rects = []
-
 width = 0.35  # the width of the bars
 width_corr = -1
 x = np.arange(len(labels))*2  # the label locations
