@@ -93,7 +93,7 @@ file(GLOB_RECURSE TEST_SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "test/*.cpp")
 
 list(REMOVE_ITEM CPP_SOURCES "src/main.cpp")
 
-set(CUDA_ARCH 60 70 86)
+set(CUDA_ARCH 61 72 86)
 
 add_library(emida_lib STATIC
     ${CPP_SOURCES}
@@ -109,8 +109,7 @@ if(TIFF_FROM_SOURCE)
     add_dependencies(emida_lib tiff_project)
 endif()
 
-target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: --generate-line-info>)
-set_property(TARGET emida_lib PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH})
+target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_61,code=compute_61 -gencode arch=compute_72,code=compute_72 -gencode arch=compute_86,code=compute_86 --generate-line-info>)
 
 
 
@@ -119,7 +118,6 @@ add_executable(emida
     ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 target_link_libraries(emida emida_lib)
-set_property(TARGET emida PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH})
 
 add_executable(emida_test
     ${TEST_SOURCES}
@@ -127,7 +125,6 @@ add_executable(emida_test
 target_link_libraries(emida_test emida_lib
     ${TIFF_LIBRARIES}
 )
-set_property(TARGET emida_test PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH})
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
