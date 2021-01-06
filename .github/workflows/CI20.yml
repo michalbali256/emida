@@ -6,7 +6,7 @@ jobs:
       name: GNU build
       runs-on: ubuntu-18.04
       container:
-        image: 11.1-devel-ubuntu20.04
+        image: nvidia/cuda:11.1-devel-ubuntu20.04
       
       steps:
       - uses: actions/checkout@v1
