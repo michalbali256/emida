@@ -109,7 +109,8 @@ if(TIFF_FROM_SOURCE)
     add_dependencies(emida_lib tiff_project)
 endif()
 
-target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_61,code=compute_61 -gencode arch=compute_72,code=compute_72 -gencode arch=compute_86,code=compute_86 --generate-line-info>)
+target_compile_options(emida_lib PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: --generate-code=arch=compute_61,code=[compute_61,sm_61] --generate-code=arch=compute_72,code=[compute_72,sm_72] --generate-code=arch=compute_86,code=[compute_86,sm_86] --generate-line-info>)
+#set_property(TARGET emida_lib PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH})
 
 
 
@@ -118,6 +119,7 @@ add_executable(emida
     ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 target_link_libraries(emida emida_lib)
+#set_property(TARGET emida PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH})
 
 add_executable(emida_test
     ${TEST_SOURCES}
@@ -125,6 +127,7 @@ add_executable(emida_test
 target_link_libraries(emida_test emida_lib
     ${TIFF_LIBRARIES}
 )
+#set_property(TARGET emida_test PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH})
 
 add_custom_target(emida_test_data_copy ALL
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
