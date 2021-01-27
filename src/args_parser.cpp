@@ -64,6 +64,8 @@ struct value_type<emida::size2_t>
 
 namespace emida {
 
+esize_t reduction_n = 10;
+
 std::pair<size_t, std::vector<size2_t>> load_slice_begins(const std::string& file_name)
 {
 	std::vector<size2_t> res;
@@ -131,6 +133,7 @@ bool params::parse(int argc, char** argv)
 		("crosspolicy", "Specified whether to use FFT to compute cross correlation. Allowed values: brute, fft.", value_type<std::string>(), "brute|fft")
 		("batchsize", "Specifies how many files are processed in one batch", value_type<int>(), "NUMBER")
 		("loadworkers", "Specifies number of workers that load input patterns simultaneously", value_type<int>(), "NUMBER")
+		("reduction", "Specifies number of workers that load input patterns simultaneously", value_type<int>(), "NUMBER")
 		("h,help", "Print a usage message on standard output and exit successfully.");
 	
 	auto parsed = cmd.parse(argc, argv);
@@ -149,13 +152,16 @@ bool params::parse(int argc, char** argv)
 
 	initial_file_name = parsed["initial"]->get_value<std::string>();
 	deformed_list_file_name = parsed["deformed"]->get_value<std::string>();
-	if (parsed["outpics"])
-		out_dir = parsed["outpics"]->get_value<std::string>();
 
 	if (parsed["slicesize"])
 	{
 		slice_size = parsed["slicesize"]->get_value<size2_t>();
 		slice_size = slice_size * 2;
+	}
+
+	if (parsed["reduction"])
+	{
+		reduction_n = parsed["reduction"]->get_value<int>();
 	}
 
 	if (parsed["slicepos"])

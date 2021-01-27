@@ -5,6 +5,8 @@
 #include "device_helpers.hpp"
 #include "kernels.cuh"
 
+#include "args_parser.hpp"
+
 namespace emida
 {
 
@@ -97,7 +99,7 @@ __inline__ __device__ T blockReduceSum(T val)
 	return val;
 }
 
-constexpr int N = 10;
+//constexpr int N = 10;
 
 
 //        size
@@ -113,11 +115,12 @@ __global__ void sum(
 	const size2_t* begins,
 	size2_t src_size,
 	size2_t slice_size,
-	esize_t begins_size)
+	esize_t begins_size,
+	esize_t reduct)
 {
 
 	//number of blocks we need to process one slice
-	esize_t one_slice_blocks = div_up(slice_size.area(), blockDim.x * N);
+	esize_t one_slice_blocks = div_up(slice_size.area(), blockDim.x * reduct);
 	esize_t slice_num = blockIdx.x / one_slice_blocks;
 	esize_t slice_block = blockIdx.x % one_slice_blocks;
 	
@@ -130,7 +133,7 @@ __global__ void sum(
 	esize_t pic_num = slice_num / begins_size;
 	RES val = 0;
 
-	for (esize_t n = 0; n < N; ++n)
+	for (esize_t n = 0; n < reduct; ++n)
 	{
 		esize_t slice_i = one_slice_blocks * blockDim.x * n + slice_block * blockDim.x + threadIdx.x;
 		size2_t slice_pos = { slice_i % slice_size.x, slice_i / slice_size.x };
@@ -161,9 +164,9 @@ template<typename T, typename RES>
 void run_sum(const T* data, RES* sums, const size2_t * begins, size2_t src_size, size2_t slice_size, esize_t begins_size, esize_t batch_size)
 {
 	esize_t block_size = 1024;
-	esize_t one_pic_blocks = div_up(slice_size.area(), block_size * N);
+	esize_t one_pic_blocks = div_up(slice_size.area(), block_size * reduction_n);
 	esize_t grid_size = one_pic_blocks * begins_size * batch_size;
-	sum<T, RES> <<<grid_size, block_size, warp_size * sizeof(RES)>>> (data, sums, begins, src_size, slice_size, begins_size);
+	sum<T, RES> <<<grid_size, block_size, warp_size * sizeof(RES)>>> (data, sums, begins, src_size, slice_size, begins_size, reduction_n);
 }
 
 template void run_sum<double, double>(const double* data,

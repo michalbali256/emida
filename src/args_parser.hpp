@@ -7,7 +7,10 @@
 
 #include "common.hpp"
 
+
 namespace emida {
+
+extern esize_t reduction_n;
 
 enum class precision_type
 {
@@ -22,7 +25,6 @@ struct params
 	std::string initial_file_name;
 	std::string deformed_list_file_name;
 
-	std::optional<std::string> out_dir;
 	size2_t pic_size;
 	size2_t cross_size;
 	size2_t slice_size = { 64, 64 };
