@@ -173,9 +173,9 @@ Maximum number of threads in one block is 1024 in CUDA and warp size is 32 so we
 	\label{warp_reduce}
 \end{figure}
 
-After the reduction within each block, we need to update the resulting values in global memory. If $S_1$ is equal to $1$, thus every subregion is processed by exactly one block, then there is no synchronization needed between the blocks. Otherwise, we can use \emph{atomic add}. The solution is feasible for us, since it is safe to assume that not many blocks access the same value. The worst case size of one subregion is $250 \times 250$ which is the total of 62500 pixels. \XX{ For $K = 1$ and $B = 1024$ (there is no reason not to use the maximal possible value --- no register or shared memory pressure), then 63 blocks compute the sum of one subregion.}. 
+After the reduction within each block, we need to update the resulting values in global memory. If $S_1$ is equal to $1$, thus every subregion is processed by exactly one block, then there is no synchronization needed between the blocks. Otherwise, we can use \emph{atomic add}. The solution is feasible for us, since it is safe to assume that not many blocks access the same value. The worst case size of one subregion is $250 \times 250$ which is the total of 62500 pixels. For $K = 1$ and $B = 1024$ (there is no reason not to use the maximal possible value --- no register or shared memory pressure), then 63 blocks compute the sum of one subregion. 
 
-We measure the impact of the parameters in section ??. Higher $K$ helps utilize the threads better, because they manage to do more work before the reduction phase. For $K = 1$, half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread (using shuffle instruction) which does the actual sum. On the other side, setting $N$ and $B$ such that only one block processes one subregion can lead to not being able to utilize whole gpu, if there are not enough subregions.
+Higher $K$ helps utilize the threads better, because they manage to do more work before the reduction phase. For $K = 1$, half of the threads do (almost) nothing useful in the whole reduction: each of them only loads one value in the very beginning and immediately passes it to another thread (using shuffle instruction) which does the actual sum. On the other side, setting $N$ and $B$ such that only one block processes one subregion can lead to not being able to utilize whole gpu, if there are not enough subregions.
 
 
 \section{Arg max computation}
@@ -184,15 +184,12 @@ The cross--correlated data are further processed to find the position of maximum
 
 Otherwise the reduction within one block is analogous to the sum reduction. In each step we shuffle down the current value and its position (that means two shuffles per one step). Then we compare the received and current value and save the greater one with its position for the next step. We need five these steps to reduce one warp, then each warp saves its result to the shared memory. Finally, one warp reduces the items in the shared memory to get the result of one block reduction.
 
-In the sums reduction kernel, we used built-in atomic add to update the global memory with the result of block reduction. No such function exists for arg max, since we need to atomically compare two values and then update the position as well. There are several ways how do the update without the atomic operation.
-\XX{
-\begin{description}
-	\item[Launch second kernel] The first kernel does no synchronization between the blocks and each block just writes its reduced result to its reserved place in global memory. Then, we start second kernel which reduces the results of the first one. In the second kernel, all the values from one subregion are reduced by one block, so there is no synchronization needed anymore. 
-	\item[One block reduces one whole subregion] We increase the number of values that each thread loads before the reduction, so only one block is needed to find the maximum of each subregion. Therefore, no synchronization across blocks is needed. Depending on the number of subregions, there is a possibility that this approach does not spawn enough blocks to fully utilize the GPU.
-	\item[Atomic compare and swap (float data only)] We can use the atomic compare and swap (CAS) instruction to update the global memory atomically. There are not many blocks that would compete over the same piece of memory, so it is a viable solution. However, it can only be done when we compute the cross--correlation in single precision floating point type, since modern GPUs only support atomic CAS for 8 bytes. A double precision number is 8 bytes long itself, and we need to update the pair of value and its position. 
-\end{description}
-}
-\todo{atomicMax + CAS pristup, ktory by mal fungovat vo vsetkych pripadoch}
+In the sums reduction kernel, we used built-in atomic add to update the global memory with the result of block reduction. No such function exists for arg max, since we need to atomically compare two values and then update the position as well. There are several ways how do the update without the atomic operation, such as calling a second kernel that reduces the results of the first, or using only one block per subregion. However we have chosen the following one using atomic operation, since it offers a wider variety of parameters and there are never many thread blocks trying to update the same values.
+
+For floats, we can use the atomic compare and swap (CAS) instruction to update the global memory atomically. There are not many blocks that would compete over the same piece of memory, so it is a viable solution. However, it can only be done when we compute the cross--correlation in single precision floating point type, since modern GPUs only support atomic CAS for 8 bytes. A double precision number is 8 bytes long itself, and we need to update the pair of value and its position. 
+
+That is why we use a different trick for the double implementation. We again use the CAS, but this time we only update the positions using the instruction. In the loop of CAS, we compare the values by accessing the value in the main buffer.
+
 The different approaches are compared in chapter 3.
 
 

@@ -102,9 +102,9 @@ Moreover, we tried to measure the performance of the multiplication kernel indiv
 
 Recall that we described two implementations of cross--correlation: first one based on the Fourier transform and second one based on the definition. \Cref{cross-compare} shows comparison between them --- for the FFT version, it shows the sum of average times of the Fourier transforms and complex multiplication. For the definition--based implementation, it shows the average run time of respective kernel. They are roughly the same for very small subregion sizes, but for sizes bigger than 25 the FFT implementation clearly wins. That is the minimal size of subregions that we consider useful for practical application. The conclusion is that the definition--based implementation is not useful for our application and it is always better to use the FFT implementation. Therefore we use only the FFT implementation in the rest of this chapter.
 
+\vspace{5mm}
 
-
-
+The rest of the implemented kernels take up less than 10\% of total GPU processing time. Therefore improving the performance of any of them by significant margin does not have almost any impact on the resulting performance. Thus, we rather move on to benchmarking of pattern loading, which does take up significant time.
 
 \section{Pipeline benchmarks}
 \label{load-eval}
